@@ -1,0 +1,512 @@
+'use client'
+
+import { usePathname } from "next/navigation"
+
+import React from "react"
+
+import { useRouter } from 'next/navigation'
+import { cn } from '@/lib/utils'
+import {
+  type LeaderboardTrader,
+  formatVolume,
+  formatPnl,
+  formatAddress,
+  mapCategoryToApi,
+  mapTimeframeToApi,
+} from '@/lib/polymarket-api'
+import { useState, useEffect, useCallback } from 'react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Search, ChevronDown, Grid3X3, List, Star, TrendingUp, Clock, Users, Zap } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Skeleton } from '@/components/ui/skeleton'
+import Image from 'next/image'
+import { FollowButton } from '@/components/trader/follow-button'
+
+type UITimeframe = '24H' | '7D' | '30D' | 'All'
+type UICategory = 'All' | 'Politics' | 'Crypto' | 'Sports' | 'Finance' | 'Pop Culture' | 'Tech'
+type ViewMode = 'grid' | 'list'
+
+type FilterType = 'all' | 'our-picks' | 'high-pnl' | 'high-volume' | 'rising-stars'
+
+const timeframes: UITimeframe[] = ['24H', '7D', '30D', 'All']
+const categories: UICategory[] = ['All', 'Politics', 'Crypto', 'Sports', 'Finance', 'Pop Culture', 'Tech']
+
+const filters: { id: FilterType; label: string; icon: React.ReactNode }[] = [
+  { id: 'our-picks', label: 'Our Picks', icon: <Star className="h-3 w-3" /> },
+  { id: 'high-pnl', label: 'High PnL', icon: <TrendingUp className="h-3 w-3" /> },
+  { id: 'high-volume', label: 'High Volume', icon: <Zap className="h-3 w-3" /> },
+  { id: 'rising-stars', label: 'Rising Stars', icon: <Users className="h-3 w-3" /> },
+]
+
+const navTabs = [
+  { href: '/leaderboard', label: 'Leaderboard', icon: '/leaderboard-icon.svg' },
+  { href: '/our-picks', label: 'Our Picks', icon: '/our-picks-icon.svg' },
+  { href: '/high-pnl', label: 'High PnL', icon: '/high-pnl-icon.svg' },
+  { href: '/high-volume', label: 'High Volume', icon: '/high-volume-icon.svg' },
+  { href: '/rising-stars', label: 'Rising Stars', icon: '/rising-stars-icon.svg' },
+]
+
+// Generate mini sparkline data
+function generateSparkline(pnl: number): number[] {
+  const points = 20
+  const trend = pnl > 0 ? 1 : -1
+  const volatility = Math.random() * 0.3 + 0.1
+  let value = 50
+  const data: number[] = []
+  
+  for (let i = 0; i < points; i++) {
+    value += (Math.random() - 0.5 + trend * 0.15) * volatility * 20
+    value = Math.max(10, Math.min(90, value))
+    data.push(value)
+  }
+  
+  // Ensure end matches trend
+  if (pnl > 0) {
+    data[data.length - 1] = Math.max(data[data.length - 1], 70)
+  } else {
+    data[data.length - 1] = Math.min(data[data.length - 1], 30)
+  }
+  
+  return data
+}
+
+// Mini sparkline component
+function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }) {
+  const width = 120
+  const height = 40
+  const lineColor = positive ? '#22c55e' : '#ef4444'
+  const id = React.useId()
+  
+  const linePoints = data.map((v, i) => `${(i / (data.length - 1)) * width},${height - (v / 100) * height}`).join(' ')
+  const areaPoints = `0,${height} ${linePoints} ${width},${height}`
+  
+  return (
+    <svg width={width} height={height} className="flex-shrink-0" viewBox={`0 0 ${width} ${height}`}>
+      <defs>
+        <linearGradient id={`grad-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={lineColor} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon
+        points={areaPoints}
+        fill={`url(#grad-${id})`}
+      />
+      <polyline
+        points={linePoints}
+        fill="none"
+        stroke={lineColor}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+// Smart Score calculation
+function calculateSmartScore(pnl: number, volume: number, rank: number): number {
+  const pnlScore = Math.min(pnl / 10000, 40)
+  const volumeScore = Math.min(volume / 100000, 30)
+  const rankScore = Math.max(30 - rank, 0)
+  return Math.round(Math.max(0, Math.min(100, pnlScore + volumeScore + rankScore)))
+}
+
+// Get trader badges based on stats
+function getTraderBadges(trader: LeaderboardTrader, rank: number): string[] {
+  const badges: string[] = []
+  
+  if (trader.pnl > 500000) badges.push('Elite Profit')
+  else if (trader.pnl > 100000) badges.push('Legendary Profit')
+  else if (trader.pnl > 50000) badges.push('High Profit')
+  
+  if (trader.vol > 10000000) badges.push('Volume King')
+  else if (trader.vol > 1000000) badges.push('High Volume')
+  
+  if (rank <= 10) badges.push('Top 10')
+  else if (rank <= 50) badges.push('Top 50')
+  
+  // Random category badge for variety
+  const categoryBadges = ['Crypto', 'Politics', 'Sports', 'Finance']
+  badges.push(categoryBadges[rank % categoryBadges.length])
+  
+  return badges.slice(0, 3)
+}
+
+// Format large numbers
+function formatLargeNumber(num: number): string {
+  if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`
+  if (num >= 1000) return `$${(num / 1000).toFixed(1)}K`
+  return `$${num.toFixed(0)}`
+}
+
+// Format PnL with space separator
+function formatPnlLarge(pnl: number): string {
+  const sign = pnl >= 0 ? '+' : ''
+  const formatted = Math.abs(pnl).toLocaleString('en-US', { maximumFractionDigits: 0 }).replace(/,/g, ' ')
+  return `${sign}$${formatted}`
+}
+
+interface TraderCardProps {
+  trader: LeaderboardTrader
+  rank: number
+  onClick: () => void
+}
+
+function TraderCard({ trader, rank, onClick }: TraderCardProps) {
+  const smartScore = calculateSmartScore(trader.pnl, trader.vol, rank)
+  const badges = getTraderBadges(trader, rank)
+  const sparklineData = generateSparkline(trader.pnl)
+  const isPositive = trader.pnl >= 0
+  const winRate = 45 + Math.random() * 15 // Simulated win rate
+  const sharpe = 5 + Math.random() * 15 // Simulated sharpe ratio
+  
+  return (
+    <div 
+      onClick={onClick}
+      className="bg-card border border-border p-4 hover:border-foreground/30 hover:bg-secondary/20 transition-all cursor-pointer group"
+    >
+      {/* Header: Avatar, Name, Smart Score */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          {trader.profileImage ? (
+            <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-background">
+              <Image
+                src={trader.profileImage || "/placeholder.svg"}
+                alt={trader.userName || 'Trader'}
+                width={40}
+                height={40}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center bg-secondary border border-border rounded-full flex-shrink-0 text-foreground font-bold text-sm">
+              {(trader.userName || trader.proxyWallet.slice(2, 4)).toUpperCase().slice(0, 2)}
+            </div>
+          )}
+          <div>
+            <div className="font-semibold text-foreground text-sm">
+              {trader.userName || formatAddress(trader.proxyWallet)}
+            </div>
+            <div className="text-[11px] text-muted-foreground font-mono">
+              {formatAddress(trader.proxyWallet)}
+            </div>
+          </div>
+        </div>
+        
+        {/* Smart Score Badge */}
+        <div className="bg-secondary border border-border px-2.5 py-1.5">
+          <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Smart Score</div>
+          <div className="flex items-center gap-1">
+            <span className="font-bold text-foreground">{smartScore.toFixed(1)}</span>
+            <span className="text-muted-foreground text-[10px]">/100</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Badges */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        {badges.map((badge, i) => (
+          <span 
+            key={i}
+            className="inline-flex items-center gap-1 bg-secondary/50 border border-border rounded-full px-2 py-0.5 text-[10px] text-muted-foreground"
+          >
+            {badge === 'Elite Profit' && <Star className="h-2.5 w-2.5 text-yellow-500" />}
+            {badge === 'Legendary Profit' && <TrendingUp className="h-2.5 w-2.5 text-orange-500" />}
+            {badge === 'Volume King' && <Zap className="h-2.5 w-2.5 text-blue-500" />}
+            {badge}
+          </span>
+        ))}
+        {badges.length > 3 && (
+          <span className="inline-flex items-center bg-secondary/50 border border-border rounded-full px-2 py-0.5 text-[10px] text-muted-foreground">
+            +{badges.length - 3}
+          </span>
+        )}
+      </div>
+      
+      {/* PnL Row */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">PnL</div>
+          <div className={cn(
+            'text-xl font-bold font-mono',
+            isPositive ? 'text-foreground' : 'text-destructive'
+          )}>
+            {formatPnlLarge(trader.pnl)}
+          </div>
+        </div>
+        <MiniSparkline data={sparklineData} positive={isPositive} />
+      </div>
+      
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Volume</div>
+          <div className="font-semibold text-foreground text-sm">{formatLargeNumber(trader.vol)}</div>
+        </div>
+        <div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Win Rate</div>
+          <div className="font-semibold text-foreground text-sm">{winRate.toFixed(1)}%</div>
+        </div>
+        <div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Sharpe</div>
+          <div className="font-semibold text-foreground text-sm">{sharpe.toFixed(2)}</div>
+        </div>
+      </div>
+      
+      {/* Follow Button */}
+      <FollowButton
+        traderAddress={trader.proxyWallet}
+        traderName={trader.userName}
+        variant="both"
+        className="w-full"
+      />
+    </div>
+  )
+}
+
+function TraderCardSkeleton() {
+  return (
+    <div className="bg-card border border-border rounded-lg p-4">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div>
+            <Skeleton className="h-4 w-24 mb-1" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+        </div>
+        <Skeleton className="h-10 w-20 rounded" />
+      </div>
+      <div className="flex gap-1.5 mb-4">
+        <Skeleton className="h-5 w-16 rounded-full" />
+        <Skeleton className="h-5 w-20 rounded-full" />
+        <Skeleton className="h-5 w-14 rounded-full" />
+      </div>
+      <div className="flex justify-between mb-4">
+        <Skeleton className="h-8 w-28" />
+        <Skeleton className="h-8 w-24" />
+      </div>
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+      <Skeleton className="h-10 w-full rounded-lg" />
+    </div>
+  )
+}
+
+export function TraderCards() {
+  const router = useRouter()
+  const [timeframe, setTimeframe] = useState<UITimeframe>('7D')
+  const [category, setCategory] = useState<UICategory>('All')
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all')
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [search, setSearch] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [traders, setTraders] = useState<LeaderboardTrader[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchLeaderboard = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const params = new URLSearchParams({
+        category: mapCategoryToApi(category),
+        timePeriod: mapTimeframeToApi(timeframe),
+        orderBy: activeFilter === 'high-volume' ? 'VOL' : 'PNL',
+        limit: '50',
+      })
+      
+      if (search) {
+        params.set('userName', search)
+      }
+
+      const res = await fetch(`/api/polymarket/leaderboard?${params}`)
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch leaderboard')
+      }
+      
+      const data = await res.json()
+      setTraders(data)
+    } catch (err) {
+      console.error('Error fetching leaderboard:', err)
+      setError('Failed to load trader data')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [category, timeframe, activeFilter, search])
+
+  useEffect(() => {
+    fetchLeaderboard()
+  }, [fetchLeaderboard])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (search) {
+        fetchLeaderboard()
+      }
+    }, 500)
+    return () => clearTimeout(timeout)
+  }, [search, fetchLeaderboard])
+
+  const handleCardClick = (wallet: string) => {
+    router.push(`/trader/${wallet}`)
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header Row - Title and Timeframe */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <h1 className="text-2xl font-bold text-foreground">Trader Profiles</h1>
+        
+        {/* Timeframe Tabs */}
+        <div className="flex items-center border border-border overflow-hidden">
+          {timeframes.map((tf) => (
+            <button
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={cn(
+                'px-4 py-2 text-sm font-medium transition-all',
+                timeframe === tf 
+                  ? 'bg-foreground text-background' 
+                  : 'bg-secondary/30 text-muted-foreground hover:text-foreground hover:bg-secondary/50',
+                tf !== '24H' && 'border-l border-border'
+              )}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {/* Error State */}
+      {error && (
+        <div className="bg-card border border-border rounded-lg p-6 text-center">
+          <p className="text-destructive text-sm mb-4">{error}</p>
+          <Button onClick={fetchLeaderboard} className="bg-foreground hover:bg-foreground/90 text-background">
+            Retry
+          </Button>
+        </div>
+      )}
+      
+      {/* Cards Grid */}
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {isLoading ? (
+            Array.from({ length: 9 }).map((_, i) => <TraderCardSkeleton key={i} />)
+          ) : traders.length === 0 ? (
+            <div className="col-span-full text-center py-12 text-muted-foreground">
+              No traders found
+            </div>
+          ) : (
+            traders.map((trader, index) => (
+              <TraderCard
+                key={trader.proxyWallet}
+                trader={trader}
+                rank={trader.rank || index + 1}
+                onClick={() => handleCardClick(trader.proxyWallet)}
+              />
+            ))
+          )}
+        </div>
+      ) : (
+        /* List View - Use existing table style */
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-secondary/30">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">#</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Trader</th>
+                <th className="px-4 py-3 text-center text-xs font-medium uppercase text-muted-foreground">Smart Score</th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-muted-foreground">PnL</th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-muted-foreground">Volume</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 10 }).map((_, i) => (
+                  <tr key={i} className="border-b border-border/50">
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-6" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-8 w-48" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-16 mx-auto" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                  </tr>
+                ))
+              ) : (
+                traders.map((trader, index) => {
+                  const smartScore = calculateSmartScore(trader.pnl, trader.vol, trader.rank || index + 1)
+                  return (
+                    <tr
+                      key={trader.proxyWallet}
+                      onClick={() => handleCardClick(trader.proxyWallet)}
+                      className="border-b border-border/50 hover:bg-secondary/30 cursor-pointer"
+                    >
+                      <td className="px-4 py-3 font-mono text-sm text-muted-foreground">
+                        {String(trader.rank || index + 1).padStart(2, '0')}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {trader.profileImage ? (
+                            <Image
+                              src={trader.profileImage || "/placeholder.svg"}
+                              alt={trader.userName || 'Trader'}
+                              width={32}
+                              height={32}
+                              className="h-8 w-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-secondary border border-border flex items-center justify-center text-foreground font-bold text-xs">
+                              {(trader.userName || trader.proxyWallet.slice(2, 4)).toUpperCase().slice(0, 2)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-medium text-foreground text-sm">
+                              {trader.userName || formatAddress(trader.proxyWallet)}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {formatAddress(trader.proxyWallet)}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center gap-1 bg-primary/20 text-primary px-2 py-1 rounded text-sm font-medium">
+                          {smartScore.toFixed(1)}/100
+                        </span>
+                      </td>
+                      <td className={cn(
+                        'px-4 py-3 text-right font-mono text-sm font-medium',
+                        trader.pnl >= 0 ? 'text-lime-400' : 'text-red-500'
+                      )}>
+                        {formatPnl(trader.pnl)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-sm text-muted-foreground">
+                        {formatVolume(trader.vol)}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      
+      {/* Footer */}
+      <div className="text-center text-xs text-muted-foreground">
+        Live data from Polymarket
+      </div>
+    </div>
+  )
+}

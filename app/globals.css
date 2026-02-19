@@ -1,0 +1,272 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Vantake: Deep black background */
+  --background: oklch(0.06 0 0);
+  --foreground: oklch(0.98 0 0);
+  /* Cards: slightly lighter black */
+  --card: oklch(0.08 0 0);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.08 0 0);
+  --popover-foreground: oklch(0.98 0 0);
+  /* Primary: pure white */
+  --primary: oklch(0.98 0 0);
+  --primary-foreground: oklch(0.06 0 0);
+  /* Secondary: dark gray */
+  --secondary: oklch(0.14 0 0);
+  --secondary-foreground: oklch(0.85 0 0);
+  --muted: oklch(0.14 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  /* Accent: minimal, white-based */
+  --accent: oklch(0.98 0 0);
+  --accent-foreground: oklch(0.06 0 0);
+  /* Destructive: muted red */
+  --destructive: oklch(0.5 0.15 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  /* Borders: subtle dark gray */
+  --border: oklch(0.18 0 0);
+  --input: oklch(0.12 0 0);
+  --ring: oklch(0.98 0 0);
+  /* Charts: monochrome with subtle accent */
+  --chart-1: oklch(0.98 0 0);
+  --chart-2: oklch(0.7 0 0);
+  --chart-3: oklch(0.5 0 0);
+  --chart-4: oklch(0.5 0.15 25);
+  --chart-5: oklch(0.6 0.12 145);
+  /* Zero radius - sharp corners */
+  --radius: 0;
+  /* Sidebar */
+  --sidebar: oklch(0.05 0 0);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.98 0 0);
+  --sidebar-primary-foreground: oklch(0.06 0 0);
+  --sidebar-accent: oklch(0.12 0 0);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.15 0 0);
+  --sidebar-ring: oklch(0.98 0 0);
+  /* Status colors */
+  --success: oklch(0.6 0.12 145);
+  --warning: oklch(0.7 0.12 60);
+  --glow: transparent;
+}
+
+@theme inline {
+  --font-sans: 'Space Grotesk', var(--font-sans), system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', var(--font-mono), monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-glow: var(--glow);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'ss01' on, 'ss02' on, 'cv01' on;
+    letter-spacing: -0.01em;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .font-mono {
+    font-feature-settings: 'liga' on, 'calt' on;
+  }
+}
+
+/* Vantake grid - subtle angular grid */
+.grid-background {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Sharp panel - clean institutional look */
+.sharp-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.sharp-panel:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Angular accent - diagonal line decoration */
+.angular-accent {
+  position: relative;
+}
+.angular-accent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--primary);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), 0 100%);
+}
+
+/* Active marker - triangle indicator */
+.active-marker {
+  position: relative;
+}
+.active-marker::after {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-left-color: var(--primary);
+}
+
+/* Row hover - subtle highlight */
+.row-hover {
+  transition: background-color 0.15s ease;
+}
+.row-hover:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Sharp separator */
+.sharp-separator {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border) 20%, var(--border) 80%, transparent);
+}
+
+/* No glow - institutional look */
+.glow-accent,
+.glow-sm {
+  box-shadow: none;
+}
+
+/* Score bar - thin angular */
+.score-bar {
+  height: 2px;
+  background: var(--secondary);
+  position: relative;
+}
+.score-bar-fill {
+  height: 100%;
+  background: var(--primary);
+  clip-path: polygon(0 0, calc(100% - 2px) 0, 100% 100%, 0 100%);
+}
+
+/* Data value - monospace numbers */
+.data-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Stat card */
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stat-card-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.stat-card-label {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+/* Table improvements */
+.data-table {
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+/* Button improvements */
+.btn-sharp {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: all 0.15s ease;
+}
+
+.btn-sharp:hover {
+  transform: translateY(-1px);
+}
+
+/* Input improvements */
+input, textarea, select {
+  font-family: inherit;
+}
+
+input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+/* Badge improvements */
+.badge-sharp {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.5rem;
+}
