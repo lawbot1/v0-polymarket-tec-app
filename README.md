@@ -3,7 +3,7 @@
 > Institutional-grade analytics for prediction markets.  
 > Track smart money. Measure performance. Identify asymmetric opportunities.
 
----<img width="400" height="400" alt="image" src="https://github.com/user-attachments/assets/02ffa8d7-4c16-4f00-ae66-b5d37b6708b9" />
+
 <img width="400" height="400" alt="image" src="https://github.com/user-attachments/assets/02ffa8d7-4c16-4f00-ae66-b5d37b6708b9" />
 
 
