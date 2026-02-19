@@ -3,8 +3,7 @@
 > Institutional-grade analytics for prediction markets.  
 > Track smart money. Measure performance. Identify asymmetric opportunities.
 
----
-<img width="1500" height="500" alt="image" src="https://github.com/user-attachments/assets/0c2b83c2-0e9d-4831-a5a3-6e49595d9e24" />
+---<img width="600" height="200" alt="image" src="https://github.com/user-attachments/assets/520cd632-2692-4597-b650-39d7a4b3e9e6" />
 
 ## Overview
 
@@ -54,4 +53,88 @@ Designed for users who prioritize data, clarity, and execution edge.
 | Signal over Noise | Strict performance metrics |
 | Institutional UX | Clean, premium, data-dense interface |
 | Performance | Optimized server-side computation |
-| Security | Strict access control and data
+| Security | Strict access control and data policies |
+| Scalability | Modular, extensible architecture |
+
+---
+
+## Repository Structure
+
+| Directory | Purpose |
+|-----------|--------|
+| app | Routing and application pages |
+| components | UI and feature components |
+| lib | Data layer, adapters and utilities |
+| styles | Global styles and design tokens |
+| public | Static assets |
+
+---
+
+## Local Development
+
+### Install dependencies
+
+```bash
+npm install
+```
+
+### Setup environment variables
+
+Create `.env.local` and configure required variables for your environment.
+
+### Run development server
+
+```bash
+npm run dev
+```
+
+The application will start on:
+
+```
+http://localhost:3000
+```
+
+---
+
+## Security Model
+
+| Component | Strategy |
+|-----------|----------|
+| Authentication | Secure session-based auth |
+| Database Access | Role-based access policies |
+| Secrets | Server-side storage only |
+| API Endpoints | Controlled via protected routes |
+
+---
+
+## Roadmap
+
+### Phase 1 — Performance Layer
+- Trader ranking system  
+- Profile analytics  
+- Wallet watchlists  
+
+### Phase 2 — Intelligence Layer
+- Smart Score v1  
+- Capital flow clustering  
+- Signal alerts  
+
+### Phase 3 — Institutional Tools
+- Public API  
+- Strategy comparison engine  
+- Portfolio simulation  
+
+---
+
+## Vision
+
+VANTAKE aims to become the analytics backbone for prediction markets.
+
+Not a dashboard.  
+An intelligence engine.
+
+---
+
+## License
+
+Proprietary – All rights reserved.
