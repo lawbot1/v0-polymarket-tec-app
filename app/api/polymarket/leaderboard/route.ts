@@ -17,13 +17,17 @@ export async function GET(request: NextRequest) {
       category: category || 'OVERALL',
       timePeriod: timePeriod || 'WEEK',
       orderBy: orderBy || 'PNL',
-      limit: limit ? parseInt(limit) : 50,
+      limit: limit ? parseInt(limit) : 24,
       offset: offset ? parseInt(offset) : 0,
       user: user || undefined,
       userName: userName || undefined,
     })
 
-    return NextResponse.json(traders)
+    return NextResponse.json(traders, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
+    })
   } catch (error) {
     console.error('Leaderboard API error:', error)
     return NextResponse.json(

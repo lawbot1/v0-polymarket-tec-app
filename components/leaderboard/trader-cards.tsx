@@ -14,7 +14,8 @@ import {
   mapCategoryToApi,
   mapTimeframeToApi,
 } from '@/lib/polymarket-api'
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
+import useSWR from 'swr'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, ChevronDown, Grid3X3, List, Star, TrendingUp, Clock, Users, Zap } from 'lucide-react'
@@ -27,6 +28,12 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import Image from 'next/image'
 import { FollowButton } from '@/components/trader/follow-button'
+
+const leaderboardFetcher = async (url: string) => {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('Failed to fetch leaderboard')
+  return res.json()
+}
 
 type UITimeframe = '24H' | '7D' | '30D' | 'All'
 type UICategory = 'All' | 'Politics' | 'Crypto' | 'Sports' | 'Finance' | 'Pop Culture' | 'Tech'
@@ -310,54 +317,37 @@ export function TraderCards() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [search, setSearch] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  const [traders, setTraders] = useState<LeaderboardTrader[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-  const fetchLeaderboard = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      const params = new URLSearchParams({
-        category: mapCategoryToApi(category),
-        timePeriod: mapTimeframeToApi(timeframe),
-        orderBy: activeFilter === 'high-volume' ? 'VOL' : 'PNL',
-        limit: '50',
-      })
-      
-      if (search) {
-        params.set('userName', search)
-      }
-
-      const res = await fetch(`/api/polymarket/leaderboard?${params}`)
-      
-      if (!res.ok) {
-        throw new Error('Failed to fetch leaderboard')
-      }
-      
-      const data = await res.json()
-      setTraders(data)
-    } catch (err) {
-      console.error('Error fetching leaderboard:', err)
-      setError('Failed to load trader data')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [category, timeframe, activeFilter, search])
-
-  useEffect(() => {
-    fetchLeaderboard()
-  }, [fetchLeaderboard])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (search) {
-        fetchLeaderboard()
-      }
-    }, 500)
+  // Debounce search input
+  React.useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search), 400)
     return () => clearTimeout(timeout)
-  }, [search, fetchLeaderboard])
+  }, [search])
+
+  // Build SWR key from all filter params
+  const swrKey = React.useMemo(() => {
+    const params = new URLSearchParams({
+      category: mapCategoryToApi(category),
+      timePeriod: mapTimeframeToApi(timeframe),
+      orderBy: activeFilter === 'high-volume' ? 'VOL' : 'PNL',
+      limit: '24',
+    })
+    if (debouncedSearch) params.set('userName', debouncedSearch)
+    return `/api/polymarket/leaderboard?${params}`
+  }, [category, timeframe, activeFilter, debouncedSearch])
+
+  const { data: traders = [], error: swrError, isLoading, mutate } = useSWR<LeaderboardTrader[]>(
+    swrKey,
+    leaderboardFetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 30000,    // don't re-fetch same key for 30s
+      keepPreviousData: true,     // show old data while loading new filters
+    }
+  )
+
+  const error = swrError ? 'Failed to load trader data' : null
 
   const handleCardClick = (wallet: string) => {
     router.push(`/trader/${wallet}`)
@@ -393,7 +383,7 @@ export function TraderCards() {
       {error && (
         <div className="bg-card border border-border rounded-lg p-6 text-center">
           <p className="text-destructive text-sm mb-4">{error}</p>
-          <Button onClick={fetchLeaderboard} className="bg-foreground hover:bg-foreground/90 text-background">
+          <Button onClick={() => mutate()} className="bg-foreground hover:bg-foreground/90 text-background">
             Retry
           </Button>
         </div>
