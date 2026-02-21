@@ -3,49 +3,37 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Bell, ChevronDown } from 'lucide-react'
+import { Bell, Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AuthButton } from '@/components/auth/auth-button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
 
 interface HeaderProps {
   title?: string
   subtitle?: string
 }
 
-const mainNavItems = [
-  { href: '/', label: 'Leaderboard', icon: '/icon-leaderboard-new.png', description: 'Top traders ranking' },
-  { href: '/wallet-tracker', label: 'Wallet Tracker', icon: '/icon-wallet.png', description: 'Track any wallet' },
-  { href: '/insider-signals', label: 'Insider Signals', icon: '/icon-signals-new.png', description: 'Smart money moves' },
-  { href: '/markets', label: 'Markets', icon: '/icon-markets.png', description: 'Browse all markets' },
-]
-
-const userNavItems = [
-  { href: '/dashboard', label: 'My Dashboard', icon: '/icon-dashboard.png', description: 'Your portfolio' },
-  { href: '/settings', label: 'Settings', icon: '/icon-settings.png', description: 'Account settings' },
+const navItems = [
+  { href: '/', label: 'Leaderboard' },
+  { href: '/wallet-tracker', label: 'Wallet Tracker' },
+  { href: '/insider-signals', label: 'Signals' },
+  { href: '/markets', label: 'Markets' },
+  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/settings', label: 'Settings' },
 ]
 
 export function Header({ title, subtitle }: HeaderProps) {
   const pathname = usePathname()
-  
-  const allItems = [...mainNavItems, ...userNavItems]
-  const currentPage = allItems.find(item => item.href === pathname) || mainNavItems[0]
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background">
       <div className="flex h-14 items-center justify-between px-4 lg:px-6">
-        {/* Left Side - Logo + Navigation Dropdown */}
-        <div className="flex items-center gap-4">
+        {/* Left Side - Logo + Nav buttons inline */}
+        <div className="flex items-center gap-1">
           {/* Logo */}
-          <Link href="/" className="flex items-center flex-shrink-0">
+          <Link href="/" className="flex items-center flex-shrink-0 mr-4">
             <Image
               src="/vantake-main-logo.png"
               alt="Vantake"
@@ -56,102 +44,23 @@ export function Header({ title, subtitle }: HeaderProps) {
             />
           </Link>
 
-          {/* Navigation Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 px-4 py-2 bg-foreground text-background text-sm font-semibold hover:bg-foreground/90 transition-all group">
-                <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
-                <span>{currentPage.label}</span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="start" 
-              sideOffset={8}
-              className="w-64 bg-card/95 backdrop-blur-sm border-border p-2"
-            >
-              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1.5">
-                Discover
-              </DropdownMenuLabel>
-              {mainNavItems.map((item) => (
-                <DropdownMenuItem key={item.href} asChild className="p-0 focus:bg-transparent">
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 w-full px-3 py-2.5 transition-all cursor-pointer group/item',
-                      pathname === item.href
-                        ? 'bg-foreground text-background'
-                        : 'text-foreground hover:bg-secondary'
-                    )}
-                  >
-                    <div className={cn(
-                      'flex items-center justify-center w-8 h-8 flex-shrink-0',
-                      pathname === item.href ? 'bg-background/20' : 'bg-secondary'
-                    )}>
-                      <img
-                        src={item.icon || "/placeholder.svg"}
-                        alt=""
-                        className="h-4 w-4 object-contain"
-                        style={{ 
-                          filter: pathname === item.href ? 'invert(0)' : 'invert(1)'
-                        }}
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{item.label}</span>
-                      <span className={cn(
-                        'text-[11px]',
-                        pathname === item.href ? 'text-background/70' : 'text-muted-foreground'
-                      )}>
-                        {item.description}
-                      </span>
-                    </div>
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-              
-              <DropdownMenuSeparator className="my-2 bg-border" />
-              
-              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1.5">
-                Personal
-              </DropdownMenuLabel>
-              {userNavItems.map((item) => (
-                <DropdownMenuItem key={item.href} asChild className="p-0 focus:bg-transparent">
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 w-full px-3 py-2.5 transition-all cursor-pointer',
-                      pathname === item.href
-                        ? 'bg-foreground text-background'
-                        : 'text-foreground hover:bg-secondary'
-                    )}
-                  >
-                    <div className={cn(
-                      'flex items-center justify-center w-8 h-8 flex-shrink-0',
-                      pathname === item.href ? 'bg-background/20' : 'bg-secondary'
-                    )}>
-                      <img
-                        src={item.icon || "/placeholder.svg"}
-                        alt=""
-                        className="h-4 w-4 object-contain"
-                        style={{ 
-                          filter: pathname === item.href ? 'invert(0)' : 'invert(1)'
-                        }}
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{item.label}</span>
-                      <span className={cn(
-                        'text-[11px]',
-                        pathname === item.href ? 'text-background/70' : 'text-muted-foreground'
-                      )}>
-                        {item.description}
-                      </span>
-                    </div>
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Desktop Nav - inline buttons */}
+          <nav className="hidden md:flex items-center gap-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'px-3 py-1.5 text-sm font-medium transition-colors',
+                  pathname === item.href
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
 
         {/* Right Side */}
@@ -162,8 +71,37 @@ export function Header({ title, subtitle }: HeaderProps) {
           </Button>
 
           <AuthButton />
+
+          {/* Mobile burger */}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="md:hidden flex items-center justify-center h-9 w-9 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Nav */}
+      {mobileOpen && (
+        <nav className="md:hidden border-t border-border bg-background px-4 py-2 flex flex-col gap-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                'px-3 py-2.5 text-sm font-medium transition-colors',
+                pathname === item.href
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      )}
     </header>
   )
 }

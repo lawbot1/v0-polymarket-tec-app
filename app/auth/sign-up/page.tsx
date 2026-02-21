@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -80,6 +80,15 @@ export default function SignUpPage() {
   return (
     <div className="min-h-screen bg-background grid-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-8">
+        {/* Back to Home */}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Home
+        </Link>
+
         {/* Logo */}
         <div className="flex flex-col items-center gap-4">
           <Image

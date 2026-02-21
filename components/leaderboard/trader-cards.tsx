@@ -1,9 +1,6 @@
 'use client'
 
-import { usePathname } from "next/navigation"
-
-import React from "react"
-
+import React from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
@@ -14,7 +11,9 @@ import {
   mapCategoryToApi,
   mapTimeframeToApi,
 } from '@/lib/polymarket-api'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import useSWR from 'swr'
+import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, ChevronDown, Grid3X3, List, Star, TrendingUp, Clock, Users, Zap } from 'lucide-react'
@@ -27,6 +26,12 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import Image from 'next/image'
 import { FollowButton } from '@/components/trader/follow-button'
+
+const leaderboardFetcher = async (url: string) => {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('Failed to fetch leaderboard')
+  return res.json()
+}
 
 type UITimeframe = '24H' | '7D' | '30D' | 'All'
 type UICategory = 'All' | 'Politics' | 'Crypto' | 'Sports' | 'Finance' | 'Pop Culture' | 'Tech'
@@ -77,11 +82,12 @@ function generateSparkline(pnl: number): number[] {
 }
 
 // Mini sparkline component
+let sparklineCounter = 0
 function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }) {
   const width = 120
   const height = 40
   const lineColor = positive ? '#22c55e' : '#ef4444'
-  const id = React.useId()
+  const [id] = useState(() => `spark-${++sparklineCounter}`)
   
   const linePoints = data.map((v, i) => `${(i / (data.length - 1)) * width},${height - (v / 100) * height}`).join(' ')
   const areaPoints = `0,${height} ${linePoints} ${width},${height}`
@@ -89,14 +95,14 @@ function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }
   return (
     <svg width={width} height={height} className="flex-shrink-0" viewBox={`0 0 ${width} ${height}`}>
       <defs>
-        <linearGradient id={`grad-${id}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={lineColor} stopOpacity="0.3" />
           <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
         </linearGradient>
       </defs>
       <polygon
         points={areaPoints}
-        fill={`url(#grad-${id})`}
+        fill={`url(#${id})`}
       />
       <polyline
         points={linePoints}
@@ -157,9 +163,12 @@ interface TraderCardProps {
   trader: LeaderboardTrader
   rank: number
   onClick: () => void
+  userId: string | null
+  followedSet: Set<string>
+  trackedSet: Set<string>
 }
 
-function TraderCard({ trader, rank, onClick }: TraderCardProps) {
+function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: TraderCardProps) {
   const smartScore = calculateSmartScore(trader.pnl, trader.vol, rank)
   const badges = getTraderBadges(trader, rank)
   const sparklineData = generateSparkline(trader.pnl)
@@ -266,6 +275,9 @@ function TraderCard({ trader, rank, onClick }: TraderCardProps) {
         traderName={trader.userName}
         variant="both"
         className="w-full"
+        userId={userId}
+        initialFollowed={followedSet.has(trader.proxyWallet)}
+        initialTracked={trackedSet.has(trader.proxyWallet)}
       />
     </div>
   )
@@ -310,54 +322,60 @@ export function TraderCards() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [search, setSearch] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  const [traders, setTraders] = useState<LeaderboardTrader[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-  const fetchLeaderboard = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      const params = new URLSearchParams({
-        category: mapCategoryToApi(category),
-        timePeriod: mapTimeframeToApi(timeframe),
-        orderBy: activeFilter === 'high-volume' ? 'VOL' : 'PNL',
-        limit: '50',
-      })
-      
-      if (search) {
-        params.set('userName', search)
-      }
-
-      const res = await fetch(`/api/polymarket/leaderboard?${params}`)
-      
-      if (!res.ok) {
-        throw new Error('Failed to fetch leaderboard')
-      }
-      
-      const data = await res.json()
-      setTraders(data)
-    } catch (err) {
-      console.error('Error fetching leaderboard:', err)
-      setError('Failed to load trader data')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [category, timeframe, activeFilter, search])
-
-  useEffect(() => {
-    fetchLeaderboard()
-  }, [fetchLeaderboard])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (search) {
-        fetchLeaderboard()
-      }
-    }, 500)
+  // Debounce search input
+  React.useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search), 400)
     return () => clearTimeout(timeout)
-  }, [search, fetchLeaderboard])
+  }, [search])
+
+  // Build SWR key from all filter params
+  const swrKey = React.useMemo(() => {
+    const params = new URLSearchParams({
+      category: mapCategoryToApi(category),
+      timePeriod: mapTimeframeToApi(timeframe),
+      orderBy: activeFilter === 'high-volume' ? 'VOL' : 'PNL',
+      limit: '24',
+    })
+    if (debouncedSearch) params.set('userName', debouncedSearch)
+    return `/api/polymarket/leaderboard?${params}`
+  }, [category, timeframe, activeFilter, debouncedSearch])
+
+  const { data: traders = [], error: swrError, isLoading, mutate } = useSWR<LeaderboardTrader[]>(
+    swrKey,
+    leaderboardFetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 30000,    // don't re-fetch same key for 30s
+      keepPreviousData: true,     // show old data while loading new filters
+    }
+  )
+
+  const error = swrError ? 'Failed to load trader data' : null
+
+  // Batch-fetch user follow/track statuses ONCE (not per card)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [followedSet, setFollowedSet] = useState<Set<string>>(new Set())
+  const [trackedSet, setTrackedSet] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const supabase = createClient()
+    const fetchUserStatuses = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
+      setUserId(session.user.id)
+
+      const [{ data: followed }, { data: tracked }] = await Promise.all([
+        supabase.from('followed_traders').select('trader_address').eq('user_id', session.user.id),
+        supabase.from('tracked_wallets').select('wallet_address').eq('user_id', session.user.id),
+      ])
+
+      if (followed) setFollowedSet(new Set(followed.map(f => f.trader_address)))
+      if (tracked) setTrackedSet(new Set(tracked.map(t => t.wallet_address)))
+    }
+    fetchUserStatuses()
+  }, [])
 
   const handleCardClick = (wallet: string) => {
     router.push(`/trader/${wallet}`)
@@ -393,7 +411,7 @@ export function TraderCards() {
       {error && (
         <div className="bg-card border border-border rounded-lg p-6 text-center">
           <p className="text-destructive text-sm mb-4">{error}</p>
-          <Button onClick={fetchLeaderboard} className="bg-foreground hover:bg-foreground/90 text-background">
+          <Button onClick={() => mutate()} className="bg-foreground hover:bg-foreground/90 text-background">
             Retry
           </Button>
         </div>
@@ -415,6 +433,9 @@ export function TraderCards() {
                 trader={trader}
                 rank={trader.rank || index + 1}
                 onClick={() => handleCardClick(trader.proxyWallet)}
+                userId={userId}
+                followedSet={followedSet}
+                trackedSet={trackedSet}
               />
             ))
           )}
