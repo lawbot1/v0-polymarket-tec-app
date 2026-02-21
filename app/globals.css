@@ -136,7 +136,7 @@
   background-color: rgba(255, 255, 255, 0.02);
 }
 
-/* Angular accent - diagonal line decoration */
+/* Accent bar decoration */
 .angular-accent {
   position: relative;
 }
@@ -148,7 +148,7 @@
   width: 4px;
   height: 100%;
   background: var(--primary);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), 0 100%);
+  border-radius: 2px;
 }
 
 /* Active marker - triangle indicator */
@@ -185,16 +185,17 @@
   box-shadow: none;
 }
 
-/* Score bar - thin angular */
+/* Score bar */
 .score-bar {
   height: 2px;
   background: var(--secondary);
   position: relative;
+  border-radius: 1px;
 }
 .score-bar-fill {
   height: 100%;
   background: var(--primary);
-  clip-path: polygon(0 0, calc(100% - 2px) 0, 100% 100%, 0 100%);
+  border-radius: 1px;
 }
 
 /* Data value - monospace numbers */

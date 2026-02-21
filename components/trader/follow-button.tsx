@@ -106,7 +106,7 @@ export function FollowButton({
           variant={isFollowed ? 'outline' : 'default'}
           size={compact ? 'sm' : 'default'}
           className={cn(
-            'gap-2 transition-all',
+            'gap-2 transition-all rounded-lg',
             isSingleButton && 'w-full',
             isFollowed
               ? 'border-[#22c55e]/50 text-[#22c55e] bg-[#22c55e]/10 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/50'
@@ -139,7 +139,7 @@ export function FollowButton({
           variant="outline"
           size={compact ? 'sm' : 'default'}
           className={cn(
-            'gap-1.5 transition-all border-border',
+            'gap-1.5 transition-all border-border rounded-lg',
             isSingleButton && 'w-full',
             isTracked
               ? 'border-[#22c55e]/50 text-[#22c55e] bg-[#22c55e]/10 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/50'
