@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     // Defaults for popular markets
     if (!forwardParams.has('order')) {
-      url.searchParams.set('order', 'volume_24hr')
+      url.searchParams.set('order', 'volume')
     }
     if (!forwardParams.has('ascending')) {
       url.searchParams.set('ascending', 'false')

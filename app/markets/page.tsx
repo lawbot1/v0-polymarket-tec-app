@@ -8,16 +8,15 @@ import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Search, Clock, DollarSign, Loader2, RefreshCw, TrendingUp, Flame, BarChart3, Zap } from 'lucide-react'
+import { Search, Clock, DollarSign, Loader2, RefreshCw, TrendingUp, Flame, Zap } from 'lucide-react'
 import { formatVolume } from '@/lib/polymarket-api'
 
-// Sort options
-type SortOption = 'volume_24hr' | 'volume' | 'liquidity' | 'competitive'
+// Sort options (only params that work with Gamma API events endpoint)
+type SortOption = 'volume' | 'liquidity' | 'startDate'
 const sortOptions: { value: SortOption; label: string; icon: React.ReactNode }[] = [
-  { value: 'volume_24hr', label: 'Trending', icon: <Flame className="h-3.5 w-3.5" /> },
-  { value: 'volume', label: 'Top Volume', icon: <BarChart3 className="h-3.5 w-3.5" /> },
+  { value: 'volume', label: 'Popular', icon: <Flame className="h-3.5 w-3.5" /> },
   { value: 'liquidity', label: 'Most Liquid', icon: <DollarSign className="h-3.5 w-3.5" /> },
-  { value: 'competitive', label: 'Competitive', icon: <Zap className="h-3.5 w-3.5" /> },
+  { value: 'startDate', label: 'Newest', icon: <Zap className="h-3.5 w-3.5" /> },
 ]
 
 // Category tabs - Polymarket main categories
@@ -202,7 +201,7 @@ function EventCard({ event }: { event: PolymarketEvent }) {
 export default function MarketsPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<CategoryKey>('all')
-  const [sortBy, setSortBy] = useState<SortOption>('volume_24hr')
+  const [sortBy, setSortBy] = useState<SortOption>('volume')
 
   // Build API URL with category as tag filter
   const apiUrl = useMemo(() => {
