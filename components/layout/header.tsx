@@ -16,6 +16,7 @@ interface HeaderProps {
 
 const navItems = [
   { href: '/', label: 'Leaderboard' },
+  { href: '/top-100', label: 'Vantake Top 100' },
   { href: '/wallet-tracker', label: 'Wallet Tracker' },
   { href: '/insider-signals', label: 'Signals' },
   { href: '/markets', label: 'Markets' },
