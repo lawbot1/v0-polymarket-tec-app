@@ -1,9 +1,6 @@
 'use client'
 
-import { usePathname } from "next/navigation"
-
-import React from "react"
-
+import React from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
@@ -85,11 +82,12 @@ function generateSparkline(pnl: number): number[] {
 }
 
 // Mini sparkline component
+let sparklineCounter = 0
 function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }) {
   const width = 120
   const height = 40
   const lineColor = positive ? '#22c55e' : '#ef4444'
-  const id = React.useId()
+  const [id] = useState(() => `spark-${++sparklineCounter}`)
   
   const linePoints = data.map((v, i) => `${(i / (data.length - 1)) * width},${height - (v / 100) * height}`).join(' ')
   const areaPoints = `0,${height} ${linePoints} ${width},${height}`
@@ -97,14 +95,14 @@ function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }
   return (
     <svg width={width} height={height} className="flex-shrink-0" viewBox={`0 0 ${width} ${height}`}>
       <defs>
-        <linearGradient id={`grad-${id}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={lineColor} stopOpacity="0.3" />
           <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
         </linearGradient>
       </defs>
       <polygon
         points={areaPoints}
-        fill={`url(#grad-${id})`}
+        fill={`url(#${id})`}
       />
       <polyline
         points={linePoints}
