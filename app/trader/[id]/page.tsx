@@ -198,21 +198,43 @@ export default function TraderPage({ params }: TraderPageProps) {
   const badges = getTraderBadges(profile, positions, trades)
 
   // ---- PnL chart data ----
+  // Build equity curve from trades. SELL = profit realized, BUY = cost paid.
+  // We scale the curve so the final value matches the real total PnL from the API.
   const equityCurve = useMemo(() => {
-    const pnlByDate = trades.slice().reverse().reduce<Map<string, number>>((acc, trade) => {
+    if (trades.length === 0) return []
+
+    // Group raw PnL by date
+    const sorted = trades.slice().reverse()
+    const pnlByDate = sorted.reduce<Map<string, number>>((acc, trade) => {
       const date = formatShortDate(trade.timestamp)
-      const tradePnl = trade.side === 'SELL' ? trade.size * trade.price : -trade.size * trade.price
-      acc.set(date, (acc.get(date) || 0) + tradePnl)
+      // SELL generates positive cash, BUY negative
+      const raw = trade.side === 'SELL' ? trade.size * trade.price : -trade.size * trade.price
+      acc.set(date, (acc.get(date) || 0) + raw)
       return acc
     }, new Map())
-    return Array.from(pnlByDate.entries())
-      .map(([date, dailyPnl]) => ({ date, dailyPnl }))
-      .reduce<{ date: string; value: number }[]>((acc, { date, dailyPnl }) => {
-        const prevValue = acc.length > 0 ? acc[acc.length - 1].value : 0
-        acc.push({ date, value: prevValue + dailyPnl })
-        return acc
-      }, [])
-  }, [trades])
+
+    // Build cumulative curve
+    const rawCurve = Array.from(pnlByDate.entries()).reduce<{ date: string; value: number }[]>((acc, [date, dailyPnl]) => {
+      const prev = acc.length > 0 ? acc[acc.length - 1].value : 0
+      acc.push({ date, value: prev + dailyPnl })
+      return acc
+    }, [])
+
+    if (rawCurve.length === 0) return []
+
+    // Scale so the final point matches the real total PnL from API
+    const realPnl = profile?.pnl ?? 0
+    const rawFinal = rawCurve[rawCurve.length - 1].value
+    if (rawFinal === 0 || realPnl === 0) {
+      // Can't scale, just show curve starting from 0 ending at realPnl
+      return rawCurve.map((p, i) => ({
+        date: p.date,
+        value: realPnl * ((i + 1) / rawCurve.length),
+      }))
+    }
+    const scale = realPnl / rawFinal
+    return rawCurve.map(p => ({ date: p.date, value: p.value * scale }))
+  }, [trades, profile])
 
   const filteredCurve = filterByTimeframe(equityCurve, chartTf)
   const lastValue = filteredCurve.length > 0 ? filteredCurve[filteredCurve.length - 1].value : 0
@@ -424,9 +446,10 @@ export default function TraderPage({ params }: TraderPageProps) {
               <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Smart Score</div>
               {isLoading ? <Skeleton className="h-10 w-32" /> : (
                 <>
-                  <div className="flex items-baseline gap-1">
+                  <div className="flex items-center gap-2">
                     <span className="text-3xl font-semibold font-mono text-[#22c55e]">{smartScore.toFixed(2)}</span>
                     <span className="text-sm text-muted-foreground font-mono">/100</span>
+                    <Image src="/vantake-logo-white.png" alt="Vantake" width={28} height={28} className="h-7 w-7 object-contain opacity-80 ml-auto" />
                   </div>
                   <div className="mt-2 h-1.5 bg-secondary overflow-hidden">
                     <div className="h-full bg-[#22c55e] transition-all duration-500" style={{ width: `${smartScore}%` }} />

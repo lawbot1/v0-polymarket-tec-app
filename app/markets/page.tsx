@@ -113,7 +113,7 @@ function EventCard({ event }: { event: PolymarketEvent }) {
         <div className="flex items-start gap-3">
           {/* Event Image */}
           {eventImage && (
-            <div className="h-12 w-12 rounded overflow-hidden flex-shrink-0 bg-secondary">
+            <div className="h-12 w-12 rounded-lg overflow-hidden flex-shrink-0 bg-secondary">
               <Image
                 src={eventImage}
                 alt={event.title}
@@ -127,7 +127,7 @@ function EventCard({ event }: { event: PolymarketEvent }) {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              <span className="inline-flex items-center border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="inline-flex items-center border border-border rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 {category}
               </span>
               <div className="flex items-center gap-2">
@@ -255,7 +255,7 @@ export default function MarketsPage() {
               key={cat.key}
               onClick={() => setCategoryFilter(cat.key)}
               className={cn(
-                'px-4 py-2 text-xs font-medium uppercase tracking-wider whitespace-nowrap transition-colors border',
+                'px-4 py-2 text-xs font-medium uppercase tracking-wider whitespace-nowrap transition-colors border rounded-lg',
                 categoryFilter === cat.key
                   ? 'bg-foreground text-background border-foreground'
                   : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/50'
@@ -275,7 +275,7 @@ export default function MarketsPage() {
                 key={opt.value}
                 onClick={() => setSortBy(opt.value)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider transition-colors border',
+                  'flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider transition-colors border rounded-lg',
                   sortBy === opt.value
                     ? 'bg-foreground text-background border-foreground'
                     : 'bg-transparent text-muted-foreground border-border hover:text-foreground'
@@ -345,7 +345,7 @@ export default function MarketsPage() {
         {/* Empty State */}
         {!isLoading && !error && filteredEvents.length === 0 && events && (
           <div className="sharp-panel p-12 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center bg-secondary">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center bg-secondary rounded-xl">
               <Search className="h-6 w-6 text-muted-foreground" />
             </div>
             <h3 className="mt-4 text-sm font-medium text-foreground uppercase tracking-wider">No markets found</h3>

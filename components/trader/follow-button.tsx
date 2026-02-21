@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Star, Wallet, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import Image from 'next/image'
 
 interface FollowButtonProps {
   traderAddress: string
@@ -13,6 +14,7 @@ interface FollowButtonProps {
   variant?: 'follow' | 'track' | 'both'
   className?: string
   compact?: boolean
+  showLogo?: boolean
   /** Pre-fetched status from parent to avoid per-card network calls */
   initialFollowed?: boolean
   initialTracked?: boolean
@@ -25,6 +27,7 @@ export function FollowButton({
   variant = 'both',
   className,
   compact = false,
+  showLogo = false,
   initialFollowed = false,
   initialTracked = false,
   userId = null,
@@ -92,6 +95,8 @@ export function FollowButton({
     setLoadingTrack(false)
   }
 
+  const isSingleButton = variant === 'follow' || variant === 'track'
+
   return (
     <div className={cn('flex items-center gap-2', className)}>
       {(variant === 'follow' || variant === 'both') && (
@@ -101,7 +106,8 @@ export function FollowButton({
           variant={isFollowed ? 'outline' : 'default'}
           size={compact ? 'sm' : 'default'}
           className={cn(
-            'gap-1.5 transition-all',
+            'gap-2 transition-all rounded-lg',
+            isSingleButton && 'w-full',
             isFollowed
               ? 'border-[#22c55e]/50 text-[#22c55e] bg-[#22c55e]/10 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/50'
               : 'bg-foreground text-background hover:bg-foreground/90'
@@ -111,6 +117,14 @@ export function FollowButton({
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : isFollowed ? (
             <Check className="h-3.5 w-3.5" />
+          ) : showLogo ? (
+            <Image
+              src="/vantake-logo-white.png"
+              alt=""
+              width={22}
+              height={22}
+              className="h-[22px] w-[22px] object-contain invert dark:invert-0"
+            />
           ) : (
             <Star className="h-3.5 w-3.5" />
           )}
@@ -125,7 +139,8 @@ export function FollowButton({
           variant="outline"
           size={compact ? 'sm' : 'default'}
           className={cn(
-            'gap-1.5 transition-all border-border',
+            'gap-1.5 transition-all border-border rounded-lg',
+            isSingleButton && 'w-full',
             isTracked
               ? 'border-[#22c55e]/50 text-[#22c55e] bg-[#22c55e]/10 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/50'
               : 'bg-transparent text-muted-foreground hover:text-foreground'
