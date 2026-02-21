@@ -51,7 +51,7 @@ export function Header({ title, subtitle }: HeaderProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'px-3 py-1.5 text-sm font-medium transition-colors',
+                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
                   pathname === item.href
                     ? 'bg-foreground text-background'
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
@@ -67,7 +67,7 @@ export function Header({ title, subtitle }: HeaderProps) {
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="relative h-9 w-9 hidden sm:flex">
             <Bell className="h-4 w-4 text-muted-foreground" />
-            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 bg-foreground" />
+            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-foreground" />
           </Button>
 
           <AuthButton />
@@ -91,7 +91,7 @@ export function Header({ title, subtitle }: HeaderProps) {
               href={item.href}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                'px-3 py-2.5 text-sm font-medium transition-colors',
+                'px-3 py-2.5 text-sm font-medium rounded-lg transition-colors',
                 pathname === item.href
                   ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'

@@ -36,8 +36,8 @@
   --chart-3: oklch(0.5 0 0);
   --chart-4: oklch(0.5 0.15 25);
   --chart-5: oklch(0.6 0.12 145);
-  /* Zero radius - sharp corners */
-  --radius: 0;
+  /* Rounded corners */
+  --radius: 0.625rem;
   /* Sidebar */
   --sidebar: oklch(0.1 0 0);
   --sidebar-foreground: oklch(0.98 0 0);
@@ -123,10 +123,11 @@
   background-size: 48px 48px;
 }
 
-/* Sharp panel - clean institutional look */
+/* Panel - clean rounded look */
 .sharp-panel {
   background: var(--card);
   border: 1px solid var(--border);
+  border-radius: var(--radius);
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
@@ -207,6 +208,7 @@
 .stat-card {
   background: var(--card);
   border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;

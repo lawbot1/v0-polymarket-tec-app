@@ -386,7 +386,7 @@ export function TraderCards() {
         <h1 className="text-2xl font-bold text-foreground">Trader Profiles</h1>
         
         {/* Timeframe Tabs */}
-        <div className="flex items-center border border-border overflow-hidden">
+        <div className="flex items-center border border-border rounded-lg overflow-hidden">
           {timeframes.map((tf) => (
             <button
               key={tf}
@@ -407,7 +407,7 @@ export function TraderCards() {
       
       {/* Error State */}
       {error && (
-        <div className="bg-card border border-border rounded-lg p-6 text-center">
+        <div className="bg-card border border-border rounded-xl p-6 text-center">
           <p className="text-destructive text-sm mb-4">{error}</p>
           <Button onClick={() => mutate()} className="bg-foreground hover:bg-foreground/90 text-background">
             Retry
@@ -440,7 +440,7 @@ export function TraderCards() {
         </div>
       ) : (
         /* List View - Use existing table style */
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-secondary/30">

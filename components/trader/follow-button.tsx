@@ -121,9 +121,9 @@ export function FollowButton({
             <Image
               src="/vantake-logo-white.png"
               alt=""
-              width={16}
-              height={16}
-              className="h-4 w-4 object-contain invert dark:invert-0"
+              width={22}
+              height={22}
+              className="h-[22px] w-[22px] object-contain invert dark:invert-0"
             />
           ) : (
             <Star className="h-3.5 w-3.5" />
