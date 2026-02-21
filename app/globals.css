@@ -4,31 +4,31 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Vantake: Deep black background */
-  --background: oklch(0.06 0 0);
+  /* Vantake: Dark charcoal background (not pure black) */
+  --background: oklch(0.13 0 0);
   --foreground: oklch(0.98 0 0);
-  /* Cards: slightly lighter black */
-  --card: oklch(0.08 0 0);
+  /* Cards: slightly lighter than background */
+  --card: oklch(0.16 0 0);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.08 0 0);
+  --popover: oklch(0.16 0 0);
   --popover-foreground: oklch(0.98 0 0);
   /* Primary: pure white */
   --primary: oklch(0.98 0 0);
-  --primary-foreground: oklch(0.06 0 0);
-  /* Secondary: dark gray */
-  --secondary: oklch(0.14 0 0);
+  --primary-foreground: oklch(0.13 0 0);
+  /* Secondary: medium dark gray */
+  --secondary: oklch(0.2 0 0);
   --secondary-foreground: oklch(0.85 0 0);
-  --muted: oklch(0.14 0 0);
-  --muted-foreground: oklch(0.5 0 0);
+  --muted: oklch(0.2 0 0);
+  --muted-foreground: oklch(0.55 0 0);
   /* Accent: minimal, white-based */
   --accent: oklch(0.98 0 0);
-  --accent-foreground: oklch(0.06 0 0);
+  --accent-foreground: oklch(0.13 0 0);
   /* Destructive: muted red */
   --destructive: oklch(0.5 0.15 25);
   --destructive-foreground: oklch(0.98 0 0);
-  /* Borders: subtle dark gray */
-  --border: oklch(0.18 0 0);
-  --input: oklch(0.12 0 0);
+  /* Borders: subtle gray, more visible */
+  --border: oklch(0.24 0 0);
+  --input: oklch(0.18 0 0);
   --ring: oklch(0.98 0 0);
   /* Charts: monochrome with subtle accent */
   --chart-1: oklch(0.98 0 0);
@@ -39,13 +39,13 @@
   /* Zero radius - sharp corners */
   --radius: 0;
   /* Sidebar */
-  --sidebar: oklch(0.05 0 0);
+  --sidebar: oklch(0.1 0 0);
   --sidebar-foreground: oklch(0.98 0 0);
   --sidebar-primary: oklch(0.98 0 0);
-  --sidebar-primary-foreground: oklch(0.06 0 0);
-  --sidebar-accent: oklch(0.12 0 0);
+  --sidebar-primary-foreground: oklch(0.13 0 0);
+  --sidebar-accent: oklch(0.17 0 0);
   --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.15 0 0);
+  --sidebar-border: oklch(0.22 0 0);
   --sidebar-ring: oklch(0.98 0 0);
   /* Status colors */
   --success: oklch(0.6 0.12 145);
@@ -118,8 +118,8 @@
 /* Vantake grid - subtle angular grid */
 .grid-background {
   background-image: 
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
