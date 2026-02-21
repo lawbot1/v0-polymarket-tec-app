@@ -271,11 +271,12 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
       <FollowButton
         traderAddress={trader.proxyWallet}
         traderName={trader.userName}
-        variant="both"
+        variant="follow"
         className="w-full"
         userId={userId}
         initialFollowed={followedSet.has(trader.proxyWallet)}
         initialTracked={trackedSet.has(trader.proxyWallet)}
+        showLogo
       />
     </div>
   )
