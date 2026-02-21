@@ -131,21 +131,23 @@ type Badge = { label: string; icon: 'whale' | 'shark' | 'dolphin' | 'gem' | 'tar
 function getTraderBadges(trader: LeaderboardTrader, rank: number): Badge[] {
   const badges: Badge[] = []
   
-  // Tier badge by volume (Whale > Shark > Dolphin)
-  if (trader.vol > 10000000) badges.push({ label: 'Whale', icon: 'crown', color: 'text-amber-400' })
-  else if (trader.vol > 1000000) badges.push({ label: 'Shark', icon: 'zap', color: 'text-blue-400' })
-  else if (trader.vol > 100000) badges.push({ label: 'Dolphin', icon: 'activity', color: 'text-cyan-400' })
-
-  // PnL performance badge
-  if (trader.pnl > 500000) badges.push({ label: 'Diamond Hands', icon: 'gem', color: 'text-violet-400' })
-  else if (trader.pnl > 100000) badges.push({ label: 'Sharp', icon: 'target', color: 'text-emerald-400' })
-  else if (trader.pnl > 10000) badges.push({ label: 'Profitable', icon: 'shield', color: 'text-green-400' })
-  else if (trader.pnl > 0) badges.push({ label: 'Positive', icon: 'shield', color: 'text-green-400/70' })
-
-  // Rank-based badge
-  if (rank <= 3) badges.push({ label: 'Top 3', icon: 'crown', color: 'text-yellow-400' })
+  // Rank badge (individual for top 3)
+  if (rank === 1) badges.push({ label: 'Top 1', icon: 'crown', color: 'text-yellow-400' })
+  else if (rank === 2) badges.push({ label: 'Top 2', icon: 'crown', color: 'text-slate-300' })
+  else if (rank === 3) badges.push({ label: 'Top 3', icon: 'crown', color: 'text-amber-600' })
   else if (rank <= 10) badges.push({ label: 'Top 10', icon: 'flame', color: 'text-orange-400' })
   else if (rank <= 25) badges.push({ label: 'Top 25', icon: 'flame', color: 'text-orange-400/70' })
+
+  // Volume tier badge
+  if (trader.vol > 10000000) badges.push({ label: 'High Roller', icon: 'gem', color: 'text-amber-400' })
+  else if (trader.vol > 1000000) badges.push({ label: 'Big Player', icon: 'zap', color: 'text-blue-400' })
+  else if (trader.vol > 100000) badges.push({ label: 'Active', icon: 'activity', color: 'text-cyan-400' })
+
+  // PnL performance badge
+  if (trader.pnl > 500000) badges.push({ label: 'Alpha Hunter', icon: 'target', color: 'text-violet-400' })
+  else if (trader.pnl > 100000) badges.push({ label: 'Consistent', icon: 'shield', color: 'text-emerald-400' })
+  else if (trader.pnl > 10000) badges.push({ label: 'In Profit', icon: 'shield', color: 'text-green-400' })
+  else if (trader.pnl > 0) badges.push({ label: 'Positive', icon: 'shield', color: 'text-green-400/70' })
 
   return badges.slice(0, 3)
 }
