@@ -131,12 +131,15 @@ type Badge = { label: string; icon: 'whale' | 'shark' | 'dolphin' | 'gem' | 'tar
 function getTraderBadges(trader: LeaderboardTrader, rank: number): Badge[] {
   const badges: Badge[] = []
   
-  // Rank badge (individual for top 3)
+  // Rank badge (individual for top 5, grouped after)
   if (rank === 1) badges.push({ label: 'Top 1', icon: 'crown', color: 'text-yellow-400' })
   else if (rank === 2) badges.push({ label: 'Top 2', icon: 'crown', color: 'text-slate-300' })
   else if (rank === 3) badges.push({ label: 'Top 3', icon: 'crown', color: 'text-amber-600' })
-  else if (rank <= 10) badges.push({ label: 'Top 10', icon: 'flame', color: 'text-orange-400' })
-  else if (rank <= 25) badges.push({ label: 'Top 25', icon: 'flame', color: 'text-orange-400/70' })
+  else if (rank === 4) badges.push({ label: 'Top 4', icon: 'flame', color: 'text-orange-400' })
+  else if (rank === 5) badges.push({ label: 'Top 5', icon: 'flame', color: 'text-orange-400' })
+  else if (rank <= 10) badges.push({ label: 'Top 10', icon: 'flame', color: 'text-orange-400/70' })
+  else if (rank <= 25) badges.push({ label: 'Top 25', icon: 'flame', color: 'text-orange-300/50' })
+  else if (rank <= 50) badges.push({ label: 'Top 50', icon: 'flame', color: 'text-orange-300/30' })
 
   // Volume tier badge
   if (trader.vol > 10000000) badges.push({ label: 'High Roller', icon: 'gem', color: 'text-amber-400' })
