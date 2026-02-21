@@ -16,7 +16,7 @@ import useSWR from 'swr'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, ChevronDown, Grid3X3, List, Star, TrendingUp, Clock, Users, Zap } from 'lucide-react'
+import { Search, ChevronDown, Grid3X3, List, TrendingUp, Clock, Users, Zap, Shield, Target, Flame, Crown, Gem, Activity } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -124,25 +124,47 @@ function calculateSmartScore(pnl: number, volume: number, rank: number): number 
   return Math.round(Math.max(0, Math.min(100, pnlScore + volumeScore + rankScore)))
 }
 
+// Badge type with icon and color info
+type Badge = { label: string; icon: 'whale' | 'shark' | 'dolphin' | 'gem' | 'target' | 'flame' | 'shield' | 'crown' | 'activity' | 'zap'; color: string }
+
 // Get trader badges based on stats
-function getTraderBadges(trader: LeaderboardTrader, rank: number): string[] {
-  const badges: string[] = []
+function getTraderBadges(trader: LeaderboardTrader, rank: number): Badge[] {
+  const badges: Badge[] = []
   
-  if (trader.pnl > 500000) badges.push('Elite Profit')
-  else if (trader.pnl > 100000) badges.push('Legendary Profit')
-  else if (trader.pnl > 50000) badges.push('High Profit')
-  
-  if (trader.vol > 10000000) badges.push('Volume King')
-  else if (trader.vol > 1000000) badges.push('High Volume')
-  
-  if (rank <= 10) badges.push('Top 10')
-  else if (rank <= 50) badges.push('Top 50')
-  
-  // Random category badge for variety
-  const categoryBadges = ['Crypto', 'Politics', 'Sports', 'Finance']
-  badges.push(categoryBadges[rank % categoryBadges.length])
-  
+  // Tier badge by volume (Whale > Shark > Dolphin)
+  if (trader.vol > 10000000) badges.push({ label: 'Whale', icon: 'crown', color: 'text-amber-400' })
+  else if (trader.vol > 1000000) badges.push({ label: 'Shark', icon: 'zap', color: 'text-blue-400' })
+  else if (trader.vol > 100000) badges.push({ label: 'Dolphin', icon: 'activity', color: 'text-cyan-400' })
+
+  // PnL performance badge
+  if (trader.pnl > 500000) badges.push({ label: 'Diamond Hands', icon: 'gem', color: 'text-violet-400' })
+  else if (trader.pnl > 100000) badges.push({ label: 'Sharp', icon: 'target', color: 'text-emerald-400' })
+  else if (trader.pnl > 10000) badges.push({ label: 'Profitable', icon: 'shield', color: 'text-green-400' })
+  else if (trader.pnl > 0) badges.push({ label: 'Positive', icon: 'shield', color: 'text-green-400/70' })
+
+  // Rank-based badge
+  if (rank <= 3) badges.push({ label: 'Top 3', icon: 'crown', color: 'text-yellow-400' })
+  else if (rank <= 10) badges.push({ label: 'Top 10', icon: 'flame', color: 'text-orange-400' })
+  else if (rank <= 25) badges.push({ label: 'Top 25', icon: 'flame', color: 'text-orange-400/70' })
+
   return badges.slice(0, 3)
+}
+
+// Badge icon component
+function BadgeIcon({ icon, className }: { icon: Badge['icon']; className?: string }) {
+  switch (icon) {
+    case 'whale': return <Crown className={className} />
+    case 'shark': return <Zap className={className} />
+    case 'dolphin': return <Activity className={className} />
+    case 'gem': return <Gem className={className} />
+    case 'target': return <Target className={className} />
+    case 'flame': return <Flame className={className} />
+    case 'shield': return <Shield className={className} />
+    case 'crown': return <Crown className={className} />
+    case 'activity': return <Activity className={className} />
+    case 'zap': return <Zap className={className} />
+    default: return null
+  }
 }
 
 // Format large numbers
@@ -226,10 +248,8 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
             key={i}
             className="inline-flex items-center gap-1 bg-secondary/70 border border-border/60 rounded-md px-2 py-0.5 text-[10px] text-muted-foreground font-medium"
           >
-            {badge === 'Elite Profit' && <Star className="h-2.5 w-2.5 text-yellow-500" />}
-            {badge === 'Legendary Profit' && <TrendingUp className="h-2.5 w-2.5 text-orange-500" />}
-            {badge === 'Volume King' && <Zap className="h-2.5 w-2.5 text-blue-500" />}
-            {badge}
+            <BadgeIcon icon={badge.icon} className={cn('h-2.5 w-2.5', badge.color)} />
+            {badge.label}
           </span>
         ))}
       </div>
