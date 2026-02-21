@@ -46,13 +46,13 @@ export function Header({ title, subtitle }: HeaderProps) {
           </Link>
 
           {/* Desktop Nav - inline buttons */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1.5">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  'px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap',
                   pathname === item.href
                     ? 'bg-foreground text-background'
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
@@ -76,7 +76,7 @@ export function Header({ title, subtitle }: HeaderProps) {
           {/* Mobile burger */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden flex items-center justify-center h-9 w-9 text-muted-foreground hover:text-foreground transition-colors"
+            className="lg:hidden flex items-center justify-center h-9 w-9 text-muted-foreground hover:text-foreground transition-colors"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -85,7 +85,7 @@ export function Header({ title, subtitle }: HeaderProps) {
 
       {/* Mobile Nav */}
       {mobileOpen && (
-        <nav className="md:hidden border-t border-border bg-background px-4 py-2 flex flex-col gap-1">
+        <nav className="lg:hidden border-t border-border bg-background px-4 py-2 flex flex-col gap-1">
           {navItems.map((item) => (
             <Link
               key={item.href}

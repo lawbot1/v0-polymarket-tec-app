@@ -285,10 +285,7 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
         </div>
         <div className="bg-secondary/40 rounded-lg px-3 py-2.5">
           <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Score</div>
-          <div className="flex items-center gap-1 font-semibold text-foreground text-sm font-mono">
-            {smartScore.toFixed(0)}<span className="text-muted-foreground text-[10px]">/100</span>
-            <Image src="/vantake-logo-white.png" alt="" width={20} height={20} className="h-5 w-5 object-contain opacity-80" />
-          </div>
+          <div className="font-semibold text-foreground text-sm font-mono">{smartScore.toFixed(0)}<span className="text-muted-foreground text-[10px]">/100</span></div>
         </div>
       </div>
       
@@ -527,7 +524,6 @@ export function TraderCards() {
                       <td className="px-4 py-3 text-center">
                         <span className="inline-flex items-center gap-1.5 bg-primary/20 text-primary px-2 py-1 rounded-lg text-sm font-medium">
                           {smartScore.toFixed(1)}/100
-                          <Image src="/vantake-logo-white.png" alt="" width={18} height={18} className="h-[18px] w-[18px] object-contain opacity-80" />
                         </span>
                       </td>
                       <td className={cn(

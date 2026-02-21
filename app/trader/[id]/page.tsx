@@ -446,9 +446,10 @@ export default function TraderPage({ params }: TraderPageProps) {
               <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Smart Score</div>
               {isLoading ? <Skeleton className="h-10 w-32" /> : (
                 <>
-                  <div className="flex items-baseline gap-1">
+                  <div className="flex items-center gap-2">
                     <span className="text-3xl font-semibold font-mono text-[#22c55e]">{smartScore.toFixed(2)}</span>
                     <span className="text-sm text-muted-foreground font-mono">/100</span>
+                    <Image src="/vantake-logo-white.png" alt="Vantake" width={28} height={28} className="h-7 w-7 object-contain opacity-80 ml-auto" />
                   </div>
                   <div className="mt-2 h-1.5 bg-secondary overflow-hidden">
                     <div className="h-full bg-[#22c55e] transition-all duration-500" style={{ width: `${smartScore}%` }} />
