@@ -163,9 +163,12 @@ interface TraderCardProps {
   trader: LeaderboardTrader
   rank: number
   onClick: () => void
+  userId: string | null
+  followedSet: Set<string>
+  trackedSet: Set<string>
 }
 
-function TraderCard({ trader, rank, onClick }: TraderCardProps) {
+function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: TraderCardProps) {
   const smartScore = calculateSmartScore(trader.pnl, trader.vol, rank)
   const badges = getTraderBadges(trader, rank)
   const sparklineData = generateSparkline(trader.pnl)
@@ -430,6 +433,9 @@ export function TraderCards() {
                 trader={trader}
                 rank={trader.rank || index + 1}
                 onClick={() => handleCardClick(trader.proxyWallet)}
+                userId={userId}
+                followedSet={followedSet}
+                trackedSet={trackedSet}
               />
             ))
           )}
