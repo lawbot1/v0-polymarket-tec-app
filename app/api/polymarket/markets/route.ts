@@ -5,18 +5,35 @@ const GAMMA_API_BASE = 'https://gamma-api.polymarket.com'
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const url = new URL(`${GAMMA_API_BASE}/markets`)
-    
-    // Forward all query parameters
-    searchParams.forEach((value, key) => {
+    const endpoint = searchParams.get('endpoint') || 'events'
+    const url = new URL(`${GAMMA_API_BASE}/${endpoint}`)
+
+    // Remove our custom param before forwarding
+    const forwardParams = new URLSearchParams(searchParams)
+    forwardParams.delete('endpoint')
+
+    // Forward all remaining query parameters
+    forwardParams.forEach((value, key) => {
       url.searchParams.set(key, value)
     })
 
+    // Defaults for popular markets
+    if (!forwardParams.has('order')) {
+      url.searchParams.set('order', 'volume_24hr')
+    }
+    if (!forwardParams.has('ascending')) {
+      url.searchParams.set('ascending', 'false')
+    }
+    if (!forwardParams.has('active')) {
+      url.searchParams.set('active', 'true')
+    }
+    if (!forwardParams.has('closed')) {
+      url.searchParams.set('closed', 'false')
+    }
+
     const res = await fetch(url.toString(), {
-      headers: {
-        'Accept': 'application/json',
-      },
-      next: { revalidate: 60 }
+      headers: { 'Accept': 'application/json' },
+      next: { revalidate: 60 },
     })
 
     if (!res.ok) {
