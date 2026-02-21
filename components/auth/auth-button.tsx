@@ -21,9 +21,10 @@ export function AuthButton() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Use getSession (reads local token, no network call) for fast UI
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
       setLoading(false)
     }
     getUser()

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -13,54 +13,29 @@ interface FollowButtonProps {
   variant?: 'follow' | 'track' | 'both'
   className?: string
   compact?: boolean
+  /** Pre-fetched status from parent to avoid per-card network calls */
+  initialFollowed?: boolean
+  initialTracked?: boolean
+  userId?: string | null
 }
 
-export function FollowButton({ traderAddress, traderName, variant = 'both', className, compact = false }: FollowButtonProps) {
+export function FollowButton({
+  traderAddress,
+  traderName,
+  variant = 'both',
+  className,
+  compact = false,
+  initialFollowed = false,
+  initialTracked = false,
+  userId = null,
+}: FollowButtonProps) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [userId, setUserId] = useState<string | null>(null)
-  const [isFollowed, setIsFollowed] = useState(false)
-  const [isTracked, setIsTracked] = useState(false)
+  const [isFollowed, setIsFollowed] = useState(initialFollowed)
+  const [isTracked, setIsTracked] = useState(initialTracked)
   const [loadingFollow, setLoadingFollow] = useState(false)
   const [loadingTrack, setLoadingTrack] = useState(false)
-  const [initialLoading, setInitialLoading] = useState(true)
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setInitialLoading(false)
-        return
-      }
-      setUserId(user.id)
-
-      // Check follow status
-      if (variant === 'follow' || variant === 'both') {
-        const { data: followed } = await supabase
-          .from('followed_traders')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('trader_address', traderAddress)
-          .maybeSingle()
-        setIsFollowed(!!followed)
-      }
-
-      // Check track status
-      if (variant === 'track' || variant === 'both') {
-        const { data: tracked } = await supabase
-          .from('tracked_wallets')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('wallet_address', traderAddress)
-          .maybeSingle()
-        setIsTracked(!!tracked)
-      }
-
-      setInitialLoading(false)
-    }
-    checkStatus()
-  }, [traderAddress])
 
   const handleFollow = async () => {
     if (!userId) {
@@ -115,10 +90,6 @@ export function FollowButton({ traderAddress, traderName, variant = 'both', clas
       setIsTracked(true)
     }
     setLoadingTrack(false)
-  }
-
-  if (initialLoading) {
-    return <div className={cn('h-10 bg-secondary/30 animate-pulse', className)} />
   }
 
   return (
