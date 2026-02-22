@@ -38,7 +38,7 @@ export default function CopytradingPage() {
   }
 
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center px-4 py-16">
+    <div className="flex flex-col items-center px-4 py-10">
       {/* Logo */}
       <div className="mb-6">
         <Image
