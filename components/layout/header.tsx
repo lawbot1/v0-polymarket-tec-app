@@ -22,6 +22,7 @@ const navItems = [
   { href: '/insider-signals', label: 'Signals' },
   { href: '/markets', label: 'Markets' },
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/copytrading', label: 'Copytrading' },
   { href: '/settings', label: 'Settings' },
 ]
 
