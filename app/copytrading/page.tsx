@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { Copy, Zap, Shield, TrendingUp, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AppShell } from '@/components/layout/app-shell'
 import { useState } from 'react'
 
 const upcomingFeatures = [
@@ -38,6 +39,7 @@ export default function CopytradingPage() {
   }
 
   return (
+    <AppShell>
     <div className="flex flex-col items-center px-4 py-10">
       {/* Logo */}
       <div className="mb-6">
@@ -133,5 +135,6 @@ export default function CopytradingPage() {
         </div>
       </div>
     </div>
+    </AppShell>
   )
 }
