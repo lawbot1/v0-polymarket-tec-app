@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Star, Wallet, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -15,7 +15,6 @@ interface FollowButtonProps {
   className?: string
   compact?: boolean
   showLogo?: boolean
-  /** Pre-fetched status from parent to avoid per-card network calls */
   initialFollowed?: boolean
   initialTracked?: boolean
   userId?: string | null
@@ -30,10 +29,13 @@ export function FollowButton({
   showLogo = false,
   initialFollowed = false,
   initialTracked = false,
-  userId = null,
+  userId: externalUserId = null,
 }: FollowButtonProps) {
-  const router = useRouter()
+  const { userId: authUserId, login } = useAuth()
   const supabase = createClient()
+
+  // Use externally passed userId if available, otherwise use auth hook
+  const userId = externalUserId ?? authUserId
 
   const [isFollowed, setIsFollowed] = useState(initialFollowed)
   const [isTracked, setIsTracked] = useState(initialTracked)
@@ -42,7 +44,7 @@ export function FollowButton({
 
   const handleFollow = async () => {
     if (!userId) {
-      router.push('/auth/login')
+      login()
       return
     }
     setLoadingFollow(true)
@@ -69,7 +71,7 @@ export function FollowButton({
 
   const handleTrack = async () => {
     if (!userId) {
-      router.push('/auth/login')
+      login()
       return
     }
     setLoadingTrack(true)

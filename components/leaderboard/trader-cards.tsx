@@ -14,6 +14,7 @@ import {
 import { useState, useEffect } from 'react'
 import useSWR from 'swr'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, ChevronDown, Grid3X3, List, Star, TrendingUp, Clock, Users, Zap, Shield, Target, Flame, Crown, Gem, Activity } from 'lucide-react'
@@ -378,27 +379,24 @@ export function TraderCards() {
   const error = swrError ? 'Failed to load trader data' : null
 
   // Batch-fetch user follow/track statuses ONCE (not per card)
-  const [userId, setUserId] = useState<string | null>(null)
+  const { userId } = useAuth()
   const [followedSet, setFollowedSet] = useState<Set<string>>(new Set())
   const [trackedSet, setTrackedSet] = useState<Set<string>>(new Set())
 
   useEffect(() => {
+    if (!userId) return
     const supabase = createClient()
     const fetchUserStatuses = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return
-      setUserId(session.user.id)
-
       const [{ data: followed }, { data: tracked }] = await Promise.all([
-        supabase.from('followed_traders').select('trader_address').eq('user_id', session.user.id),
-        supabase.from('tracked_wallets').select('wallet_address').eq('user_id', session.user.id),
+        supabase.from('followed_traders').select('trader_address').eq('user_id', userId),
+        supabase.from('tracked_wallets').select('wallet_address').eq('user_id', userId),
       ])
 
       if (followed) setFollowedSet(new Set(followed.map(f => f.trader_address)))
       if (tracked) setTrackedSet(new Set(tracked.map(t => t.wallet_address)))
     }
     fetchUserStatuses()
-  }, [])
+  }, [userId])
 
   const handleCardClick = (wallet: string) => {
     router.push(`/trader/${wallet}`)

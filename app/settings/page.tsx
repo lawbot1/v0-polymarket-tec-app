@@ -9,11 +9,13 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 import { Mail, MessageCircle, Check, Loader2 } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { userId: authUserId, authenticated, ready, login } = useAuth()
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
@@ -37,19 +39,19 @@ export default function SettingsPage() {
 
   // Load data from Supabase on mount
   useEffect(() => {
-    const loadData = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
-      setUserId(user.id)
+    if (!ready) return
+    if (!authenticated || !authUserId) {
+      setLoading(false)
+      return
+    }
+    setUserId(authUserId)
 
+    const loadData = async () => {
       // Load profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', authUserId)
         .single()
 
       if (profile) {
@@ -65,7 +67,7 @@ export default function SettingsPage() {
       const { data: notifSettings } = await supabase
         .from('notification_settings')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', authUserId)
         .single()
 
       if (notifSettings) {
@@ -80,7 +82,7 @@ export default function SettingsPage() {
       setLoading(false)
     }
     loadData()
-  }, [])
+  }, [ready, authenticated, authUserId])
 
   const handleSave = async () => {
     if (!userId) return

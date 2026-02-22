@@ -9,6 +9,7 @@ import { AuthButton } from '@/components/auth/auth-button'
 import { cn } from '@/lib/utils'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
 
 interface HeaderProps {
   title?: string
@@ -37,6 +38,7 @@ interface WalletActivity {
 
 export function Header({ title, subtitle }: HeaderProps) {
   const pathname = usePathname()
+  const { userId } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [trackedCount, setTrackedCount] = useState(0)
@@ -61,21 +63,19 @@ export function Header({ title, subtitle }: HeaderProps) {
     const loadTracked = async () => {
       setLoadingNotifs(true)
       try {
-        const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.user) {
+        if (!userId) {
           setTrackedCount(0)
           setActivities([])
           setLoadingNotifs(false)
           return
         }
+        const supabase = createClient()
         const { data: tracked } = await supabase
           .from('tracked_wallets')
           .select('wallet_address, wallet_name')
-          .eq('user_id', session.user.id)
+          .eq('user_id', userId)
         
         setTrackedCount(tracked?.length ?? 0)
-        // For now, no live activity feed -- show empty state
         setActivities([])
       } catch {
         setTrackedCount(0)
@@ -85,7 +85,7 @@ export function Header({ title, subtitle }: HeaderProps) {
       }
     }
     loadTracked()
-  }, [notifOpen])
+  }, [notifOpen, userId])
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background">

@@ -19,6 +19,7 @@ import {
 } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
 import {
   type LeaderboardTrader,
   type UserPosition,
@@ -79,6 +80,7 @@ function KpiCard({
 
 export default function MyDashboardPage() {
   const router = useRouter()
+  const { userId: authUserId, authenticated, ready } = useAuth()
   const supabase = createClient()
 
   const [user, setUser] = useState<{ id: string } | null>(null)
@@ -94,31 +96,31 @@ export default function MyDashboardPage() {
 
   // Load user and their saved wallet
   useEffect(() => {
-    const loadUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
-      setUser(user)
+    if (!ready) return
+    if (!authenticated || !authUserId) {
+      setIsLoading(false)
+      return
+    }
+    setUser({ id: authUserId })
 
+    const loadUser = async () => {
       // Load profile from Supabase
       const { data: profileData } = await supabase
         .from('profiles')
         .select('polymarket_wallet')
-        .eq('id', user.id)
+        .eq('id', authUserId)
         .single()
 
       // Load counts
       const { count: fCount } = await supabase
         .from('followed_traders')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', authUserId)
 
       const { count: tCount } = await supabase
         .from('tracked_wallets')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', authUserId)
 
       setFollowedCount(fCount || 0)
       setTrackedCount(tCount || 0)
@@ -132,7 +134,7 @@ export default function MyDashboardPage() {
       }
     }
     loadUser()
-  }, [])
+  }, [ready, authenticated, authUserId])
 
   const fetchUserData = useCallback(async (address: string) => {
     setIsLoading(true)

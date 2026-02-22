@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
 import {
   type LeaderboardTrader,
   type UserTrade,
@@ -166,6 +167,7 @@ function WalletCard({
 
 export default function WalletTrackerPage() {
   const router = useRouter()
+  const { userId: authUserId, authenticated, ready, login } = useAuth()
   const supabase = createClient()
 
   const [user, setUser] = useState<{ id: string } | null>(null)
@@ -177,20 +179,19 @@ export default function WalletTrackerPage() {
 
   // Load user and their tracked wallets from Supabase
   useEffect(() => {
-    const loadData = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        // Show sign-in prompt for non-logged-in users
-        setIsInitialLoading(false)
-        return
-      }
-      setUser(user)
+    if (!ready) return
+    if (!authenticated || !authUserId) {
+      setIsInitialLoading(false)
+      return
+    }
+    setUser({ id: authUserId })
 
+    const loadData = async () => {
       // Load tracked wallets from DB
       const { data: savedWallets } = await supabase
         .from('tracked_wallets')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', authUserId)
         .order('created_at', { ascending: false })
 
       if (savedWallets && savedWallets.length > 0) {
@@ -211,7 +212,7 @@ export default function WalletTrackerPage() {
       }
     }
     loadData()
-  }, [])
+  }, [ready, authenticated, authUserId])
 
   const fetchWalletData = async (address: string, index: number, currentWallets?: TrackedWallet[]) => {
     try {
@@ -322,7 +323,7 @@ export default function WalletTrackerPage() {
             <p className="mt-3 text-muted-foreground leading-relaxed">
               Sign in to track Polymarket wallets. Your tracked wallets will be saved to your account.
             </p>
-            <Button onClick={() => router.push('/auth/login')} className="mt-6" size="lg">
+            <Button onClick={login} className="mt-6" size="lg">
               Sign In
             </Button>
           </div>

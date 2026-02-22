@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Space_Grotesk, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { SWRProvider } from '@/components/providers/swr-provider'
+import { PrivyProvider } from '@/components/providers/privy-provider'
 import './globals.css'
 
 const spaceGrotesk = Space_Grotesk({ 
@@ -32,9 +33,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
-        <SWRProvider>
-          {children}
-        </SWRProvider>
+        <PrivyProvider>
+          <SWRProvider>
+            {children}
+          </SWRProvider>
+        </PrivyProvider>
         <Analytics />
       </body>
     </html>
