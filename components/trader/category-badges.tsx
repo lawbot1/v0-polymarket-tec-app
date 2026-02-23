@@ -37,6 +37,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     label: 'Elite Profit',
     description: 'Realized profits exceeding $500K',
     icon: Trophy,
+    customIcon: '/icons/elite-profit.png',
     color: 'text-[#fbbf24]',
     borderColor: 'border-[#fbbf24]/30',
   },
@@ -45,6 +46,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     label: 'Legendary Profit',
     description: 'Realized profits exceeding $1M',
     icon: Crown,
+    customIcon: '/icons/legendary-profit.png',
     color: 'text-[#f59e0b]',
     borderColor: 'border-[#f59e0b]/30',
   },
@@ -53,6 +55,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     label: 'Volume King',
     description: 'Veteran with 1,000+ resolved markets',
     icon: Zap,
+    customIcon: '/icons/volume-king.png',
     color: 'text-[#a78bfa]',
     borderColor: 'border-[#a78bfa]/30',
   },
@@ -61,6 +64,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     label: 'Crypto',
     description: 'Top 1% performer in Crypto markets by smart score (smart score > 60)',
     icon: Activity,
+    customIcon: '/icons/crypto.png',
     color: 'text-[#60a5fa]',
     borderColor: 'border-[#60a5fa]/30',
   },
@@ -110,6 +114,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     label: 'Rising Star',
     description: 'New trader with exceptional early performance',
     icon: Flame,
+    customIcon: '/icons/rising-star.png',
     color: 'text-[#fb923c]',
     borderColor: 'border-[#fb923c]/30',
   },
@@ -118,6 +123,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     label: 'Consistent',
     description: 'Maintains positive PnL across multiple timeframes',
     icon: Shield,
+    customIcon: '/icons/consistent.png',
     color: 'text-[#a3e635]',
     borderColor: 'border-[#a3e635]/30',
   },
@@ -126,6 +132,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     label: 'Alpha Hunter',
     description: 'Exceptional risk-adjusted returns with PnL >$100K',
     icon: TrendingUp,
+    customIcon: '/icons/alpha-hunter.png',
     color: 'text-[#c084fc]',
     borderColor: 'border-[#c084fc]/30',
   },
@@ -248,8 +255,8 @@ export function CategoryBadge({ category, size = 'sm', className }: CategoryBadg
           <Image
             src={category.customIcon}
             alt=""
-            width={size === 'sm' ? 14 : 16}
-            height={size === 'sm' ? 14 : 16}
+            width={size === 'sm' ? 20 : 24}
+            height={size === 'sm' ? 20 : 24}
             className="opacity-90 flex-shrink-0"
           />
         ) : (
@@ -267,7 +274,7 @@ export function CategoryBadge({ category, size = 'sm', className }: CategoryBadg
           <div className="relative">
             <div className="flex items-center gap-1.5 mb-1.5">
               {category.customIcon ? (
-                <Image src={category.customIcon} alt="" width={14} height={14} className="opacity-90 flex-shrink-0" />
+                <Image src={category.customIcon} alt="" width={20} height={20} className="opacity-90 flex-shrink-0" />
               ) : (
                 <Icon className={cn('h-3.5 w-3.5', category.color)} />
               )}
@@ -333,7 +340,7 @@ export function CategoriesRow({ categories, maxVisible = 3, size = 'sm', classNa
                     <div key={cat.id}>
                       <div className="flex items-center gap-1.5 mb-0.5">
                         {cat.customIcon ? (
-                          <Image src={cat.customIcon} alt="" width={12} height={12} className="opacity-90 flex-shrink-0" />
+                          <Image src={cat.customIcon} alt="" width={18} height={18} className="opacity-90 flex-shrink-0" />
                         ) : (
                           <CatIcon className={cn('h-3 w-3', cat.color)} />
                         )}
