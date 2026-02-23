@@ -21,15 +21,17 @@ export function AuthButton() {
   }
 
   if (!authenticated || !user) {
+    const privyConfigured = !!process.env.NEXT_PUBLIC_PRIVY_APP_ID
     return (
       <Button
         variant="outline"
         size="sm"
         className="gap-2 bg-transparent rounded-lg"
         onClick={login}
+        title={!privyConfigured ? 'Privy env not configured' : undefined}
       >
         <LogIn className="h-4 w-4" />
-        Sign In
+        {privyConfigured ? 'Sign In' : 'Sign In (No Auth)'}
       </Button>
     )
   }

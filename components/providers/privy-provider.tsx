@@ -33,6 +33,10 @@ export function PrivyProvider({ children }: { children: ReactNode }) {
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID
 
   if (!appId) {
+    // In production, show explicit error instead of silently falling back
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && !window.location.hostname.includes('vusercontent.net')) {
+      console.error('[Privy] NEXT_PUBLIC_PRIVY_APP_ID is not set. Auth will not work.')
+    }
     return <>{children}</>
   }
 
@@ -47,7 +51,7 @@ export function PrivyProvider({ children }: { children: ReactNode }) {
             theme: 'dark',
             accentColor: '#22c55e',
             logo: '/vantake-main-logo.png',
-            walletList: ['metamask', 'phantom', 'coinbase_wallet', 'detected_ethereum_wallets'],
+            walletList: ['metamask', 'coinbase_wallet', 'detected_ethereum_wallets'],
           },
         }}
       >

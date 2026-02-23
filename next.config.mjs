@@ -33,11 +33,17 @@ const nextConfig = {
         child_process: false,
       }
     }
-    // Ignore .node binary files
-    config.module.rules.push({
-      test: /\.node$/,
-      use: 'ignore-loader',
-    })
+    // Stub missing Solana modules that Privy v3 internally references
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@solana-program/memo': false,
+      '@solana/kit': false,
+      '@solana-program/system': false,
+      '@solana-program/token': false,
+      '@solana-program/token-2022': false,
+      '@solana-program/compute-budget': false,
+      '@solana/sysvars': false,
+    }
     return config
   },
 }

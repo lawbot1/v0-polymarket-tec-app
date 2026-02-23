@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,8 @@ import { Mail, MessageCircle, Check, Loader2 } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const showDebug = searchParams.get('debug') === '1'
   const { userId: authUserId, authenticated, ready, login } = useAuth()
   const supabase = createClient()
 
@@ -256,6 +258,17 @@ export default function SettingsPage() {
             )}
           </Button>
         </div>
+        {/* Build Debug Info - visible with ?debug=1 */}
+        {showDebug && (
+          <div className="sharp-panel p-4 text-xs font-mono text-muted-foreground space-y-1">
+            <div className="text-foreground font-semibold mb-2">Build Info (debug)</div>
+            <div>Commit: {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 8) || 'local'}</div>
+            <div>Deployment: {process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT_ID || 'local'}</div>
+            <div>Env: {process.env.NEXT_PUBLIC_VERCEL_ENV || 'development'}</div>
+            <div>Privy App ID: {process.env.NEXT_PUBLIC_PRIVY_APP_ID ? 'set' : 'MISSING'}</div>
+            <div>Auth Provider: Privy v3</div>
+          </div>
+        )}
       </div>
     </AppShell>
   )
