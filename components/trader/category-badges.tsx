@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import Image from 'next/image'
 import {
   Crown,
   Zap,
@@ -25,6 +26,7 @@ export interface TraderCategory {
   label: string
   description: string
   icon: React.ElementType
+  customIcon?: string // path to a custom image icon
   color: string
   borderColor: string
 }
@@ -90,7 +92,8 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     id: 'whale',
     label: 'Whale',
     description: 'Total volume exceeding $1M',
-    icon: Crown,
+    icon: Crown, // fallback
+    customIcon: '/icons/whale.png',
     color: 'text-[#60a5fa]',
     borderColor: 'border-[#60a5fa]/30',
   },
@@ -241,7 +244,17 @@ export function CategoryBadge({ category, size = 'sm', className }: CategoryBadg
           size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
         )}
       >
-        <Icon className={cn(category.color, size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
+        {category.customIcon ? (
+          <Image
+            src={category.customIcon}
+            alt=""
+            width={size === 'sm' ? 14 : 16}
+            height={size === 'sm' ? 14 : 16}
+            className="opacity-90 flex-shrink-0"
+          />
+        ) : (
+          <Icon className={cn(category.color, size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
+        )}
         <span className="font-medium text-foreground/90">{category.label}</span>
       </span>
 
@@ -253,7 +266,11 @@ export function CategoryBadge({ category, size = 'sm', className }: CategoryBadg
 
           <div className="relative">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <Icon className={cn('h-3.5 w-3.5', category.color)} />
+              {category.customIcon ? (
+                <Image src={category.customIcon} alt="" width={14} height={14} className="opacity-90 flex-shrink-0" />
+              ) : (
+                <Icon className={cn('h-3.5 w-3.5', category.color)} />
+              )}
               <span className={cn('text-xs font-semibold', category.color)}>{category.label}</span>
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -315,7 +332,11 @@ export function CategoriesRow({ categories, maxVisible = 3, size = 'sm', classNa
                   return (
                     <div key={cat.id}>
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <CatIcon className={cn('h-3 w-3', cat.color)} />
+                        {cat.customIcon ? (
+                          <Image src={cat.customIcon} alt="" width={12} height={12} className="opacity-90 flex-shrink-0" />
+                        ) : (
+                          <CatIcon className={cn('h-3 w-3', cat.color)} />
+                        )}
                         <span className={cn('text-[11px] font-semibold', cat.color)}>{cat.label}</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground/70 leading-relaxed pl-[18px]">
