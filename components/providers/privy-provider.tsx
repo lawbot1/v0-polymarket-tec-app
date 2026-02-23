@@ -48,7 +48,6 @@ export function PrivyProvider({ children }: { children: ReactNode }) {
             accentColor: '#22c55e',
             logo: '/vantake-main-logo.png',
           },
-          loginMethods: ['email', 'wallet'],
         }}
       >
         {children}
