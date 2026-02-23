@@ -51,8 +51,8 @@
   --success: oklch(0.6 0.12 145);
   --warning: oklch(0.7 0.12 60);
   --glow: transparent;
-  /* Smart Score green */
-  --score: oklch(0.72 0.19 145);
+  /* Smart Score — neutral white-dark */
+  --score: oklch(0.85 0 0);
 }
 
 @theme inline {

@@ -195,8 +195,13 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     categories.push(TRADER_CATEGORIES['consistent'])
   }
 
-  // Rising Star
-  if (stats.rank && stats.rank <= 50 && (stats.tradesCount || 0) < 100 && stats.pnl > 0) {
+  // Rising Star -- genuinely new traders (low volume, few trades) who are already profitable
+  if (
+    stats.pnl > 10_000 &&
+    stats.volume < 500_000 &&
+    (stats.tradesCount || 0) < 200 &&
+    stats.smartScore > 50
+  ) {
     categories.push(TRADER_CATEGORIES['rising-star'])
   }
 
