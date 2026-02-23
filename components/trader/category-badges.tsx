@@ -64,7 +64,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     label: 'Whale',
     description: 'Total volume exceeding $1M',
     icon: Crown,
-    emoji: '\u{1F40B}',
+    customIcon: '/icons/whale.png',
     color: 'text-[#60a5fa]',
     borderColor: 'border-[#60a5fa]/30',
   },
@@ -73,7 +73,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     label: 'Shark',
     description: 'Volume >$10M with portfolio >$100K',
     icon: Gem,
-    emoji: '\u{1F988}',
+    customIcon: '/icons/shark.png',
     color: 'text-[#34d399]',
     borderColor: 'border-[#34d399]/30',
   },
@@ -110,20 +110,10 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     label: 'Diamond Hands',
     description: 'Holds positions through volatility with strong conviction',
     icon: Gem,
-    emoji: '\u{1F48E}',
+    customIcon: '/icons/diamond-hands.png',
     color: 'text-[#67e8f9]',
     borderColor: 'border-[#67e8f9]/30',
   },
-  'degen': {
-    id: 'degen',
-    label: 'Degen',
-    description: 'High-frequency trader with 500+ positions',
-    icon: Flame,
-    emoji: '\u{1F525}',
-    color: 'text-[#f97316]',
-    borderColor: 'border-[#f97316]/30',
-  },
-
   // ========== Market / search categories (with emojis) ==========
   'crypto': {
     id: 'crypto',
@@ -309,11 +299,6 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     categories.push(TRADER_CATEGORIES['diamond-hands'])
   }
 
-  // Degen -- high frequency trading
-  if ((stats.positionsCount || 0) >= 500 || (stats.tradesCount || 0) >= 500) {
-    categories.push(TRADER_CATEGORIES['degen'])
-  }
-
   // ---- Active market category: if user filtered by a market, assign it ----
   if (stats.activeMarketCategory && stats.activeMarketCategory !== 'All') {
     const catKey = stats.activeMarketCategory.toLowerCase()
@@ -355,7 +340,6 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
       { id: 'diamond-hands', condition: stats.volume > 200_000 },
       { id: 'whale', condition: stats.volume > 300_000 },
       { id: 'crypto', condition: stats.smartScore > 35 },
-      { id: 'degen', condition: (stats.tradesCount || 0) > 100 },
       { id: 'rising-star', condition: stats.pnl > 0 && (stats.tradesCount || 0) < 800 },
       { id: 'alpha-hunter', condition: stats.pnl > 50_000 && stats.smartScore > 55 },
       { id: 'volume-king', condition: stats.volume > 1_000_000 },
