@@ -49,9 +49,9 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
             <Image
               src="/vantake-logo-white.png"
               alt="Vantake"
-              width={22}
-              height={22}
-              className="opacity-70"
+              width={44}
+              height={44}
+              className="opacity-70 -ml-1"
             />
             <div className="flex items-baseline gap-0.5">
               <span className="text-2xl font-semibold tabular-nums text-score leading-none">{score.toFixed(1)}</span>
@@ -83,9 +83,9 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
           <Image
             src="/vantake-logo-white.png"
             alt="Vantake"
-            width={18}
-            height={18}
-            className="opacity-70"
+            width={36}
+            height={36}
+            className="opacity-70 -ml-1"
           />
           <div className="flex items-baseline gap-0.5">
             <span className="text-xl font-semibold tabular-nums text-score leading-none">{score.toFixed(1)}</span>
