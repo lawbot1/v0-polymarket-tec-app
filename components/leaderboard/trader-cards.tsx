@@ -26,6 +26,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import Image from 'next/image'
 import { FollowButton } from '@/components/trader/follow-button'
+import { SmartScoreBadge } from '@/components/trader/smart-score-badge'
+import { getTraderCategories, CategoriesRow } from '@/components/trader/category-badges'
 
 const leaderboardFetcher = async (url: string) => {
   const res = await fetch(url)
@@ -34,13 +36,13 @@ const leaderboardFetcher = async (url: string) => {
 }
 
 type UITimeframe = '24H' | '7D' | '30D' | 'All'
-type UICategory = 'All' | 'Politics' | 'Crypto' | 'Sports' | 'Finance' | 'Pop Culture' | 'Tech'
+type UICategory = 'All' | 'World' | 'Elections' | 'Tech' | 'Geopolitics' | 'Economy' | 'Pop Culture' | 'Sports' | 'Earnings' | 'Trump' | 'Politics' | 'Crypto' | 'Mention Markets'
 type ViewMode = 'grid' | 'list'
 
 type FilterType = 'all' | 'our-picks' | 'high-pnl' | 'high-volume' | 'rising-stars'
 
 const timeframes: UITimeframe[] = ['24H', '7D', '30D', 'All']
-const categories: UICategory[] = ['All', 'Politics', 'Crypto', 'Sports', 'Finance', 'Pop Culture', 'Tech']
+const categories: UICategory[] = ['All', 'World', 'Elections', 'Tech', 'Geopolitics', 'Economy', 'Pop Culture', 'Sports', 'Earnings', 'Trump', 'Politics', 'Crypto', 'Mention Markets']
 
 const filters: { id: FilterType; label: string; icon: React.ReactNode }[] = [
   { id: 'our-picks', label: 'Our Picks', icon: <Star className="h-3 w-3" /> },
@@ -190,79 +192,85 @@ interface TraderCardProps {
   userId: string | null
   followedSet: Set<string>
   trackedSet: Set<string>
+  activeCategory?: string
 }
 
-function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: TraderCardProps) {
+function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet, activeCategory }: TraderCardProps) {
   const smartScore = calculateSmartScore(trader.pnl, trader.vol, rank)
-  const badges = getTraderBadges(trader, rank)
   const sparklineData = generateSparkline(trader.pnl)
   const isPositive = trader.pnl >= 0
   const winRate = 45 + Math.random() * 15
-  const sharpe = 5 + Math.random() * 15
+  const sharpe = (5 + Math.random() * 15)
+
+  // Risk/profitability for Smart Score tooltip
+  const riskEfficiency = Math.min(99.99, Math.max(0, 50 + (smartScore - 50) * 1.2))
+  const profitability = Math.min(99.99, Math.max(0, 50 + (trader.pnl / Math.max(trader.vol || 1, 1)) * 500))
+
+  // Categories
+  const traderCategories = getTraderCategories({
+    pnl: trader.pnl,
+    volume: trader.vol,
+    smartScore,
+    winRate,
+    rank,
+    activeMarketCategory: activeCategory,
+  })
   
   return (
     <div 
       onClick={onClick}
-      className="relative bg-card border border-border rounded-xl p-5 hover:border-foreground/20 transition-all duration-300 cursor-pointer group overflow-hidden"
+      className="relative bg-card border border-border rounded-xl p-5 hover:border-foreground/20 transition-all duration-300 cursor-pointer group"
     >
-      {/* Subtle top accent line */}
-      <div className={cn(
-        'absolute top-0 left-0 right-0 h-[2px]',
-        isPositive ? 'bg-gradient-to-r from-emerald-500/60 via-emerald-400/30 to-transparent' : 'bg-gradient-to-r from-red-500/60 via-red-400/30 to-transparent'
-      )} />
-
-      {/* Rank badge */}
-      <div className="absolute top-3 right-4 text-[11px] font-mono text-muted-foreground/60">
-        #{String(rank).padStart(2, '0')}
-      </div>
-      
-      {/* Header: Avatar + Name */}
-      <div className="flex items-center gap-3.5 mb-4">
-        {trader.profileImage ? (
-          <div className="h-11 w-11 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-border group-hover:ring-foreground/20 transition-all">
-            <Image
-              src={trader.profileImage || "/placeholder.svg"}
-              alt={trader.userName || 'Trader'}
-              width={44}
-              height={44}
-              className="h-full w-full object-cover"
-            />
+      {/* Row 1: Avatar + Name (left) | Smart Score badge (right) -- same line */}
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          {trader.profileImage ? (
+            <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-border/50">
+              <Image
+                src={trader.profileImage || "/placeholder.svg"}
+                alt={trader.userName || 'Trader'}
+                width={40}
+                height={40}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center bg-secondary border border-border rounded-full flex-shrink-0 text-foreground font-bold text-sm">
+              {(trader.userName || trader.proxyWallet.slice(2, 4)).toUpperCase().slice(0, 2)}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="font-semibold text-foreground text-sm truncate leading-tight">
+              {trader.userName || formatAddress(trader.proxyWallet)}
+            </div>
+            <div className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
+              {formatAddress(trader.proxyWallet)}
+            </div>
           </div>
-        ) : (
-          <div className="flex h-11 w-11 items-center justify-center bg-secondary border border-border rounded-full flex-shrink-0 text-foreground font-bold text-sm ring-2 ring-border group-hover:ring-foreground/20 transition-all">
-            {(trader.userName || trader.proxyWallet.slice(2, 4)).toUpperCase().slice(0, 2)}
-          </div>
-        )}
-        <div className="min-w-0">
-          <div className="font-semibold text-foreground text-sm truncate">
-            {trader.userName || formatAddress(trader.proxyWallet)}
-          </div>
-          <div className="text-[11px] text-muted-foreground font-mono truncate">
-            {formatAddress(trader.proxyWallet)}
-          </div>
+        </div>
+        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <SmartScoreBadge
+            score={smartScore}
+            tooltipData={{ riskEfficiency, profitability }}
+            size="sm"
+          />
         </div>
       </div>
       
-      {/* Badges row */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {badges.map((badge, i) => (
-          <span 
-            key={i}
-            className="inline-flex items-center gap-1 bg-secondary/70 border border-border/60 rounded-md px-2 py-0.5 text-[10px] text-muted-foreground font-medium"
-          >
-            <BadgeIcon icon={badge.icon} className={cn('h-2.5 w-2.5', badge.color)} />
-            {badge.label}
-          </span>
-        ))}
-      </div>
+      {/* Row 2: Category badges -- max 3 visible + "+N" */}
+      {traderCategories.length > 0 && (
+        <div className="mb-4" onClick={(e) => e.stopPropagation()}>
+          <CategoriesRow categories={traderCategories} maxVisible={3} size="sm" />
+        </div>
+      )}
 
       {/* Divider */}
-      <div className="h-px bg-border/50 mb-4" />
+      <div className="h-px bg-border/40 mb-4" />
       
-      {/* PnL + Sparkline */}
+      {/* Row 3: PnL + Sparkline */}
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1">Total PnL</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1">PnL</div>
           <div className={cn(
             'text-2xl font-bold font-mono tracking-tight',
             isPositive ? 'text-emerald-400' : 'text-red-400'
@@ -273,23 +281,23 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
         <MiniSparkline data={sparklineData} positive={isPositive} />
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="bg-secondary/40 rounded-lg px-3 py-2.5">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Volume</div>
+      {/* Row 4: 3-column stats */}
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <div>
+          <div className="text-[11px] text-muted-foreground font-medium mb-0.5">Volume</div>
           <div className="font-semibold text-foreground text-sm font-mono">{formatLargeNumber(trader.vol)}</div>
         </div>
-        <div className="bg-secondary/40 rounded-lg px-3 py-2.5">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Win Rate</div>
+        <div>
+          <div className="text-[11px] text-muted-foreground font-medium mb-0.5">Win Rate</div>
           <div className="font-semibold text-foreground text-sm font-mono">{winRate.toFixed(1)}%</div>
         </div>
-        <div className="bg-secondary/40 rounded-lg px-3 py-2.5">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Score</div>
-          <div className="font-semibold text-foreground text-sm font-mono">{smartScore.toFixed(0)}<span className="text-muted-foreground text-[10px]">/100</span></div>
+        <div>
+          <div className="text-[11px] text-muted-foreground font-medium mb-0.5">Sharpe</div>
+          <div className="font-semibold text-foreground text-sm font-mono">{sharpe.toFixed(2)}</div>
         </div>
       </div>
       
-      {/* Follow Button */}
+      {/* Row 5: Follow Button */}
       <FollowButton
         traderAddress={trader.proxyWallet}
         traderName={trader.userName}
@@ -306,30 +314,51 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
 
 function TraderCardSkeleton() {
   return (
-    <div className="bg-card border border-border rounded-xl p-5 overflow-hidden relative">
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-border/30" />
-      <div className="flex items-center gap-3.5 mb-4">
-        <Skeleton className="h-11 w-11 rounded-full" />
+    <div className="bg-card border border-border rounded-xl p-5">
+      {/* Header row: avatar + name | smart score badge */}
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+          <div>
+            <Skeleton className="h-4 w-28 mb-1.5" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        <Skeleton className="h-[42px] w-[110px] rounded-lg flex-shrink-0" />
+      </div>
+      {/* Categories */}
+      <div className="flex gap-1.5 mb-4">
+        <Skeleton className="h-6 w-24 rounded-full" />
+        <Skeleton className="h-6 w-28 rounded-full" />
+        <Skeleton className="h-6 w-16 rounded-full" />
+        <Skeleton className="h-6 w-8 rounded-full" />
+      </div>
+      {/* Divider */}
+      <div className="h-px bg-border/40 mb-4" />
+      {/* PnL + Sparkline */}
+      <div className="flex justify-between items-end mb-5">
         <div>
-          <Skeleton className="h-4 w-28 mb-1.5" />
-          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-3 w-10 mb-1" />
+          <Skeleton className="h-8 w-32" />
+        </div>
+        <Skeleton className="h-10 w-28" />
+      </div>
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <div>
+          <Skeleton className="h-3 w-14 mb-1" />
+          <Skeleton className="h-5 w-16" />
+        </div>
+        <div>
+          <Skeleton className="h-3 w-14 mb-1" />
+          <Skeleton className="h-5 w-12" />
+        </div>
+        <div>
+          <Skeleton className="h-3 w-14 mb-1" />
+          <Skeleton className="h-5 w-12" />
         </div>
       </div>
-      <div className="flex gap-1.5 mb-4">
-        <Skeleton className="h-5 w-16 rounded-md" />
-        <Skeleton className="h-5 w-20 rounded-md" />
-        <Skeleton className="h-5 w-14 rounded-md" />
-      </div>
-      <div className="h-px bg-border/50 mb-4" />
-      <div className="flex justify-between mb-4">
-        <Skeleton className="h-9 w-32" />
-        <Skeleton className="h-8 w-24" />
-      </div>
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <Skeleton className="h-14 w-full rounded-lg" />
-        <Skeleton className="h-14 w-full rounded-lg" />
-        <Skeleton className="h-14 w-full rounded-lg" />
-      </div>
+      {/* Follow button */}
       <Skeleton className="h-10 w-full rounded-lg" />
     </div>
   )
@@ -403,9 +432,36 @@ export function TraderCards() {
 
   return (
     <div className="space-y-4">
-      {/* Header Row - Title and Timeframe */}
+      {/* Header Row - Title, Category, and Timeframe */}
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <h1 className="text-2xl font-bold text-foreground">Trader Profiles</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-foreground">Trader Profiles</h1>
+          
+          {/* Category Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2 bg-secondary/30 border-border text-sm font-medium">
+                <span className="text-muted-foreground">Category:</span>
+                <span className="text-foreground">{category}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48 bg-card border-border">
+              {categories.map((cat) => (
+                <DropdownMenuItem
+                  key={cat}
+                  onClick={() => setCategory(cat)}
+                  className={cn(
+                    'cursor-pointer text-sm',
+                    category === cat ? 'text-foreground font-medium bg-secondary/50' : 'text-muted-foreground'
+                  )}
+                >
+                  {cat}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         
         {/* Timeframe Tabs */}
         <div className="flex items-center border border-border rounded-lg overflow-hidden">
@@ -456,6 +512,7 @@ export function TraderCards() {
                 userId={userId}
                 followedSet={followedSet}
                 trackedSet={trackedSet}
+                activeCategory={category}
               />
             ))
           )}

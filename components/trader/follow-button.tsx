@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Star, Wallet, Check, Loader2 } from 'lucide-react'
+import { Wallet, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 
@@ -27,7 +27,7 @@ export function FollowButton({
   variant = 'both',
   className,
   compact = false,
-  showLogo = false,
+  showLogo: _showLogo = false,
   initialFollowed = false,
   initialTracked = false,
   userId = null,
@@ -117,16 +117,14 @@ export function FollowButton({
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : isFollowed ? (
             <Check className="h-3.5 w-3.5" />
-          ) : showLogo ? (
+          ) : (
             <Image
               src="/vantake-logo-white.png"
               alt=""
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] object-contain invert dark:invert-0"
+              width={28}
+              height={28}
+              className="opacity-90"
             />
-          ) : (
-            <Star className="h-3.5 w-3.5" />
           )}
           {!compact && (isFollowed ? 'Following' : 'Follow')}
         </Button>
