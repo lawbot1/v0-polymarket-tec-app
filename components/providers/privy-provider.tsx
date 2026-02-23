@@ -19,11 +19,19 @@ export function PrivyProvider({ children }: { children: ReactNode }) {
           theme: 'dark',
           accentColor: '#22c55e',
           logo: '/vantake-main-logo.png',
-          showWalletLoginFirst: true,
+          showWalletLoginFirst: false,
+          walletChainType: 'ethereum-only',
         },
-        loginMethods: ['wallet', 'email', 'google'],
+        loginMethods: ['email', 'wallet'],
+        supportedChains: undefined,
+        walletConnectCloudProjectId: undefined,
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
+        },
+        externalWallets: {
+          metamask: { connectionOptions: { shouldAutoConnect: false } },
+          phantom: { connectionOptions: { shouldAutoConnect: false } },
+          coinbaseWallet: { connectionOptions: { shouldAutoConnect: false } },
         },
       }}
     >
