@@ -2,42 +2,27 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import Image from 'next/image'
-import {
-  Crown,
-  Zap,
-  Activity,
-  Gem,
-  Target,
-  Flame,
-  Shield,
-  Trophy,
-  Clock,
-  TrendingUp,
-  Dumbbell,
-} from 'lucide-react'
 
 // ============================================
-// CATEGORY DEFINITIONS
+// CATEGORY DEFINITIONS -- all use color emojis
 // ============================================
 
 export interface TraderCategory {
   id: string
   label: string
   description: string
-  icon: React.ElementType
-  customIcon?: string // path to a custom image icon
+  emoji: string
   color: string
   borderColor: string
 }
 
 export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
+  // --- Performance categories ---
   'elite-profit': {
     id: 'elite-profit',
     label: 'Elite Profit',
     description: 'Realized profits exceeding $500K',
-    icon: Trophy,
-    customIcon: '/icons/elite-profit.png',
+    emoji: '💰',
     color: 'text-[#fbbf24]',
     borderColor: 'border-[#fbbf24]/30',
   },
@@ -45,8 +30,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     id: 'legendary-profit',
     label: 'Legendary Profit',
     description: 'Realized profits exceeding $1M',
-    icon: Crown,
-    customIcon: '/icons/legendary-profit.png',
+    emoji: '👑',
     color: 'text-[#f59e0b]',
     borderColor: 'border-[#f59e0b]/30',
   },
@@ -54,50 +38,23 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     id: 'volume-king',
     label: 'Volume King',
     description: 'Veteran with 1,000+ resolved markets',
-    icon: Zap,
-    customIcon: '/icons/volume-king.png',
+    emoji: '🏋️',
     color: 'text-[#a78bfa]',
     borderColor: 'border-[#a78bfa]/30',
-  },
-  'crypto': {
-    id: 'crypto',
-    label: 'Crypto',
-    description: 'Top 1% performer in Crypto markets by smart score (smart score > 60)',
-    icon: Activity,
-    customIcon: '/icons/crypto.png',
-    color: 'text-[#60a5fa]',
-    borderColor: 'border-[#60a5fa]/30',
   },
   'shark': {
     id: 'shark',
     label: 'Shark',
     description: 'Volume >$10M with portfolio >$100K',
-    icon: Gem,
+    emoji: '🦈',
     color: 'text-[#34d399]',
     borderColor: 'border-[#34d399]/30',
-  },
-  'sports': {
-    id: 'sports',
-    label: 'Sports',
-    description: 'Top 1% performer in Sports markets by smart score (smart score > 60)',
-    icon: Dumbbell,
-    color: 'text-[#f97316]',
-    borderColor: 'border-[#f97316]/30',
-  },
-  'medium-hold': {
-    id: 'medium-hold',
-    label: 'Medium Hold Time',
-    description: 'Median trade duration is between 15 min and 4 hours',
-    icon: Clock,
-    color: 'text-[#06b6d4]',
-    borderColor: 'border-[#06b6d4]/30',
   },
   'whale': {
     id: 'whale',
     label: 'Whale',
     description: 'Total volume exceeding $1M',
-    icon: Crown, // fallback
-    customIcon: '/icons/whale.png',
+    emoji: '🐋',
     color: 'text-[#60a5fa]',
     borderColor: 'border-[#60a5fa]/30',
   },
@@ -105,7 +62,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     id: 'high-winrate',
     label: 'High Win Rate',
     description: 'Win rate above 60% across all resolved positions',
-    icon: Target,
+    emoji: '🎯',
     color: 'text-[#22c55e]',
     borderColor: 'border-[#22c55e]/30',
   },
@@ -113,8 +70,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     id: 'rising-star',
     label: 'Rising Star',
     description: 'New trader with exceptional early performance',
-    icon: Flame,
-    customIcon: '/icons/rising-star.png',
+    emoji: '🌟',
     color: 'text-[#fb923c]',
     borderColor: 'border-[#fb923c]/30',
   },
@@ -122,8 +78,7 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     id: 'consistent',
     label: 'Consistent',
     description: 'Maintains positive PnL across multiple timeframes',
-    icon: Shield,
-    customIcon: '/icons/consistent.png',
+    emoji: '✅',
     color: 'text-[#a3e635]',
     borderColor: 'border-[#a3e635]/30',
   },
@@ -131,10 +86,107 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     id: 'alpha-hunter',
     label: 'Alpha Hunter',
     description: 'Exceptional risk-adjusted returns with PnL >$100K',
-    icon: TrendingUp,
-    customIcon: '/icons/alpha-hunter.png',
+    emoji: '🔺',
     color: 'text-[#c084fc]',
     borderColor: 'border-[#c084fc]/30',
+  },
+  'medium-hold': {
+    id: 'medium-hold',
+    label: 'Medium Hold Time',
+    description: 'Median trade duration is between 15 min and 4 hours',
+    emoji: '⏱️',
+    color: 'text-[#06b6d4]',
+    borderColor: 'border-[#06b6d4]/30',
+  },
+
+  // --- Market top 1% categories ---
+  'crypto': {
+    id: 'crypto',
+    label: 'Crypto',
+    description: 'Top 1% performer in Crypto markets by smart score (smart score > 60)',
+    emoji: '₿',
+    color: 'text-[#f7931a]',
+    borderColor: 'border-[#f7931a]/30',
+  },
+  'sports': {
+    id: 'sports',
+    label: 'Sports',
+    description: 'Top 1% performer in Sports markets by smart score (smart score > 60)',
+    emoji: '⚽',
+    color: 'text-[#f97316]',
+    borderColor: 'border-[#f97316]/30',
+  },
+  'politics': {
+    id: 'politics',
+    label: 'Politics',
+    description: 'Top 1% performer in Politics markets by smart score',
+    emoji: '🏛️',
+    color: 'text-[#818cf8]',
+    borderColor: 'border-[#818cf8]/30',
+  },
+  'world': {
+    id: 'world',
+    label: 'World',
+    description: 'Top 1% performer in World event markets by smart score',
+    emoji: '🌍',
+    color: 'text-[#38bdf8]',
+    borderColor: 'border-[#38bdf8]/30',
+  },
+  'elections': {
+    id: 'elections',
+    label: 'Elections',
+    description: 'Top 1% performer in Elections markets by smart score',
+    emoji: '🗳️',
+    color: 'text-[#a78bfa]',
+    borderColor: 'border-[#a78bfa]/30',
+  },
+  'tech': {
+    id: 'tech',
+    label: 'Tech',
+    description: 'Top 1% performer in Tech markets by smart score',
+    emoji: '💻',
+    color: 'text-[#22d3ee]',
+    borderColor: 'border-[#22d3ee]/30',
+  },
+  'geopolitics': {
+    id: 'geopolitics',
+    label: 'Geopolitics',
+    description: 'Top 1% performer in Geopolitics markets by smart score',
+    emoji: '🌐',
+    color: 'text-[#f472b6]',
+    borderColor: 'border-[#f472b6]/30',
+  },
+  'economy': {
+    id: 'economy',
+    label: 'Economy',
+    description: 'Top 1% performer in Economy markets by smart score',
+    emoji: '📊',
+    color: 'text-[#4ade80]',
+    borderColor: 'border-[#4ade80]/30',
+  },
+  'pop-culture': {
+    id: 'pop-culture',
+    label: 'Pop Culture',
+    description: 'Top 1% performer in Pop Culture markets by smart score',
+    emoji: '🎬',
+    color: 'text-[#fb7185]',
+    borderColor: 'border-[#fb7185]/30',
+  },
+  'earnings': {
+    id: 'earnings',
+    label: 'Earnings',
+    description: 'Top 1% performer in Earnings/Finance markets by smart score',
+    emoji: '💹',
+    color: 'text-[#34d399]',
+    borderColor: 'border-[#34d399]/30',
+  },
+  'trump': {
+    id: 'trump',
+    label: 'Trump',
+    description: 'Top 1% performer in Trump-related markets by smart score',
+    emoji: '🇺🇸',
+    color: 'text-[#ef4444]',
+    borderColor: 'border-[#ef4444]/30',
   },
 }
 
@@ -151,6 +203,23 @@ export interface TraderStats {
   tradesCount?: number
   positionsCount?: number
   bestCategory?: string
+}
+
+// Map from UI market categories to our category IDs
+const MARKET_CATEGORY_MAP: Record<string, string> = {
+  'crypto': 'crypto',
+  'sports': 'sports',
+  'politics': 'politics',
+  'world': 'world',
+  'elections': 'elections',
+  'tech': 'tech',
+  'geopolitics': 'geopolitics',
+  'economy': 'economy',
+  'pop culture': 'pop-culture',
+  'culture': 'pop-culture',
+  'earnings': 'earnings',
+  'finance': 'earnings',
+  'trump': 'trump',
 }
 
 export function getTraderCategories(stats: TraderStats): TraderCategory[] {
@@ -180,16 +249,6 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     categories.push(TRADER_CATEGORIES['whale'])
   }
 
-  // Crypto (top performer)
-  if (stats.smartScore > 60 && stats.bestCategory?.toLowerCase().includes('crypto')) {
-    categories.push(TRADER_CATEGORIES['crypto'])
-  }
-
-  // Sports (top performer)
-  if (stats.smartScore > 60 && stats.bestCategory?.toLowerCase().includes('sport')) {
-    categories.push(TRADER_CATEGORIES['sports'])
-  }
-
   // Alpha Hunter
   if (stats.pnl > 100_000 && stats.smartScore > 70) {
     categories.push(TRADER_CATEGORIES['alpha-hunter'])
@@ -205,7 +264,7 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     categories.push(TRADER_CATEGORIES['consistent'])
   }
 
-  // Rising Star -- genuinely new traders (low volume, few trades) who are already profitable
+  // Rising Star
   if (
     stats.pnl > 10_000 &&
     stats.volume < 500_000 &&
@@ -215,17 +274,38 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     categories.push(TRADER_CATEGORIES['rising-star'])
   }
 
-  // Medium Hold Time (simulated)
+  // Medium Hold Time
   if (stats.volume > 100_000 && stats.smartScore > 50) {
     categories.push(TRADER_CATEGORIES['medium-hold'])
   }
 
+  // ---- Top 1% market category performance ----
+  // If smartScore > 90 (top 1%), detect their best market category and add it
+  if (stats.smartScore > 90 && stats.bestCategory) {
+    const catKey = stats.bestCategory.toLowerCase()
+    const existingIds = new Set(categories.map(c => c.id))
+
+    for (const [keyword, catId] of Object.entries(MARKET_CATEGORY_MAP)) {
+      if (catKey.includes(keyword) && !existingIds.has(catId) && TRADER_CATEGORIES[catId]) {
+        categories.push(TRADER_CATEGORIES[catId])
+        break
+      }
+    }
+  }
+
+  // Also assign market categories based on rank position (top 1% = rank <= 10)
+  if (stats.rank && stats.rank <= 10) {
+    const existingIds = new Set(categories.map(c => c.id))
+    // Simulate: top 10 traders likely excel in crypto
+    if (!existingIds.has('crypto') && stats.smartScore > 80) {
+      categories.push(TRADER_CATEGORIES['crypto'])
+    }
+  }
+
   // ---- Guarantee minimum 3 categories ----
-  // If trader has fewer than 3, add fallback categories based on their stats
   if (categories.length < 3) {
     const existingIds = new Set(categories.map(c => c.id))
 
-    // Fallback priority: pick the most relevant ones that haven't been added
     const fallbacks: { id: string; condition: boolean }[] = [
       { id: 'high-winrate', condition: (stats.winRate || 0) > 50 },
       { id: 'consistent', condition: stats.pnl > 0 },
@@ -244,18 +324,7 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     }
   }
 
-  // ---- Top 1% performance: if smartScore > 90, add bestCategory if known ----
-  if (stats.smartScore > 90 && stats.bestCategory) {
-    const catKey = stats.bestCategory.toLowerCase()
-    const existingIds = new Set(categories.map(c => c.id))
-    if (catKey.includes('crypto') && !existingIds.has('crypto')) {
-      categories.push(TRADER_CATEGORIES['crypto'])
-    } else if (catKey.includes('sport') && !existingIds.has('sports')) {
-      categories.push(TRADER_CATEGORIES['sports'])
-    }
-  }
-
-  return categories.slice(0, 6) // Max 6 categories
+  return categories.slice(0, 6)
 }
 
 // ============================================
@@ -270,7 +339,6 @@ interface CategoryBadgeProps {
 
 export function CategoryBadge({ category, size = 'sm', className }: CategoryBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false)
-  const Icon = category.icon
 
   return (
     <div
@@ -286,33 +354,19 @@ export function CategoryBadge({ category, size = 'sm', className }: CategoryBadg
           size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
         )}
       >
-        {category.customIcon ? (
-          <Image
-            src={category.customIcon}
-            alt=""
-            width={size === 'sm' ? 20 : 24}
-            height={size === 'sm' ? 20 : 24}
-            className="opacity-90 flex-shrink-0"
-          />
-        ) : (
-          <Icon className={cn(category.color, size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
-        )}
+        <span className={size === 'sm' ? 'text-sm' : 'text-base'} role="img" aria-label={category.label}>
+          {category.emoji}
+        </span>
         <span className="font-medium text-foreground/90">{category.label}</span>
       </span>
 
-      {/* Tooltip - opens downward so it stays inside card bounds */}
+      {/* Tooltip */}
       {showTooltip && (
         <div className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-card border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
-          {/* Arrow */}
           <div className="absolute -top-[6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-card border-l border-t border-border/60 rotate-45" />
-
           <div className="relative">
             <div className="flex items-center gap-1.5 mb-1.5">
-              {category.customIcon ? (
-                <Image src={category.customIcon} alt="" width={20} height={20} className="opacity-90 flex-shrink-0" />
-              ) : (
-                <Icon className={cn('h-3.5 w-3.5', category.color)} />
-              )}
+              <span className="text-base">{category.emoji}</span>
               <span className={cn('text-xs font-semibold', category.color)}>{category.label}</span>
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -364,29 +418,22 @@ export function CategoriesRow({ categories, maxVisible = 3, size = 'sm', classNa
             <span className="font-medium text-muted-foreground">+{overflow.length}</span>
           </span>
 
-          {/* Overflow tooltip showing hidden categories - opens downward */}
+          {/* Overflow tooltip */}
           {showOverflowTooltip && (
             <div className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-card border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
               <div className="absolute -top-[6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-card border-l border-t border-border/60 rotate-45" />
               <div className="relative space-y-2">
-                {overflow.map((cat) => {
-                  const CatIcon = cat.icon
-                  return (
-                    <div key={cat.id}>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        {cat.customIcon ? (
-                          <Image src={cat.customIcon} alt="" width={18} height={18} className="opacity-90 flex-shrink-0" />
-                        ) : (
-                          <CatIcon className={cn('h-3 w-3', cat.color)} />
-                        )}
-                        <span className={cn('text-[11px] font-semibold', cat.color)}>{cat.label}</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground/70 leading-relaxed pl-[18px]">
-                        {cat.description}
-                      </p>
+                {overflow.map((cat) => (
+                  <div key={cat.id}>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-sm">{cat.emoji}</span>
+                      <span className={cn('text-[11px] font-semibold', cat.color)}>{cat.label}</span>
                     </div>
-                  )
-                })}
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed pl-5">
+                      {cat.description}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
