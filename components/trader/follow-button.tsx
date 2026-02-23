@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Star, Wallet, Check, Loader2 } from 'lucide-react'
+import { Wallet, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import Image from 'next/image'
 
 interface FollowButtonProps {
   traderAddress: string
@@ -117,7 +118,13 @@ export function FollowButton({
           ) : isFollowed ? (
             <Check className="h-3.5 w-3.5" />
           ) : (
-            <Star className="h-3.5 w-3.5" />
+            <Image
+              src="/vantake-logo-white.png"
+              alt=""
+              width={28}
+              height={28}
+              className="opacity-90"
+            />
           )}
           {!compact && (isFollowed ? 'Following' : 'Follow')}
         </Button>
