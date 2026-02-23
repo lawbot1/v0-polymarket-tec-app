@@ -42,19 +42,19 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
-        <div className="px-4 py-2.5 rounded-lg bg-foreground flex flex-col justify-between h-[62px] cursor-default">
-          <div className="text-xs text-background/60 tracking-wider text-left leading-none">Smart Score</div>
+        <div className="px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 flex flex-col justify-between h-[62px] cursor-default">
+          <div className="text-xs text-muted-foreground tracking-wider text-left leading-none">Smart Score</div>
           <div className="flex items-center gap-2">
             <Image
-              src="/vantake-logo-dark.png"
+              src="/vantake-logo-white.png"
               alt="Vantake"
               width={28}
               height={28}
-              className="flex-shrink-0"
+              className="opacity-80 flex-shrink-0"
             />
             <div className="flex items-baseline gap-0.5">
-              <span className="text-2xl font-semibold tabular-nums text-background leading-none">{score.toFixed(1)}</span>
-              <span className="text-xs text-background/40 font-normal leading-none">/100</span>
+              <span className="text-2xl font-semibold tabular-nums text-white leading-none">{score.toFixed(1)}</span>
+              <span className="text-xs text-muted-foreground/50 font-normal leading-none">/100</span>
             </div>
           </div>
         </div>
@@ -75,19 +75,19 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      <div className="px-3 py-2 rounded-lg bg-foreground flex flex-col justify-between h-[52px] cursor-default">
-        <div className="text-[11px] text-background/60 tracking-wider text-left leading-none">Smart Score</div>
+      <div className="px-3 py-2 rounded-lg bg-white/10 border border-white/20 flex flex-col justify-between h-[52px] cursor-default">
+        <div className="text-[11px] text-muted-foreground tracking-wider text-left leading-none">Smart Score</div>
         <div className="flex items-center gap-1.5">
           <Image
-            src="/vantake-logo-dark.png"
+            src="/vantake-logo-white.png"
             alt="Vantake"
             width={24}
             height={24}
-            className="flex-shrink-0"
+            className="opacity-80 flex-shrink-0"
           />
           <div className="flex items-baseline gap-0.5">
-            <span className="text-lg font-semibold tabular-nums text-background leading-none">{score.toFixed(1)}</span>
-            <span className="text-[10px] text-background/40 font-normal leading-none">/100</span>
+            <span className="text-lg font-semibold tabular-nums text-white leading-none">{score.toFixed(1)}</span>
+            <span className="text-[10px] text-muted-foreground/50 font-normal leading-none">/100</span>
           </div>
         </div>
       </div>
@@ -105,45 +105,45 @@ function Tooltip({ score, riskEff, profit, anchor }: { score: number; riskEff: n
   return (
     <div
       className={cn(
-        'absolute z-[60] w-56 bg-foreground rounded-xl shadow-2xl shadow-black/60 p-3.5 pointer-events-none',
+        'absolute z-[60] w-56 bg-card border border-white/20 rounded-xl shadow-2xl shadow-black/60 p-3.5 pointer-events-none',
         'top-full mt-2',
         anchor === 'right' ? 'right-0' : 'left-0',
       )}
     >
       {/* Arrow */}
       <div className={cn(
-        'absolute -top-[6px] w-3 h-3 bg-foreground rotate-45',
+        'absolute -top-[6px] w-3 h-3 bg-card border-l border-t border-white/20 rotate-45',
         anchor === 'right' ? 'right-5' : 'left-5',
       )} />
 
       <div className="relative space-y-2.5">
         {/* Header: Smart Score + logo + score */}
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold text-background/60 uppercase tracking-wider">Smart Score</span>
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Smart Score</span>
           <div className="flex items-center gap-1.5">
-            <Image src="/vantake-logo-dark.png" alt="Vantake" width={14} height={14} />
-            <span className="text-sm font-bold tabular-nums text-background">{score.toFixed(1)}</span>
-            <span className="text-[9px] text-background/40 font-normal">/100</span>
+            <Image src="/vantake-logo-white.png" alt="Vantake" width={14} height={14} className="opacity-70" />
+            <span className="text-sm font-bold tabular-nums text-white">{score.toFixed(1)}</span>
+            <span className="text-[9px] text-muted-foreground/50 font-normal">/100</span>
           </div>
         </div>
 
-        <div className="h-px bg-background/15" />
+        <div className="h-px bg-border/30" />
 
         {/* Metrics */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-background/60">Risk Efficiency</span>
-            <span className="text-[11px] font-semibold tabular-nums text-background">{riskEff.toFixed(2)}</span>
+            <span className="text-[11px] text-muted-foreground">Risk Efficiency</span>
+            <span className="text-[11px] font-semibold tabular-nums text-foreground">{riskEff.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-background/60">Profitability</span>
-            <span className="text-[11px] font-semibold tabular-nums text-background">{profit.toFixed(2)}</span>
+            <span className="text-[11px] text-muted-foreground">Profitability</span>
+            <span className="text-[11px] font-semibold tabular-nums text-foreground">{profit.toFixed(2)}</span>
           </div>
         </div>
 
-        <div className="h-px bg-background/15" />
+        <div className="h-px bg-border/30" />
 
-        <p className="text-[9px] text-background/40 leading-relaxed">
+        <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
           Scores are adjusted for recency, profit, and experience
         </p>
       </div>
