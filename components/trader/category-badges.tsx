@@ -58,14 +58,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     color: 'text-[#60a5fa]',
     borderColor: 'border-[#60a5fa]/30',
   },
-  'high-winrate': {
-    id: 'high-winrate',
-    label: 'High Win Rate',
-    description: 'Win rate above 60% across all resolved positions',
-    emoji: '🎯',
-    color: 'text-[#22c55e]',
-    borderColor: 'border-[#22c55e]/30',
-  },
   'rising-star': {
     id: 'rising-star',
     label: 'Rising Star',
@@ -90,15 +82,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     color: 'text-[#c084fc]',
     borderColor: 'border-[#c084fc]/30',
   },
-  'medium-hold': {
-    id: 'medium-hold',
-    label: 'Medium Hold Time',
-    description: 'Median trade duration is between 15 min and 4 hours',
-    emoji: '⏱️',
-    color: 'text-[#06b6d4]',
-    borderColor: 'border-[#06b6d4]/30',
-  },
-
   // --- Market top 1% categories ---
   'crypto': {
     id: 'crypto',
@@ -255,11 +238,6 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     categories.push(TRADER_CATEGORIES['alpha-hunter'])
   }
 
-  // High Win Rate
-  if ((stats.winRate || 0) > 60) {
-    categories.push(TRADER_CATEGORIES['high-winrate'])
-  }
-
   // Consistent
   if (stats.pnl > 0 && stats.smartScore > 55 && (stats.tradesCount || 0) > 50) {
     categories.push(TRADER_CATEGORIES['consistent'])
@@ -273,11 +251,6 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     stats.smartScore > 50
   ) {
     categories.push(TRADER_CATEGORIES['rising-star'])
-  }
-
-  // Medium Hold Time
-  if (stats.volume > 100_000 && stats.smartScore > 50) {
-    categories.push(TRADER_CATEGORIES['medium-hold'])
   }
 
   // ---- Active market category: if user filtered by a market, assign that category ----
@@ -318,9 +291,7 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     const existingIds = new Set(categories.map(c => c.id))
 
     const fallbacks: { id: string; condition: boolean }[] = [
-      { id: 'high-winrate', condition: (stats.winRate || 0) > 48 },
       { id: 'consistent', condition: stats.pnl > 0 },
-      { id: 'medium-hold', condition: stats.volume > 30_000 },
       { id: 'whale', condition: stats.volume > 300_000 },
       { id: 'crypto', condition: stats.smartScore > 35 },
       { id: 'rising-star', condition: stats.pnl > 0 && (stats.tradesCount || 0) < 800 },
