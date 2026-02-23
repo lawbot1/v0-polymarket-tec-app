@@ -13,6 +13,7 @@ import {
 } from '@/lib/polymarket-api'
 import { useState, useEffect } from 'react'
 import useSWR from 'swr'
+import { usePrivy } from '@privy-io/react-auth'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -375,27 +376,25 @@ export function TraderCards() {
   const error = swrError ? 'Failed to load trader data' : null
 
   // Batch-fetch user follow/track statuses ONCE (not per card)
-  const [userId, setUserId] = useState<string | null>(null)
+  const { ready: privyReady, authenticated, user: privyUser } = usePrivy()
+  const userId = privyUser?.id ?? null
   const [followedSet, setFollowedSet] = useState<Set<string>>(new Set())
   const [trackedSet, setTrackedSet] = useState<Set<string>>(new Set())
 
   useEffect(() => {
+    if (!privyReady || !authenticated || !userId) return
     const supabase = createClient()
     const fetchUserStatuses = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return
-      setUserId(session.user.id)
-
       const [{ data: followed }, { data: tracked }] = await Promise.all([
-        supabase.from('followed_traders').select('trader_address').eq('user_id', session.user.id),
-        supabase.from('tracked_wallets').select('wallet_address').eq('user_id', session.user.id),
+        supabase.from('followed_traders').select('trader_address').eq('user_id', userId),
+        supabase.from('tracked_wallets').select('wallet_address').eq('user_id', userId),
       ])
 
       if (followed) setFollowedSet(new Set(followed.map(f => f.trader_address)))
       if (tracked) setTrackedSet(new Set(tracked.map(t => t.wallet_address)))
     }
     fetchUserStatuses()
-  }, [])
+  }, [privyReady, authenticated, userId])
 
   const handleCardClick = (wallet: string) => {
     router.push(`/trader/${wallet}`)

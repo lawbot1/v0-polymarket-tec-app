@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePrivy } from '@privy-io/react-auth'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Star, Wallet, Check, Loader2 } from 'lucide-react'
@@ -32,7 +32,7 @@ export function FollowButton({
   initialTracked = false,
   userId = null,
 }: FollowButtonProps) {
-  const router = useRouter()
+  const { login } = usePrivy()
   const supabase = createClient()
 
   const [isFollowed, setIsFollowed] = useState(initialFollowed)
@@ -42,7 +42,7 @@ export function FollowButton({
 
   const handleFollow = async () => {
     if (!userId) {
-      router.push('/auth/login')
+      login()
       return
     }
     setLoadingFollow(true)
@@ -69,7 +69,7 @@ export function FollowButton({
 
   const handleTrack = async () => {
     if (!userId) {
-      router.push('/auth/login')
+      login()
       return
     }
     setLoadingTrack(true)
