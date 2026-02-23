@@ -219,7 +219,6 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet, ac
   return (
     <div 
       onClick={onClick}
-      data-trader-card
       className="relative bg-card border border-border rounded-xl p-5 hover:border-foreground/20 transition-all duration-300 cursor-pointer group"
     >
       {/* Row 1: Avatar + Name (left) | Smart Score badge (right) -- same line */}

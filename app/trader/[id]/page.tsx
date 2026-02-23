@@ -280,7 +280,7 @@ export default function TraderPage({ params }: TraderPageProps) {
         )}
 
         {/* ===== HEADER with avatar, name, wallet, badges, follow ===== */}
-        <div data-trader-card className="sharp-panel p-6">
+        <div className="sharp-panel p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-center gap-4">
               {isLoading ? (
@@ -320,7 +320,7 @@ export default function TraderPage({ params }: TraderPageProps) {
                 {/* Category Badges with tooltips */}
                 {!isLoading && traderCategories.length > 0 && (
                   <div className="mt-3">
-                    <CategoriesRow categories={traderCategories} size="md" />
+                    <CategoriesRow categories={traderCategories} maxVisible={5} size="md" />
                   </div>
                 )}
               </div>
