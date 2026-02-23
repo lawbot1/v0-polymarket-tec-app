@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react"
 import { useRouter } from 'next/navigation'
+import { usePrivy } from '@privy-io/react-auth'
 import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -79,9 +80,9 @@ function KpiCard({
 
 export default function MyDashboardPage() {
   const router = useRouter()
+  const { ready, authenticated, user: privyUser, login } = usePrivy()
   const supabase = createClient()
 
-  const [user, setUser] = useState<{ id: string } | null>(null)
   const [walletAddress, setWalletAddress] = useState('')
   const [inputAddress, setInputAddress] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -92,33 +93,34 @@ export default function MyDashboardPage() {
   const [followedCount, setFollowedCount] = useState(0)
   const [trackedCount, setTrackedCount] = useState(0)
 
-  // Load user and their saved wallet
-  useEffect(() => {
-    const loadUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
-      setUser(user)
+  const userId = privyUser?.id ?? null
 
+  // Load user's saved wallet from Supabase DB
+  useEffect(() => {
+    if (!ready) return
+    if (!authenticated || !userId) {
+      setIsLoading(false)
+      return
+    }
+
+    const loadUser = async () => {
       // Load profile from Supabase
       const { data: profileData } = await supabase
         .from('profiles')
         .select('polymarket_wallet')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single()
 
       // Load counts
       const { count: fCount } = await supabase
         .from('followed_traders')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
 
       const { count: tCount } = await supabase
         .from('tracked_wallets')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
 
       setFollowedCount(fCount || 0)
       setTrackedCount(tCount || 0)
@@ -132,7 +134,7 @@ export default function MyDashboardPage() {
       }
     }
     loadUser()
-  }, [])
+  }, [ready, authenticated, userId])
 
   const fetchUserData = useCallback(async (address: string) => {
     setIsLoading(true)
@@ -163,14 +165,13 @@ export default function MyDashboardPage() {
   }, [])
 
   const handleConnect = async () => {
-    if (!inputAddress || !user) return
+    if (!inputAddress || !userId) return
     setIsSaving(true)
 
     // Save wallet to Supabase profile
     await supabase
       .from('profiles')
-      .update({ polymarket_wallet: inputAddress, updated_at: new Date().toISOString() })
-      .eq('id', user.id)
+      .upsert({ id: userId, polymarket_wallet: inputAddress, updated_at: new Date().toISOString() })
 
     setWalletAddress(inputAddress)
     fetchUserData(inputAddress)
@@ -178,11 +179,11 @@ export default function MyDashboardPage() {
   }
 
   const handleDisconnect = async () => {
-    if (!user) return
+    if (!userId) return
     await supabase
       .from('profiles')
       .update({ polymarket_wallet: null, updated_at: new Date().toISOString() })
-      .eq('id', user.id)
+      .eq('id', userId)
 
     setWalletAddress('')
     setProfile(null)
@@ -240,8 +241,30 @@ export default function MyDashboardPage() {
       .slice(0, 5)
   }, [positions])
 
+  // Not authenticated state
+  if (ready && !authenticated) {
+    return (
+      <AppShell title="My Dashboard">
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="sharp-panel p-12 text-center max-w-md">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center">
+              <Wallet className="h-16 w-16 text-muted-foreground" />
+            </div>
+            <h2 className="mt-6 text-xl font-bold text-foreground">Sign In Required</h2>
+            <p className="mt-3 text-muted-foreground leading-relaxed">
+              Sign in to view your personal trading stats, performance, and ranking.
+            </p>
+            <Button onClick={login} className="mt-6" size="lg">
+              Sign In
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    )
+  }
+
   // Not connected wallet state
-  if (!walletAddress) {
+  if (!walletAddress && !isLoading) {
     return (
       <AppShell title="My Dashboard">
         <div className="flex min-h-[60vh] items-center justify-center">

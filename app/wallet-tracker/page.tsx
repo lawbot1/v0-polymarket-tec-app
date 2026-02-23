@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { usePrivy } from '@privy-io/react-auth'
 import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -166,31 +167,30 @@ function WalletCard({
 
 export default function WalletTrackerPage() {
   const router = useRouter()
+  const { ready, authenticated, user: privyUser, login } = usePrivy()
   const supabase = createClient()
 
-  const [user, setUser] = useState<{ id: string } | null>(null)
+  const userId = privyUser?.id ?? null
   const [wallets, setWallets] = useState<TrackedWallet[]>([])
   const [newAddress, setNewAddress] = useState('')
   const [newLabel, setNewLabel] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
 
-  // Load user and their tracked wallets from Supabase
+  // Load user's tracked wallets from Supabase
   useEffect(() => {
-    const loadData = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        // Show sign-in prompt for non-logged-in users
-        setIsInitialLoading(false)
-        return
-      }
-      setUser(user)
+    if (!ready) return
+    if (!authenticated || !userId) {
+      setIsInitialLoading(false)
+      return
+    }
 
+    const loadData = async () => {
       // Load tracked wallets from DB
       const { data: savedWallets } = await supabase
         .from('tracked_wallets')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
 
       if (savedWallets && savedWallets.length > 0) {
@@ -211,7 +211,7 @@ export default function WalletTrackerPage() {
       }
     }
     loadData()
-  }, [])
+  }, [ready, authenticated, userId])
 
   const fetchWalletData = async (address: string, index: number, currentWallets?: TrackedWallet[]) => {
     try {
@@ -240,7 +240,7 @@ export default function WalletTrackerPage() {
   }
 
   const handleAddWallet = async () => {
-    if (!newAddress || !user) return
+    if (!newAddress || !userId) return
 
     const label = newLabel || formatAddress(newAddress)
 
@@ -248,7 +248,7 @@ export default function WalletTrackerPage() {
     const { data: inserted, error } = await supabase
       .from('tracked_wallets')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         wallet_address: newAddress,
         label: newLabel || null,
         alerts_enabled: true,
@@ -312,7 +312,7 @@ export default function WalletTrackerPage() {
   const alertsEnabled = wallets.filter(w => w.alertsEnabled).length
 
   // Not logged in state
-  if (!user && !isInitialLoading) {
+  if (ready && !authenticated) {
     return (
       <AppShell title="Wallet Tracker">
         <div className="flex min-h-[60vh] items-center justify-center">
@@ -322,7 +322,7 @@ export default function WalletTrackerPage() {
             <p className="mt-3 text-muted-foreground leading-relaxed">
               Sign in to track Polymarket wallets. Your tracked wallets will be saved to your account.
             </p>
-            <Button onClick={() => router.push('/auth/login')} className="mt-6" size="lg">
+            <Button onClick={login} className="mt-6" size="lg">
               Sign In
             </Button>
           </div>
@@ -403,7 +403,7 @@ export default function WalletTrackerPage() {
         )}
 
         {/* Empty State */}
-        {!isInitialLoading && wallets.length === 0 && user && (
+        {!isInitialLoading && wallets.length === 0 && authenticated && (
           <div className="sharp-panel p-12 text-center">
             <Plus className="h-16 w-16 text-muted-foreground mx-auto" />
             <h3 className="mt-4 text-lg font-medium text-foreground">No wallets tracked yet</h3>

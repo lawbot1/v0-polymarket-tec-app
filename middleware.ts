@@ -1,8 +1,9 @@
-import { updateSession } from '@/lib/supabase/middleware'
-import { type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+export async function middleware(_request: NextRequest) {
+  // Auth is handled client-side by Privy.
+  // Middleware is kept for future needs (e.g., rate limiting, geo-routing).
+  return NextResponse.next()
 }
 
 export const config = {

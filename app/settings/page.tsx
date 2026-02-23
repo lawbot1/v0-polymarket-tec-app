@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { usePrivy } from '@privy-io/react-auth'
 import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,16 +11,18 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { Mail, MessageCircle, Check, Loader2 } from 'lucide-react'
+import { Mail, MessageCircle, Check, Loader2, LogIn } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { ready, authenticated, user: privyUser, login } = usePrivy()
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
+
+  const userId = privyUser?.id ?? null
 
   const [profileForm, setProfileForm] = useState({
     display_name: '',
@@ -37,35 +40,39 @@ export default function SettingsPage() {
 
   // Load data from Supabase on mount
   useEffect(() => {
-    const loadData = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
-      setUserId(user.id)
+    if (!ready) return
+    if (!authenticated || !userId) {
+      setLoading(false)
+      return
+    }
 
+    const loadData = async () => {
       // Load profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single()
 
       if (profile) {
         setProfileForm({
           display_name: profile.display_name || '',
-          email: profile.email || user.email || '',
+          email: profile.email || privyUser?.email?.address || '',
           telegram_handle: profile.telegram_handle || '',
           polymarket_wallet: profile.polymarket_wallet || '',
         })
+      } else {
+        setProfileForm(prev => ({
+          ...prev,
+          email: privyUser?.email?.address || '',
+        }))
       }
 
       // Load notification settings
       const { data: notifSettings } = await supabase
         .from('notification_settings')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single()
 
       if (notifSettings) {
@@ -80,7 +87,7 @@ export default function SettingsPage() {
       setLoading(false)
     }
     loadData()
-  }, [])
+  }, [ready, authenticated, userId])
 
   const handleSave = async () => {
     if (!userId) return
@@ -89,23 +96,45 @@ export default function SettingsPage() {
     // Update profile
     await supabase
       .from('profiles')
-      .update({
+      .upsert({
+        id: userId,
         display_name: profileForm.display_name,
         telegram_handle: profileForm.telegram_handle,
         polymarket_wallet: profileForm.polymarket_wallet,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', userId)
 
     // Update notification settings
     await supabase
       .from('notification_settings')
-      .update(notifications)
-      .eq('user_id', userId)
+      .upsert({
+        user_id: userId,
+        ...notifications,
+      })
 
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  // Not authenticated
+  if (ready && !authenticated) {
+    return (
+      <AppShell title="Settings">
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="sharp-panel p-12 text-center max-w-md">
+            <LogIn className="h-16 w-16 text-muted-foreground mx-auto" />
+            <h2 className="mt-6 text-xl font-bold text-foreground">Sign In Required</h2>
+            <p className="mt-3 text-muted-foreground leading-relaxed">
+              Sign in to manage your settings.
+            </p>
+            <Button onClick={login} className="mt-6" size="lg">
+              Sign In
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    )
   }
 
   if (loading) {
@@ -150,7 +179,7 @@ export default function SettingsPage() {
                 disabled
                 className="bg-secondary/50 border-border text-muted-foreground"
               />
-              <p className="text-xs text-muted-foreground">Email is managed through your account</p>
+              <p className="text-xs text-muted-foreground">Email is managed through your Privy account</p>
             </div>
 
             <div className="space-y-2">

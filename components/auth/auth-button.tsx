@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { usePrivy } from '@privy-io/react-auth'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -11,59 +10,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LogIn, User, Settings, LogOut, LayoutDashboard } from 'lucide-react'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { LogIn, Settings, LogOut, LayoutDashboard } from 'lucide-react'
 
 export function AuthButton() {
   const router = useRouter()
-  const supabase = useMemo(() => createClient(), [])
-  const [user, setUser] = useState<SupabaseUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { ready, authenticated, user, login, logout } = usePrivy()
 
-  useEffect(() => {
-    let mounted = true
-
-    const getUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (mounted) {
-          setUser(session?.user ?? null)
-          setLoading(false)
-        }
-      } catch {
-        if (mounted) setLoading(false)
-      }
-    }
-    getUser()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) setUser(session?.user ?? null)
-    })
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
-  }, [supabase])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    router.push('/')
-    router.refresh()
-  }
-
-  if (loading) {
+  if (!ready) {
     return <div className="h-9 w-20 bg-secondary/30 animate-pulse" />
   }
 
-  if (!user) {
+  if (!authenticated) {
     return (
       <Button
         variant="outline"
         size="sm"
         className="gap-2 bg-transparent"
-        onClick={() => router.push('/auth/login')}
+        onClick={login}
       >
         <LogIn className="h-4 w-4" />
         Sign In
@@ -71,7 +34,10 @@ export function AuthButton() {
     )
   }
 
-  const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User'
+  const displayName =
+    user?.email?.address?.split('@')[0] ||
+    user?.wallet?.address?.slice(0, 6) ||
+    'User'
   const initials = displayName.slice(0, 2).toUpperCase()
 
   return (
@@ -94,7 +60,14 @@ export function AuthButton() {
           Settings
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 text-red-400">
+        <DropdownMenuItem
+          onClick={async () => {
+            await logout()
+            router.push('/')
+            router.refresh()
+          }}
+          className="cursor-pointer gap-2 text-red-400"
+        >
           <LogOut className="h-4 w-4" />
           Sign Out
         </DropdownMenuItem>
