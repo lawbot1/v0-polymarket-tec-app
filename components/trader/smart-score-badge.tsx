@@ -24,17 +24,23 @@ function getScoreColor(score: number) {
 }
 
 function getScoreBorderColor(score: number) {
-  if (score >= 80) return 'border-[#22c55e]/50'
-  if (score >= 60) return 'border-[#eab308]/50'
-  if (score >= 40) return 'border-[#f97316]/50'
-  return 'border-[#ef4444]/50'
+  if (score >= 80) return 'border-[#22c55e]/40'
+  if (score >= 60) return 'border-[#eab308]/40'
+  if (score >= 40) return 'border-[#f97316]/40'
+  return 'border-[#ef4444]/40'
+}
+
+function getScoreBgColor(score: number) {
+  if (score >= 80) return 'bg-[#22c55e]/8'
+  if (score >= 60) return 'bg-[#eab308]/8'
+  if (score >= 40) return 'bg-[#f97316]/8'
+  return 'bg-[#ef4444]/8'
 }
 
 export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: SmartScoreBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false)
   const badgeRef = useRef<HTMLDivElement>(null)
 
-  // Close tooltip on click outside
   useEffect(() => {
     if (!showTooltip) return
     const handleClick = (e: MouseEvent) => {
@@ -49,7 +55,8 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
   const riskEff = tooltipData?.riskEfficiency ?? 50
   const profit = tooltipData?.profitability ?? 50
 
-  const logoSize = size === 'lg' ? 20 : size === 'md' ? 16 : 14
+  const logoBoxSize = size === 'lg' ? 'h-6 w-6' : size === 'md' ? 'h-5 w-5' : 'h-[18px] w-[18px]'
+  const logoImgSize = size === 'lg' ? 16 : size === 'md' ? 14 : 12
 
   return (
     <div
@@ -58,11 +65,11 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      {/* Badge - matches screenshot: dark bg, border, "Smart Score" label + logo + green number */}
+      {/* Badge */}
       <div
         className={cn(
           'inline-flex items-center border rounded-lg cursor-default transition-all',
-          'bg-[#0a1a0a] hover:bg-[#0d1f0d]',
+          getScoreBgColor(score),
           getScoreBorderColor(score),
           size === 'sm' && 'gap-1.5 px-2.5 py-1.5',
           size === 'md' && 'gap-2 px-3 py-2',
@@ -71,25 +78,27 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
       >
         {/* "Smart Score" label */}
         <span className={cn(
-          'font-medium text-muted-foreground whitespace-nowrap',
+          'font-semibold text-foreground/80 whitespace-nowrap',
           size === 'sm' ? 'text-[10px]' : size === 'md' ? 'text-[11px]' : 'text-xs',
         )}>
           Smart Score
         </span>
 
-        {/* Vantake Logo */}
-        <Image
-          src="/vantake-logo-white.jpg"
-          alt="Vantake"
-          width={logoSize}
-          height={logoSize}
-          className={cn(
-            'object-contain rounded-sm flex-shrink-0',
-            size === 'sm' ? 'h-3.5 w-3.5' : size === 'md' ? 'h-4 w-4' : 'h-5 w-5',
-          )}
-        />
+        {/* Logo in dark square */}
+        <div className={cn(
+          'flex items-center justify-center rounded bg-card border border-border/50 flex-shrink-0',
+          logoBoxSize,
+        )}>
+          <Image
+            src="/vantake-logo-white.png"
+            alt="V"
+            width={logoImgSize}
+            height={logoImgSize}
+            className="object-contain"
+          />
+        </div>
 
-        {/* Score value */}
+        {/* Score */}
         <span className={cn(
           'font-bold font-mono tabular-nums',
           getScoreColor(score),
@@ -105,63 +114,64 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
         </span>
       </div>
 
-      {/* Tooltip */}
+      {/* Tooltip - positioned to stay inside the card */}
       {showTooltip && (
         <div
           className={cn(
-            'absolute z-50 w-60 bg-[#0f1f0f] border rounded-xl shadow-2xl shadow-black/50 p-4 pointer-events-none',
+            'absolute z-[60] w-56 bg-card border rounded-xl shadow-2xl shadow-black/60 p-4',
             getScoreBorderColor(score),
-            size === 'lg'
-              ? 'top-full left-0 mt-2'
-              : 'top-full right-0 mt-2',
+            // For sm/md (cards): open downward, anchored to the right edge
+            size !== 'lg' && 'top-full right-0 mt-2',
+            // For lg (profile): open downward, anchored to the left edge
+            size === 'lg' && 'top-full left-0 mt-2',
           )}
+          style={{ pointerEvents: 'none' }}
         >
           {/* Arrow */}
           <div className={cn(
-            'absolute -top-1.5 w-3 h-3 bg-[#0f1f0f] border-l border-t rotate-45',
+            'absolute -top-[6px] w-3 h-3 bg-card border-l border-t rotate-45',
             getScoreBorderColor(score),
             size === 'lg' ? 'left-6' : 'right-6',
           )} />
 
-          <div className="relative space-y-3">
-            {/* Header with logo and score */}
+          <div className="relative space-y-2.5">
+            {/* Header */}
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">Smart Score</span>
+              <span className="text-[11px] font-semibold text-muted-foreground">Smart Score</span>
               <div className="flex items-center gap-1.5">
-                <Image
-                  src="/vantake-logo-white.jpg"
-                  alt="Vantake"
-                  width={16}
-                  height={16}
-                  className="h-4 w-4 object-contain rounded-sm"
-                />
-                <span className={cn('text-lg font-bold font-mono', getScoreColor(score))}>
+                <div className="flex items-center justify-center h-5 w-5 rounded bg-secondary border border-border/50">
+                  <Image
+                    src="/vantake-logo-white.png"
+                    alt="V"
+                    width={14}
+                    height={14}
+                    className="object-contain"
+                  />
+                </div>
+                <span className={cn('text-base font-bold font-mono', getScoreColor(score))}>
                   {score.toFixed(1)}
                 </span>
-                <span className="text-xs text-muted-foreground/60 font-mono">/100</span>
+                <span className="text-[10px] text-muted-foreground/60 font-mono">/100</span>
               </div>
             </div>
 
-            {/* Divider */}
-            <div className="h-px bg-border/50" />
+            <div className="h-px bg-border/40" />
 
             {/* Metrics */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Risk Efficiency</span>
-                <span className="text-sm font-semibold font-mono text-foreground">{riskEff.toFixed(2)}</span>
+                <span className="text-[11px] text-muted-foreground">Risk Efficiency</span>
+                <span className="text-xs font-semibold font-mono text-foreground">{riskEff.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Profitability</span>
-                <span className="text-sm font-semibold font-mono text-foreground">{profit.toFixed(2)}</span>
+                <span className="text-[11px] text-muted-foreground">Profitability</span>
+                <span className="text-xs font-semibold font-mono text-foreground">{profit.toFixed(2)}</span>
               </div>
             </div>
 
-            {/* Divider */}
-            <div className="h-px bg-border/50" />
+            <div className="h-px bg-border/40" />
 
-            {/* Description */}
-            <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+            <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
               Scores are adjusted for recency, profit, and experience
             </p>
           </div>

@@ -217,7 +217,7 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
   return (
     <div 
       onClick={onClick}
-      className="relative bg-card border border-border rounded-2xl p-5 hover:border-foreground/15 transition-all duration-300 cursor-pointer group"
+      className="relative bg-card border border-border rounded-xl p-5 hover:border-foreground/20 transition-all duration-300 cursor-pointer group"
     >
       {/* Row 1: Avatar + Name (left) / Smart Score (right) */}
       <div className="flex items-start justify-between gap-3 mb-4">
@@ -269,9 +269,9 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
       <div className="h-px bg-border/40 mb-4" />
       
       {/* Row 3: PnL + Sparkline */}
-      <div className="flex items-end justify-between mb-5">
+      <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-[11px] text-muted-foreground font-medium mb-1">PnL</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1">Total PnL</div>
           <div className={cn(
             'text-2xl font-bold font-mono tracking-tight',
             isPositive ? 'text-emerald-400' : 'text-red-400'
@@ -282,18 +282,18 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
         <MiniSparkline data={sparklineData} positive={isPositive} />
       </div>
 
-      {/* Row 4: 3-column stats with green labels matching screenshot */}
+      {/* Row 4: 3-column stats */}
       <div className="grid grid-cols-3 gap-4 mb-5">
         <div>
-          <div className="text-[11px] text-[#22c55e] font-medium mb-0.5">Volume</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Volume</div>
           <div className="font-semibold text-foreground text-sm font-mono">{formatLargeNumber(trader.vol)}</div>
         </div>
         <div>
-          <div className="text-[11px] text-[#22c55e] font-medium mb-0.5">Win Rate</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Win Rate</div>
           <div className="font-semibold text-foreground text-sm font-mono">{winRate.toFixed(1)}%</div>
         </div>
         <div>
-          <div className="text-[11px] text-[#22c55e] font-medium mb-0.5">Sharpe</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Sharpe</div>
           <div className="font-semibold text-foreground text-sm font-mono">{sharpe.toFixed(2)}</div>
         </div>
       </div>
@@ -315,7 +315,7 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
 
 function TraderCardSkeleton() {
   return (
-    <div className="bg-card border border-border rounded-2xl p-5">
+    <div className="bg-card border border-border rounded-xl p-5">
       {/* Header row */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">

@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   description: 'Advanced analytics dashboard for Polymarket traders',
   generator: 'v0.app',
   icons: {
-    icon: '/vantake-logo-white.jpg',
-    apple: '/vantake-logo-white.jpg',
+    icon: '/vantake-logo-white.png',
+    apple: '/vantake-logo-white.png',
   },
 }
 
