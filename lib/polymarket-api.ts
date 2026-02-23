@@ -797,12 +797,19 @@ export function mapCategory(category?: string): string {
 export function mapCategoryToApi(category: string): LeaderboardCategory {
   const categoryMap: Record<string, LeaderboardCategory> = {
     'All': 'OVERALL',
-    'Politics': 'POLITICS',
-    'Sports': 'SPORTS',
-    'Crypto': 'CRYPTO',
-    'Pop Culture': 'CULTURE',
-    'Finance': 'FINANCE',
+    'World': 'POLITICS',
+    'Elections': 'POLITICS',
     'Tech': 'TECH',
+    'Geopolitics': 'POLITICS',
+    'Economy': 'ECONOMICS',
+    'Pop Culture': 'CULTURE',
+    'Sports': 'SPORTS',
+    'Earnings': 'FINANCE',
+    'Trump': 'POLITICS',
+    'Politics': 'POLITICS',
+    'Crypto': 'CRYPTO',
+    'Mention Markets': 'MENTIONS',
+    'Finance': 'FINANCE',
   }
   return categoryMap[category] || 'OVERALL'
 }

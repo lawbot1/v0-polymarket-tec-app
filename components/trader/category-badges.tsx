@@ -220,6 +220,41 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     categories.push(TRADER_CATEGORIES['medium-hold'])
   }
 
+  // ---- Guarantee minimum 3 categories ----
+  // If trader has fewer than 3, add fallback categories based on their stats
+  if (categories.length < 3) {
+    const existingIds = new Set(categories.map(c => c.id))
+
+    // Fallback priority: pick the most relevant ones that haven't been added
+    const fallbacks: { id: string; condition: boolean }[] = [
+      { id: 'high-winrate', condition: (stats.winRate || 0) > 50 },
+      { id: 'consistent', condition: stats.pnl > 0 },
+      { id: 'medium-hold', condition: stats.volume > 50_000 },
+      { id: 'whale', condition: stats.volume > 500_000 },
+      { id: 'crypto', condition: stats.smartScore > 40 },
+      { id: 'rising-star', condition: stats.pnl > 0 && (stats.tradesCount || 0) < 500 },
+    ]
+
+    for (const fb of fallbacks) {
+      if (categories.length >= 3) break
+      if (!existingIds.has(fb.id) && fb.condition && TRADER_CATEGORIES[fb.id]) {
+        categories.push(TRADER_CATEGORIES[fb.id])
+        existingIds.add(fb.id)
+      }
+    }
+  }
+
+  // ---- Top 1% performance: if smartScore > 90, add bestCategory if known ----
+  if (stats.smartScore > 90 && stats.bestCategory) {
+    const catKey = stats.bestCategory.toLowerCase()
+    const existingIds = new Set(categories.map(c => c.id))
+    if (catKey.includes('crypto') && !existingIds.has('crypto')) {
+      categories.push(TRADER_CATEGORIES['crypto'])
+    } else if (catKey.includes('sport') && !existingIds.has('sports')) {
+      categories.push(TRADER_CATEGORIES['sports'])
+    }
+  }
+
   return categories.slice(0, 6) // Max 6 categories
 }
 

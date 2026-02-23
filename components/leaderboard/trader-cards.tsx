@@ -36,13 +36,13 @@ const leaderboardFetcher = async (url: string) => {
 }
 
 type UITimeframe = '24H' | '7D' | '30D' | 'All'
-type UICategory = 'All' | 'Politics' | 'Crypto' | 'Sports' | 'Finance' | 'Pop Culture' | 'Tech'
+type UICategory = 'All' | 'World' | 'Elections' | 'Tech' | 'Geopolitics' | 'Economy' | 'Pop Culture' | 'Sports' | 'Earnings' | 'Trump' | 'Politics' | 'Crypto' | 'Mention Markets'
 type ViewMode = 'grid' | 'list'
 
 type FilterType = 'all' | 'our-picks' | 'high-pnl' | 'high-volume' | 'rising-stars'
 
 const timeframes: UITimeframe[] = ['24H', '7D', '30D', 'All']
-const categories: UICategory[] = ['All', 'Politics', 'Crypto', 'Sports', 'Finance', 'Pop Culture', 'Tech']
+const categories: UICategory[] = ['All', 'World', 'Elections', 'Tech', 'Geopolitics', 'Economy', 'Pop Culture', 'Sports', 'Earnings', 'Trump', 'Politics', 'Crypto', 'Mention Markets']
 
 const filters: { id: FilterType; label: string; icon: React.ReactNode }[] = [
   { id: 'our-picks', label: 'Our Picks', icon: <Star className="h-3 w-3" /> },
@@ -430,9 +430,36 @@ export function TraderCards() {
 
   return (
     <div className="space-y-4">
-      {/* Header Row - Title and Timeframe */}
+      {/* Header Row - Title, Category, and Timeframe */}
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <h1 className="text-2xl font-bold text-foreground">Trader Profiles</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-foreground">Trader Profiles</h1>
+          
+          {/* Category Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2 bg-secondary/30 border-border text-sm font-medium">
+                <span className="text-muted-foreground">Category:</span>
+                <span className="text-foreground">{category}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48 bg-card border-border">
+              {categories.map((cat) => (
+                <DropdownMenuItem
+                  key={cat}
+                  onClick={() => setCategory(cat)}
+                  className={cn(
+                    'cursor-pointer text-sm',
+                    category === cat ? 'text-foreground font-medium bg-secondary/50' : 'text-muted-foreground'
+                  )}
+                >
+                  {cat}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         
         {/* Timeframe Tabs */}
         <div className="flex items-center border border-border rounded-lg overflow-hidden">
