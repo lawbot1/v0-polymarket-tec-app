@@ -280,7 +280,7 @@ export default function TraderPage({ params }: TraderPageProps) {
         )}
 
         {/* ===== HEADER with avatar, name, wallet, badges, follow ===== */}
-        <div className="sharp-panel p-6">
+        <div data-trader-card className="sharp-panel p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-center gap-4">
               {isLoading ? (
