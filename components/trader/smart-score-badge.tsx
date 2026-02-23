@@ -12,7 +12,7 @@ interface SmartScoreTooltipData {
 interface SmartScoreBadgeProps {
   score: number
   tooltipData?: SmartScoreTooltipData
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'lg'
   className?: string
 }
 
@@ -48,10 +48,6 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
   const riskEff = tooltipData?.riskEfficiency ?? 50
   const profit = tooltipData?.profitability ?? 50
 
-  // For card (sm): square box layout
-  // For profile (lg): wider horizontal layout
-  const isSquare = size === 'sm' || size === 'md'
-
   return (
     <div
       ref={badgeRef}
@@ -59,54 +55,57 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      {isSquare ? (
-        /* SQUARE BADGE for cards */
-        <div className={cn(
-          'flex flex-col items-center justify-center border rounded-lg bg-card cursor-default transition-all',
-          getScoreBorderColor(score),
-          size === 'sm' ? 'w-[82px] h-[72px] gap-0.5' : 'w-[90px] h-[78px] gap-1',
+      {/* Horizontal badge -- "Smart Score" on top, logo + score on bottom, all in a compact rectangle */}
+      <div className={cn(
+        'flex flex-col border rounded-lg bg-card cursor-default transition-all',
+        getScoreBorderColor(score),
+        size === 'sm' ? 'px-3 py-1.5' : 'px-4 py-2.5',
+      )}>
+        {/* Top: "Smart Score" label */}
+        <span className={cn(
+          'font-semibold text-foreground/70 tracking-wide',
+          size === 'sm' ? 'text-[9px]' : 'text-xs',
         )}>
-          {/* "Smart Score" label */}
-          <span className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Smart Score
-          </span>
-          {/* Logo */}
-          <div className="flex items-center justify-center h-4 w-4 rounded-[3px] bg-secondary/80 border border-border/40">
-            <Image src="/vantake-logo-white.png" alt="V" width={10} height={10} className="object-contain" />
+          Smart Score
+        </span>
+        {/* Bottom: logo square + score + /100 */}
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <div className={cn(
+            'flex items-center justify-center rounded bg-secondary/80 border border-border/40',
+            size === 'sm' ? 'h-4 w-4' : 'h-6 w-6',
+          )}>
+            <Image
+              src="/vantake-logo-white.png"
+              alt="V"
+              width={size === 'sm' ? 10 : 16}
+              height={size === 'sm' ? 10 : 16}
+              className="object-contain"
+            />
           </div>
-          {/* Score */}
-          <div className="flex items-baseline gap-0.5">
-            <span className={cn('font-bold font-mono tabular-nums text-sm', getScoreColor(score))}>
-              {score.toFixed(1)}
-            </span>
-            <span className="text-[8px] font-mono text-muted-foreground/50">/100</span>
-          </div>
-        </div>
-      ) : (
-        /* WIDE BADGE for profile page */
-        <div className={cn(
-          'inline-flex items-center gap-2.5 border rounded-lg bg-card px-4 py-2.5 cursor-default transition-all',
-          getScoreBorderColor(score),
-        )}>
-          <span className="text-xs font-semibold text-foreground/80 whitespace-nowrap">Smart Score</span>
-          <div className="flex items-center justify-center h-6 w-6 rounded bg-secondary border border-border/50">
-            <Image src="/vantake-logo-white.png" alt="V" width={16} height={16} className="object-contain" />
-          </div>
-          <span className={cn('text-xl font-bold font-mono tabular-nums', getScoreColor(score))}>
+          <span className={cn(
+            'font-bold font-mono tabular-nums',
+            getScoreColor(score),
+            size === 'sm' ? 'text-base leading-none' : 'text-xl leading-none',
+          )}>
             {score.toFixed(1)}
           </span>
-          <span className="text-xs font-mono text-muted-foreground/60">/100</span>
+          <span className={cn(
+            'font-mono text-muted-foreground/50',
+            size === 'sm' ? 'text-[9px]' : 'text-xs',
+          )}>
+            /100
+          </span>
         </div>
-      )}
+      </div>
 
-      {/* Tooltip - always opens downward, stays within card bounds */}
+      {/* Tooltip - opens downward, anchored right for cards, left for profile */}
       {showTooltip && (
         <div
           className={cn(
             'absolute z-[60] w-52 bg-card border rounded-xl shadow-2xl shadow-black/60 p-3.5',
             getScoreBorderColor(score),
             'top-full mt-1.5',
-            isSquare ? 'right-0' : 'left-0',
+            size === 'sm' ? 'right-0' : 'left-0',
           )}
           style={{ pointerEvents: 'none' }}
         >
@@ -114,7 +113,7 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
           <div className={cn(
             'absolute -top-[6px] w-3 h-3 bg-card border-l border-t rotate-45',
             getScoreBorderColor(score),
-            isSquare ? 'right-5' : 'left-5',
+            size === 'sm' ? 'right-5' : 'left-5',
           )} />
 
           <div className="relative space-y-2">

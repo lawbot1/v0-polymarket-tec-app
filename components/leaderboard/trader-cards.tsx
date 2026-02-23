@@ -217,47 +217,47 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
   return (
     <div 
       onClick={onClick}
-      className="relative bg-card border border-border rounded-xl p-5 hover:border-foreground/20 transition-all duration-300 cursor-pointer group overflow-visible"
+      className="relative bg-card border border-border rounded-xl p-5 hover:border-foreground/20 transition-all duration-300 cursor-pointer group"
     >
-      {/* Smart Score square -- absolutely positioned top-right, overlaps into categories row */}
-      <div className="absolute top-4 right-4 z-10" onClick={(e) => e.stopPropagation()}>
-        <SmartScoreBadge
-          score={smartScore}
-          tooltipData={{ riskEfficiency, profitability }}
-          size="sm"
-        />
-      </div>
-
-      {/* Row 1: Avatar + Name (left side only, right side is reserved for the square badge) */}
-      <div className="flex items-center gap-3 mb-4 pr-[90px]">
-        {trader.profileImage ? (
-          <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-border/50">
-            <Image
-              src={trader.profileImage || "/placeholder.svg"}
-              alt={trader.userName || 'Trader'}
-              width={40}
-              height={40}
-              className="h-full w-full object-cover"
-            />
+      {/* Row 1: Avatar + Name (left) | Smart Score badge (right) -- same line */}
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          {trader.profileImage ? (
+            <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-border/50">
+              <Image
+                src={trader.profileImage || "/placeholder.svg"}
+                alt={trader.userName || 'Trader'}
+                width={40}
+                height={40}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center bg-secondary border border-border rounded-full flex-shrink-0 text-foreground font-bold text-sm">
+              {(trader.userName || trader.proxyWallet.slice(2, 4)).toUpperCase().slice(0, 2)}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="font-semibold text-foreground text-sm truncate leading-tight">
+              {trader.userName || formatAddress(trader.proxyWallet)}
+            </div>
+            <div className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
+              {formatAddress(trader.proxyWallet)}
+            </div>
           </div>
-        ) : (
-          <div className="flex h-10 w-10 items-center justify-center bg-secondary border border-border rounded-full flex-shrink-0 text-foreground font-bold text-sm">
-            {(trader.userName || trader.proxyWallet.slice(2, 4)).toUpperCase().slice(0, 2)}
-          </div>
-        )}
-        <div className="min-w-0">
-          <div className="font-semibold text-foreground text-sm truncate leading-tight">
-            {trader.userName || formatAddress(trader.proxyWallet)}
-          </div>
-          <div className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
-            {formatAddress(trader.proxyWallet)}
-          </div>
+        </div>
+        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <SmartScoreBadge
+            score={smartScore}
+            tooltipData={{ riskEfficiency, profitability }}
+            size="sm"
+          />
         </div>
       </div>
       
-      {/* Row 2: Category badges -- Smart Score square visually overlaps this row */}
+      {/* Row 2: Category badges -- max 3 visible + "+N" */}
       {traderCategories.length > 0 && (
-        <div className="mb-4 pr-[90px]" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4" onClick={(e) => e.stopPropagation()}>
           <CategoriesRow categories={traderCategories} maxVisible={3} size="sm" />
         </div>
       )}
@@ -268,7 +268,7 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
       {/* Row 3: PnL + Sparkline */}
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1">Total PnL</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1">PnL</div>
           <div className={cn(
             'text-2xl font-bold font-mono tracking-tight',
             isPositive ? 'text-emerald-400' : 'text-red-400'
@@ -282,20 +282,20 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
       {/* Row 4: 3-column stats */}
       <div className="grid grid-cols-3 gap-4 mb-5">
         <div>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Volume</div>
+          <div className="text-[11px] text-muted-foreground font-medium mb-0.5">Volume</div>
           <div className="font-semibold text-foreground text-sm font-mono">{formatLargeNumber(trader.vol)}</div>
         </div>
         <div>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Win Rate</div>
+          <div className="text-[11px] text-muted-foreground font-medium mb-0.5">Win Rate</div>
           <div className="font-semibold text-foreground text-sm font-mono">{winRate.toFixed(1)}%</div>
         </div>
         <div>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Sharpe</div>
+          <div className="text-[11px] text-muted-foreground font-medium mb-0.5">Sharpe</div>
           <div className="font-semibold text-foreground text-sm font-mono">{sharpe.toFixed(2)}</div>
         </div>
       </div>
       
-      {/* Row 5: Follow Button - lime/green style matching screenshot */}
+      {/* Row 5: Follow Button */}
       <FollowButton
         traderAddress={trader.proxyWallet}
         traderName={trader.userName}
@@ -312,22 +312,24 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
 
 function TraderCardSkeleton() {
   return (
-    <div className="bg-card border border-border rounded-xl p-5 relative">
-      {/* Smart Score square skeleton */}
-      <Skeleton className="absolute top-4 right-4 w-[82px] h-[72px] rounded-lg" />
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4 pr-[90px]">
-        <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
-        <div>
-          <Skeleton className="h-4 w-28 mb-1.5" />
-          <Skeleton className="h-3 w-24" />
+    <div className="bg-card border border-border rounded-xl p-5">
+      {/* Header row: avatar + name | smart score badge */}
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+          <div>
+            <Skeleton className="h-4 w-28 mb-1.5" />
+            <Skeleton className="h-3 w-24" />
+          </div>
         </div>
+        <Skeleton className="h-[42px] w-[110px] rounded-lg flex-shrink-0" />
       </div>
       {/* Categories */}
-      <div className="flex gap-1.5 mb-4 pr-[90px]">
+      <div className="flex gap-1.5 mb-4">
         <Skeleton className="h-6 w-24 rounded-full" />
         <Skeleton className="h-6 w-28 rounded-full" />
-        <Skeleton className="h-6 w-10 rounded-full" />
+        <Skeleton className="h-6 w-16 rounded-full" />
+        <Skeleton className="h-6 w-8 rounded-full" />
       </div>
       {/* Divider */}
       <div className="h-px bg-border/40 mb-4" />
