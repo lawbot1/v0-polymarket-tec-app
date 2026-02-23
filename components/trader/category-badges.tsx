@@ -240,11 +240,11 @@ export function CategoryBadge({ category, size = 'sm', className }: CategoryBadg
         <span className="font-medium text-foreground/90">{category.label}</span>
       </span>
 
-      {/* Tooltip */}
+      {/* Tooltip - opens downward so it stays inside card bounds */}
       {showTooltip && (
-        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-[#0f1f0f] border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
+        <div className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-card border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
           {/* Arrow */}
-          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0f1f0f] border-r border-b border-border/60 rotate-45" />
+          <div className="absolute -top-[6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-card border-l border-t border-border/60 rotate-45" />
 
           <div className="relative">
             <div className="flex items-center gap-1.5 mb-1.5">
@@ -300,10 +300,10 @@ export function CategoriesRow({ categories, maxVisible = 3, size = 'sm', classNa
             <span className="font-medium text-muted-foreground">+{overflow.length}</span>
           </span>
 
-          {/* Overflow tooltip showing hidden categories */}
+          {/* Overflow tooltip showing hidden categories - opens downward */}
           {showOverflowTooltip && (
-            <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-[#0f1f0f] border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
-              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0f1f0f] border-r border-b border-border/60 rotate-45" />
+            <div className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-card border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
+              <div className="absolute -top-[6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-card border-l border-t border-border/60 rotate-45" />
               <div className="relative space-y-2">
                 {overflow.map((cat) => {
                   const CatIcon = cat.icon
