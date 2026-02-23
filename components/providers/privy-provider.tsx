@@ -1,7 +1,12 @@
 'use client'
 
 import { PrivyProvider as Privy } from '@privy-io/react-auth'
+import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana'
 import { Component, type ReactNode, type ErrorInfo } from 'react'
+
+const solanaConnectors = toSolanaWalletConnectors({
+  shouldAutoConnect: false,
+})
 
 // Error boundary to catch Privy iframe failures (e.g., in v0 preview)
 class PrivyErrorBoundary extends Component<
@@ -47,6 +52,13 @@ export function PrivyProvider({ children }: { children: ReactNode }) {
             theme: 'dark',
             accentColor: '#22c55e',
             logo: '/vantake-main-logo.png',
+            walletList: ['metamask', 'phantom', 'coinbase_wallet', 'detected_ethereum_wallets', 'detected_solana_wallets'],
+            walletChainType: 'ethereum-and-solana',
+          },
+          externalWallets: {
+            solana: {
+              connectors: solanaConnectors,
+            },
           },
         }}
       >
