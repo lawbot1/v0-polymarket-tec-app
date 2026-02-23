@@ -51,6 +51,8 @@
   --success: oklch(0.6 0.12 145);
   --warning: oklch(0.7 0.12 60);
   --glow: transparent;
+  /* Smart Score green */
+  --score: oklch(0.72 0.19 145);
 }
 
 @theme inline {
@@ -95,6 +97,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-glow: var(--glow);
+  --color-score: var(--score);
 }
 
 @layer base {

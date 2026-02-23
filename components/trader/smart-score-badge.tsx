@@ -16,20 +16,6 @@ interface SmartScoreBadgeProps {
   className?: string
 }
 
-function getScoreColor(score: number) {
-  if (score >= 80) return 'text-[#22c55e]'
-  if (score >= 60) return 'text-[#eab308]'
-  if (score >= 40) return 'text-[#f97316]'
-  return 'text-[#ef4444]'
-}
-
-function getScoreBorderColor(score: number) {
-  if (score >= 80) return 'border-[#22c55e]/30'
-  if (score >= 60) return 'border-[#eab308]/30'
-  if (score >= 40) return 'border-[#f97316]/30'
-  return 'border-[#ef4444]/30'
-}
-
 export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: SmartScoreBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false)
   const badgeRef = useRef<HTMLDivElement>(null)
@@ -48,6 +34,41 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
   const riskEff = tooltipData?.riskEfficiency ?? 50
   const profit = tooltipData?.profitability ?? 50
 
+  if (size === 'lg') {
+    return (
+      <div
+        ref={badgeRef}
+        className={cn('relative inline-flex', className)}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        {/* Large badge for profile page */}
+        <div className="px-4 py-2.5 rounded-lg bg-score/10 border border-score/20 flex flex-col justify-between h-[68px] cursor-default">
+          <div className="text-sm text-muted-foreground tracking-wider text-left leading-none">Smart Score</div>
+          <div className="flex items-end gap-2">
+            <Image
+              src="/vantake-logo-white.png"
+              alt="Vantake"
+              width={22}
+              height={22}
+              className="opacity-70"
+            />
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-2xl font-semibold tabular-nums text-score leading-none">{score.toFixed(1)}</span>
+              <span className="text-sm text-muted-foreground/50 font-normal leading-none">/100</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tooltip */}
+        {showTooltip && (
+          <Tooltip score={score} riskEff={riskEff} profit={profit} anchor="left" />
+        )}
+      </div>
+    )
+  }
+
+  // size === 'sm' -- exact match of the reference code
   return (
     <div
       ref={badgeRef}
@@ -55,104 +76,79 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      {/* Horizontal badge -- "Smart Score" on top, logo + score on bottom, all in a compact rectangle */}
-      <div className={cn(
-        'flex flex-col border rounded-lg bg-card cursor-default transition-all',
-        getScoreBorderColor(score),
-        size === 'sm' ? 'px-3 py-1.5' : 'px-4 py-2.5',
-      )}>
-        {/* Top: "Smart Score" label */}
-        <span className={cn(
-          'font-semibold text-foreground/70 tracking-wide',
-          size === 'sm' ? 'text-[9px]' : 'text-xs',
-        )}>
-          Smart Score
-        </span>
-        {/* Bottom: logo square + score + /100 */}
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <div className={cn(
-            'flex items-center justify-center rounded bg-secondary/80 border border-border/40',
-            size === 'sm' ? 'h-4 w-4' : 'h-6 w-6',
-          )}>
-            <Image
-              src="/vantake-logo-white.png"
-              alt="V"
-              width={size === 'sm' ? 10 : 16}
-              height={size === 'sm' ? 10 : 16}
-              className="object-contain"
-            />
+      {/* Badge: px-3 py-2, h-[58px], bg-score/10, border-score/20 */}
+      <div className="px-3 py-2 rounded-lg bg-score/10 border border-score/20 flex flex-col justify-between h-[58px] cursor-default">
+        <div className="text-xs text-muted-foreground tracking-wider text-left leading-none">Smart Score</div>
+        <div className="flex items-end gap-2">
+          <Image
+            src="/vantake-logo-white.png"
+            alt="Vantake"
+            width={18}
+            height={18}
+            className="opacity-70"
+          />
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-xl font-semibold tabular-nums text-score leading-none">{score.toFixed(1)}</span>
+            <span className="text-xs text-muted-foreground/50 font-normal leading-none">/100</span>
           </div>
-          <span className={cn(
-            'font-bold font-mono tabular-nums',
-            getScoreColor(score),
-            size === 'sm' ? 'text-base leading-none' : 'text-xl leading-none',
-          )}>
-            {score.toFixed(1)}
-          </span>
-          <span className={cn(
-            'font-mono text-muted-foreground/50',
-            size === 'sm' ? 'text-[9px]' : 'text-xs',
-          )}>
-            /100
-          </span>
         </div>
       </div>
 
-      {/* Tooltip - opens downward, anchored right for cards, left for profile */}
+      {/* Tooltip */}
       {showTooltip && (
-        <div
-          className={cn(
-            'absolute z-[60] w-52 bg-card border rounded-xl shadow-2xl shadow-black/60 p-3.5',
-            getScoreBorderColor(score),
-            'top-full mt-1.5',
-            size === 'sm' ? 'right-0' : 'left-0',
-          )}
-          style={{ pointerEvents: 'none' }}
-        >
-          {/* Arrow */}
-          <div className={cn(
-            'absolute -top-[6px] w-3 h-3 bg-card border-l border-t rotate-45',
-            getScoreBorderColor(score),
-            size === 'sm' ? 'right-5' : 'left-5',
-          )} />
+        <Tooltip score={score} riskEff={riskEff} profit={profit} anchor="right" />
+      )}
+    </div>
+  )
+}
 
-          <div className="relative space-y-2">
-            {/* Header row: logo + score */}
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Smart Score</span>
-              <div className="flex items-center gap-1.5">
-                <div className="flex items-center justify-center h-4 w-4 rounded-[3px] bg-secondary border border-border/50">
-                  <Image src="/vantake-logo-white.png" alt="V" width={10} height={10} className="object-contain" />
-                </div>
-                <span className={cn('text-sm font-bold font-mono', getScoreColor(score))}>
-                  {score.toFixed(1)}
-                </span>
-                <span className="text-[9px] text-muted-foreground/50 font-mono">/100</span>
-              </div>
-            </div>
+/* Shared tooltip component */
+function Tooltip({ score, riskEff, profit, anchor }: { score: number; riskEff: number; profit: number; anchor: 'left' | 'right' }) {
+  return (
+    <div
+      className={cn(
+        'absolute z-[60] w-56 bg-card border border-score/20 rounded-xl shadow-2xl shadow-black/60 p-3.5 pointer-events-none',
+        'top-full mt-2',
+        anchor === 'right' ? 'right-0' : 'left-0',
+      )}
+    >
+      {/* Arrow */}
+      <div className={cn(
+        'absolute -top-[6px] w-3 h-3 bg-card border-l border-t border-score/20 rotate-45',
+        anchor === 'right' ? 'right-5' : 'left-5',
+      )} />
 
-            <div className="h-px bg-border/30" />
-
-            {/* Metrics */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-muted-foreground">Risk Efficiency</span>
-                <span className="text-[11px] font-semibold font-mono text-foreground">{riskEff.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-muted-foreground">Profitability</span>
-                <span className="text-[11px] font-semibold font-mono text-foreground">{profit.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div className="h-px bg-border/30" />
-
-            <p className="text-[9px] text-muted-foreground/50 leading-relaxed">
-              Scores are adjusted for recency, profit, and experience
-            </p>
+      <div className="relative space-y-2.5">
+        {/* Header: Smart Score + logo + score */}
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Smart Score</span>
+          <div className="flex items-center gap-1.5">
+            <Image src="/vantake-logo-white.png" alt="Vantake" width={14} height={14} className="opacity-70" />
+            <span className="text-sm font-bold tabular-nums text-score">{score.toFixed(1)}</span>
+            <span className="text-[9px] text-muted-foreground/50 font-normal">/100</span>
           </div>
         </div>
-      )}
+
+        <div className="h-px bg-border/30" />
+
+        {/* Metrics */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-muted-foreground">Risk Efficiency</span>
+            <span className="text-[11px] font-semibold tabular-nums text-foreground">{riskEff.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-muted-foreground">Profitability</span>
+            <span className="text-[11px] font-semibold tabular-nums text-foreground">{profit.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div className="h-px bg-border/30" />
+
+        <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
+          Scores are adjusted for recency, profit, and experience
+        </p>
+      </div>
     </div>
   )
 }
