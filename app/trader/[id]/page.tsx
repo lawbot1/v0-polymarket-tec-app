@@ -320,7 +320,7 @@ export default function TraderPage({ params }: TraderPageProps) {
                 {/* Category Badges with tooltips */}
                 {!isLoading && traderCategories.length > 0 && (
                   <div className="mt-3">
-                    <CategoriesRow categories={traderCategories} size="md" />
+                    <CategoriesRow categories={traderCategories} maxVisible={5} size="md" />
                   </div>
                 )}
               </div>

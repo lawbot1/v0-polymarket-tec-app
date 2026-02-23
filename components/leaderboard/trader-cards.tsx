@@ -192,9 +192,10 @@ interface TraderCardProps {
   userId: string | null
   followedSet: Set<string>
   trackedSet: Set<string>
+  activeCategory?: string
 }
 
-function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: TraderCardProps) {
+function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet, activeCategory }: TraderCardProps) {
   const smartScore = calculateSmartScore(trader.pnl, trader.vol, rank)
   const sparklineData = generateSparkline(trader.pnl)
   const isPositive = trader.pnl >= 0
@@ -212,6 +213,7 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
     smartScore,
     winRate,
     rank,
+    activeMarketCategory: activeCategory,
   })
   
   return (
@@ -510,6 +512,7 @@ export function TraderCards() {
                 userId={userId}
                 followedSet={followedSet}
                 trackedSet={trackedSet}
+                activeCategory={category}
               />
             ))
           )}
