@@ -106,11 +106,11 @@ export function FollowButton({
           variant={isFollowed ? 'outline' : 'default'}
           size={compact ? 'sm' : 'default'}
           className={cn(
-            'gap-2 transition-all rounded-lg',
+            'gap-2 transition-all rounded-xl font-medium',
             isSingleButton && 'w-full',
             isFollowed
               ? 'border-[#22c55e]/50 text-[#22c55e] bg-[#22c55e]/10 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/50'
-              : 'bg-foreground text-background hover:bg-foreground/90'
+              : 'bg-[#a3e635] text-[#0a0a0a] hover:bg-[#84cc16] border-0'
           )}
         >
           {loadingFollow ? (
@@ -119,16 +119,16 @@ export function FollowButton({
             <Check className="h-3.5 w-3.5" />
           ) : showLogo ? (
             <Image
-              src="/vantake-logo-white.png"
+              src="/vantake-logo-white.jpg"
               alt=""
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] object-contain invert dark:invert-0"
+              width={18}
+              height={18}
+              className="h-[18px] w-[18px] object-contain rounded-sm"
             />
           ) : (
             <Star className="h-3.5 w-3.5" />
           )}
-          {!compact && (isFollowed ? 'Following' : 'Follow')}
+          {!compact && (isFollowed ? 'Following' : '+ Follow')}
         </Button>
       )}
 

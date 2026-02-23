@@ -13,7 +13,6 @@ import {
   Trophy,
   Clock,
   TrendingUp,
-  BarChart3,
   Dumbbell,
 } from 'lucide-react'
 
@@ -27,7 +26,6 @@ export interface TraderCategory {
   description: string
   icon: React.ElementType
   color: string
-  bgColor: string
   borderColor: string
 }
 
@@ -38,7 +36,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Realized profits exceeding $500K',
     icon: Trophy,
     color: 'text-[#fbbf24]',
-    bgColor: 'bg-[#fbbf24]/10',
     borderColor: 'border-[#fbbf24]/30',
   },
   'legendary-profit': {
@@ -47,7 +44,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Realized profits exceeding $1M',
     icon: Crown,
     color: 'text-[#f59e0b]',
-    bgColor: 'bg-[#f59e0b]/10',
     borderColor: 'border-[#f59e0b]/30',
   },
   'volume-king': {
@@ -56,7 +52,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Veteran with 1,000+ resolved markets',
     icon: Zap,
     color: 'text-[#a78bfa]',
-    bgColor: 'bg-[#a78bfa]/10',
     borderColor: 'border-[#a78bfa]/30',
   },
   'crypto': {
@@ -65,7 +60,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Top 1% performer in Crypto markets by smart score (smart score > 60)',
     icon: Activity,
     color: 'text-[#60a5fa]',
-    bgColor: 'bg-[#60a5fa]/10',
     borderColor: 'border-[#60a5fa]/30',
   },
   'shark': {
@@ -74,7 +68,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Volume >$10M with portfolio >$100K',
     icon: Gem,
     color: 'text-[#34d399]',
-    bgColor: 'bg-[#34d399]/10',
     borderColor: 'border-[#34d399]/30',
   },
   'sports': {
@@ -83,7 +76,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Top 1% performer in Sports markets by smart score (smart score > 60)',
     icon: Dumbbell,
     color: 'text-[#f97316]',
-    bgColor: 'bg-[#f97316]/10',
     borderColor: 'border-[#f97316]/30',
   },
   'medium-hold': {
@@ -92,7 +84,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Median trade duration is between 15 min and 4 hours',
     icon: Clock,
     color: 'text-[#06b6d4]',
-    bgColor: 'bg-[#06b6d4]/10',
     borderColor: 'border-[#06b6d4]/30',
   },
   'whale': {
@@ -101,7 +92,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Total volume exceeding $1M',
     icon: Crown,
     color: 'text-[#60a5fa]',
-    bgColor: 'bg-[#60a5fa]/10',
     borderColor: 'border-[#60a5fa]/30',
   },
   'high-winrate': {
@@ -110,7 +100,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Win rate above 60% across all resolved positions',
     icon: Target,
     color: 'text-[#22c55e]',
-    bgColor: 'bg-[#22c55e]/10',
     borderColor: 'border-[#22c55e]/30',
   },
   'rising-star': {
@@ -119,7 +108,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'New trader with exceptional early performance',
     icon: Flame,
     color: 'text-[#fb923c]',
-    bgColor: 'bg-[#fb923c]/10',
     borderColor: 'border-[#fb923c]/30',
   },
   'consistent': {
@@ -128,7 +116,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Maintains positive PnL across multiple timeframes',
     icon: Shield,
     color: 'text-[#a3e635]',
-    bgColor: 'bg-[#a3e635]/10',
     borderColor: 'border-[#a3e635]/30',
   },
   'alpha-hunter': {
@@ -137,7 +124,6 @@ export const TRADER_CATEGORIES: Record<string, TraderCategory> = {
     description: 'Exceptional risk-adjusted returns with PnL >$100K',
     icon: TrendingUp,
     color: 'text-[#c084fc]',
-    bgColor: 'bg-[#c084fc]/10',
     borderColor: 'border-[#c084fc]/30',
   },
 }
@@ -214,7 +200,12 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     categories.push(TRADER_CATEGORIES['rising-star'])
   }
 
-  return categories.slice(0, 4) // Max 4 categories
+  // Medium Hold Time (simulated)
+  if (stats.volume > 100_000 && stats.smartScore > 50) {
+    categories.push(TRADER_CATEGORIES['medium-hold'])
+  }
+
+  return categories.slice(0, 6) // Max 6 categories
 }
 
 // ============================================
@@ -239,28 +230,28 @@ export function CategoryBadge({ category, size = 'sm', className }: CategoryBadg
     >
       <span
         className={cn(
-          'inline-flex items-center gap-1 border rounded-md cursor-default transition-all',
-          category.bgColor,
+          'inline-flex items-center gap-1.5 border bg-transparent rounded-full cursor-default transition-all',
           category.borderColor,
-          size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]',
+          'hover:bg-white/[0.03]',
+          size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
         )}
       >
-        <Icon className={cn(category.color, size === 'sm' ? 'h-2.5 w-2.5' : 'h-3 w-3')} />
-        <span className={cn('font-medium', category.color)}>{category.label}</span>
+        <Icon className={cn(category.color, size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
+        <span className="font-medium text-foreground/90">{category.label}</span>
       </span>
 
       {/* Tooltip */}
       {showTooltip && (
-        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-card border border-border rounded-lg shadow-xl p-2.5 pointer-events-none">
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-[#0f1f0f] border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
           {/* Arrow */}
-          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-card border-r border-b border-border rotate-45" />
-          
+          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0f1f0f] border-r border-b border-border/60 rotate-45" />
+
           <div className="relative">
-            <div className="flex items-center gap-1.5 mb-1">
+            <div className="flex items-center gap-1.5 mb-1.5">
               <Icon className={cn('h-3.5 w-3.5', category.color)} />
               <span className={cn('text-xs font-semibold', category.color)}>{category.label}</span>
             </div>
-            <p className="text-[10px] text-muted-foreground leading-relaxed">
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
               {category.description}
             </p>
           </div>
@@ -271,23 +262,68 @@ export function CategoryBadge({ category, size = 'sm', className }: CategoryBadg
 }
 
 // ============================================
-// CATEGORIES ROW COMPONENT
+// CATEGORIES ROW COMPONENT (with +N overflow)
 // ============================================
 
 interface CategoriesRowProps {
   categories: TraderCategory[]
+  maxVisible?: number
   size?: 'sm' | 'md'
   className?: string
 }
 
-export function CategoriesRow({ categories, size = 'sm', className }: CategoriesRowProps) {
+export function CategoriesRow({ categories, maxVisible = 3, size = 'sm', className }: CategoriesRowProps) {
+  const [showOverflowTooltip, setShowOverflowTooltip] = useState(false)
+
   if (categories.length === 0) return null
-  
+
+  const visible = categories.slice(0, maxVisible)
+  const overflow = categories.slice(maxVisible)
+
   return (
-    <div className={cn('flex flex-wrap gap-1', className)}>
-      {categories.map((cat) => (
+    <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
+      {visible.map((cat) => (
         <CategoryBadge key={cat.id} category={cat} size={size} />
       ))}
+      {overflow.length > 0 && (
+        <div
+          className="relative inline-flex"
+          onMouseEnter={() => setShowOverflowTooltip(true)}
+          onMouseLeave={() => setShowOverflowTooltip(false)}
+        >
+          <span
+            className={cn(
+              'inline-flex items-center border border-border/40 bg-transparent rounded-full cursor-default transition-all hover:bg-white/[0.03]',
+              size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
+            )}
+          >
+            <span className="font-medium text-muted-foreground">+{overflow.length}</span>
+          </span>
+
+          {/* Overflow tooltip showing hidden categories */}
+          {showOverflowTooltip && (
+            <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-[#0f1f0f] border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
+              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0f1f0f] border-r border-b border-border/60 rotate-45" />
+              <div className="relative space-y-2">
+                {overflow.map((cat) => {
+                  const CatIcon = cat.icon
+                  return (
+                    <div key={cat.id}>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <CatIcon className={cn('h-3 w-3', cat.color)} />
+                        <span className={cn('text-[11px] font-semibold', cat.color)}>{cat.label}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/70 leading-relaxed pl-[18px]">
+                        {cat.description}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
