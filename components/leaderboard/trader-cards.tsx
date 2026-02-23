@@ -26,6 +26,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import Image from 'next/image'
 import { FollowButton } from '@/components/trader/follow-button'
+import { SmartScoreBadge } from '@/components/trader/smart-score-badge'
+import { getTraderCategories, CategoriesRow } from '@/components/trader/category-badges'
 
 const leaderboardFetcher = async (url: string) => {
   const res = await fetch(url)
@@ -194,11 +196,22 @@ interface TraderCardProps {
 
 function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: TraderCardProps) {
   const smartScore = calculateSmartScore(trader.pnl, trader.vol, rank)
-  const badges = getTraderBadges(trader, rank)
   const sparklineData = generateSparkline(trader.pnl)
   const isPositive = trader.pnl >= 0
   const winRate = 45 + Math.random() * 15
-  const sharpe = 5 + Math.random() * 15
+
+  // Risk/profitability for Smart Score tooltip
+  const riskEfficiency = Math.min(99.99, Math.max(0, 50 + (smartScore - 50) * 1.2))
+  const profitability = Math.min(99.99, Math.max(0, 50 + (trader.pnl / Math.max(trader.vol || 1, 1)) * 500))
+
+  // Categories
+  const traderCategories = getTraderCategories({
+    pnl: trader.pnl,
+    volume: trader.vol,
+    smartScore,
+    winRate,
+    rank,
+  })
   
   return (
     <div 
@@ -211,13 +224,22 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
         isPositive ? 'bg-gradient-to-r from-emerald-500/60 via-emerald-400/30 to-transparent' : 'bg-gradient-to-r from-red-500/60 via-red-400/30 to-transparent'
       )} />
 
-      {/* Rank badge */}
-      <div className="absolute top-3 right-4 text-[11px] font-mono text-muted-foreground/60">
+      {/* Smart Score Badge - top right corner */}
+      <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
+        <SmartScoreBadge
+          score={smartScore}
+          tooltipData={{ riskEfficiency, profitability }}
+          size="sm"
+        />
+      </div>
+
+      {/* Rank */}
+      <div className="text-[10px] font-mono text-muted-foreground/60 mb-3">
         #{String(rank).padStart(2, '0')}
       </div>
       
       {/* Header: Avatar + Name */}
-      <div className="flex items-center gap-3.5 mb-4">
+      <div className="flex items-center gap-3.5 mb-3">
         {trader.profileImage ? (
           <div className="h-11 w-11 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-border group-hover:ring-foreground/20 transition-all">
             <Image
@@ -243,21 +265,15 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
         </div>
       </div>
       
-      {/* Badges row */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {badges.map((badge, i) => (
-          <span 
-            key={i}
-            className="inline-flex items-center gap-1 bg-secondary/70 border border-border/60 rounded-md px-2 py-0.5 text-[10px] text-muted-foreground font-medium"
-          >
-            <BadgeIcon icon={badge.icon} className={cn('h-2.5 w-2.5', badge.color)} />
-            {badge.label}
-          </span>
-        ))}
-      </div>
+      {/* Category badges row */}
+      {traderCategories.length > 0 && (
+        <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+          <CategoriesRow categories={traderCategories} size="sm" />
+        </div>
+      )}
 
       {/* Divider */}
-      <div className="h-px bg-border/50 mb-4" />
+      <div className="h-px bg-border/50 mb-3" />
       
       {/* PnL + Sparkline */}
       <div className="flex items-end justify-between mb-4">
@@ -273,19 +289,21 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet }: 
         <MiniSparkline data={sparklineData} positive={isPositive} />
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="bg-secondary/40 rounded-lg px-3 py-2.5">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Volume</div>
-          <div className="font-semibold text-foreground text-sm font-mono">{formatLargeNumber(trader.vol)}</div>
+      {/* Two compact stat buttons: Volume / Win Rate */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="flex items-center gap-2 bg-secondary/40 border border-border/40 rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary/60">
+          <Zap className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <div className="min-w-0">
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium">Volume</div>
+            <div className="font-semibold text-foreground text-sm font-mono truncate">{formatLargeNumber(trader.vol)}</div>
+          </div>
         </div>
-        <div className="bg-secondary/40 rounded-lg px-3 py-2.5">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Win Rate</div>
-          <div className="font-semibold text-foreground text-sm font-mono">{winRate.toFixed(1)}%</div>
-        </div>
-        <div className="bg-secondary/40 rounded-lg px-3 py-2.5">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">Score</div>
-          <div className="font-semibold text-foreground text-sm font-mono">{smartScore.toFixed(0)}<span className="text-muted-foreground text-[10px]">/100</span></div>
+        <div className="flex items-center gap-2 bg-secondary/40 border border-border/40 rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary/60">
+          <Target className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <div className="min-w-0">
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium">Win Rate</div>
+            <div className="font-semibold text-foreground text-sm font-mono">{winRate.toFixed(1)}%</div>
+          </div>
         </div>
       </div>
       
@@ -308,25 +326,27 @@ function TraderCardSkeleton() {
   return (
     <div className="bg-card border border-border rounded-xl p-5 overflow-hidden relative">
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-border/30" />
-      <div className="flex items-center gap-3.5 mb-4">
+      <div className="absolute top-3 right-3">
+        <Skeleton className="h-6 w-32 rounded-md" />
+      </div>
+      <Skeleton className="h-3 w-8 mb-3" />
+      <div className="flex items-center gap-3.5 mb-3">
         <Skeleton className="h-11 w-11 rounded-full" />
         <div>
           <Skeleton className="h-4 w-28 mb-1.5" />
           <Skeleton className="h-3 w-32" />
         </div>
       </div>
-      <div className="flex gap-1.5 mb-4">
+      <div className="flex gap-1 mb-3">
         <Skeleton className="h-5 w-16 rounded-md" />
         <Skeleton className="h-5 w-20 rounded-md" />
-        <Skeleton className="h-5 w-14 rounded-md" />
       </div>
-      <div className="h-px bg-border/50 mb-4" />
+      <div className="h-px bg-border/50 mb-3" />
       <div className="flex justify-between mb-4">
         <Skeleton className="h-9 w-32" />
         <Skeleton className="h-8 w-24" />
       </div>
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <Skeleton className="h-14 w-full rounded-lg" />
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <Skeleton className="h-14 w-full rounded-lg" />
         <Skeleton className="h-14 w-full rounded-lg" />
       </div>

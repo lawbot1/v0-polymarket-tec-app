@@ -20,6 +20,8 @@ import {
 import { cn } from '@/lib/utils'
 import { Copy, ExternalLink, RefreshCw, ArrowLeft, Trophy, Target, TrendingUp, Shield, Zap, BarChart3 } from 'lucide-react'
 import { FollowButton } from '@/components/trader/follow-button'
+import { SmartScoreBadge } from '@/components/trader/smart-score-badge'
+import { getTraderCategories, CategoriesRow } from '@/components/trader/category-badges'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -196,6 +198,18 @@ export default function TraderPage({ params }: TraderPageProps) {
 
   const smartScore = calcSmartScore(profile, winRate, positions)
   const badges = getTraderBadges(profile, positions, trades)
+  
+  // Categories for the new category badges
+  const traderCategories = getTraderCategories({
+    pnl: profile?.pnl || 0,
+    volume: profile?.vol || 0,
+    smartScore,
+    winRate,
+    rank: Number(profile?.rank) || 999,
+    tradesCount: trades.length,
+    positionsCount: positions.length,
+    bestCategory,
+  })
 
   // ---- PnL chart data ----
   // Build equity curve from trades. SELL = profit realized, BUY = cost paid.
@@ -303,14 +317,10 @@ export default function TraderPage({ params }: TraderPageProps) {
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </div>
-                {/* Badges */}
-                {!isLoading && badges.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {badges.map((b) => (
-                      <span key={b.label} className={cn('inline-flex items-center border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider', b.color)}>
-                        {b.label}
-                      </span>
-                    ))}
+                {/* Category Badges with tooltips */}
+                {!isLoading && traderCategories.length > 0 && (
+                  <div className="mt-3">
+                    <CategoriesRow categories={traderCategories} size="md" />
                   </div>
                 )}
               </div>
@@ -441,18 +451,18 @@ export default function TraderPage({ params }: TraderPageProps) {
           <div className="sharp-panel p-5 lg:col-span-2 flex flex-col">
             <h3 className="text-sm font-semibold text-foreground mb-4">Portfolio Metrics</h3>
 
-            {/* Smart Score */}
+            {/* Smart Score - with hoverable tooltip */}
             <div className="sharp-panel p-4 mb-4">
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Smart Score</div>
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Smart Score</div>
               {isLoading ? <Skeleton className="h-10 w-32" /> : (
                 <>
-                  <div className="flex items-center gap-2">
-                    <span className="text-3xl font-semibold font-mono text-[#22c55e]">{smartScore.toFixed(2)}</span>
-                    <span className="text-sm text-muted-foreground font-mono">/100</span>
-                    <Image src="/vantake-logo-white.png" alt="Vantake" width={28} height={28} className="h-7 w-7 object-contain opacity-80 ml-auto" />
-                  </div>
-                  <div className="mt-2 h-1.5 bg-secondary overflow-hidden">
-                    <div className="h-full bg-[#22c55e] transition-all duration-500" style={{ width: `${smartScore}%` }} />
+                  <SmartScoreBadge
+                    score={smartScore}
+                    tooltipData={{ riskEfficiency, profitability }}
+                    size="lg"
+                  />
+                  <div className="mt-3 h-1.5 bg-secondary overflow-hidden rounded-full">
+                    <div className="h-full bg-[#22c55e] transition-all duration-500 rounded-full" style={{ width: `${smartScore}%` }} />
                   </div>
                 </>
               )}
