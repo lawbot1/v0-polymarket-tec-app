@@ -203,6 +203,7 @@ export interface TraderStats {
   tradesCount?: number
   positionsCount?: number
   bestCategory?: string
+  activeMarketCategory?: string // the currently selected UI market category filter
 }
 
 // Map from UI market categories to our category IDs
@@ -279,12 +280,10 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     categories.push(TRADER_CATEGORIES['medium-hold'])
   }
 
-  // ---- Top 1% market category performance ----
-  // If smartScore > 90 (top 1%), detect their best market category and add it
-  if (stats.smartScore > 90 && stats.bestCategory) {
-    const catKey = stats.bestCategory.toLowerCase()
+  // ---- Active market category: if user filtered by a market, assign that category ----
+  if (stats.activeMarketCategory && stats.activeMarketCategory !== 'All') {
+    const catKey = stats.activeMarketCategory.toLowerCase()
     const existingIds = new Set(categories.map(c => c.id))
-
     for (const [keyword, catId] of Object.entries(MARKET_CATEGORY_MAP)) {
       if (catKey.includes(keyword) && !existingIds.has(catId) && TRADER_CATEGORIES[catId]) {
         categories.push(TRADER_CATEGORIES[catId])
@@ -293,30 +292,44 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
     }
   }
 
-  // Also assign market categories based on rank position (top 1% = rank <= 10)
+  // ---- Top 1% market category performance ----
+  if (stats.smartScore > 85 && stats.bestCategory) {
+    const catKey = stats.bestCategory.toLowerCase()
+    const existingIds = new Set(categories.map(c => c.id))
+    for (const [keyword, catId] of Object.entries(MARKET_CATEGORY_MAP)) {
+      if (catKey.includes(keyword) && !existingIds.has(catId) && TRADER_CATEGORIES[catId]) {
+        categories.push(TRADER_CATEGORIES[catId])
+        break
+      }
+    }
+  }
+
+  // Top-ranked traders get market categories
   if (stats.rank && stats.rank <= 10) {
     const existingIds = new Set(categories.map(c => c.id))
-    // Simulate: top 10 traders likely excel in crypto
-    if (!existingIds.has('crypto') && stats.smartScore > 80) {
+    if (!existingIds.has('crypto') && stats.smartScore > 70) {
       categories.push(TRADER_CATEGORIES['crypto'])
     }
   }
 
-  // ---- Guarantee minimum 3 categories ----
-  if (categories.length < 3) {
+  // ---- Guarantee minimum 4 categories (look more complete) ----
+  const MIN_CATEGORIES = 4
+  if (categories.length < MIN_CATEGORIES) {
     const existingIds = new Set(categories.map(c => c.id))
 
     const fallbacks: { id: string; condition: boolean }[] = [
-      { id: 'high-winrate', condition: (stats.winRate || 0) > 50 },
+      { id: 'high-winrate', condition: (stats.winRate || 0) > 48 },
       { id: 'consistent', condition: stats.pnl > 0 },
-      { id: 'medium-hold', condition: stats.volume > 50_000 },
-      { id: 'whale', condition: stats.volume > 500_000 },
-      { id: 'crypto', condition: stats.smartScore > 40 },
-      { id: 'rising-star', condition: stats.pnl > 0 && (stats.tradesCount || 0) < 500 },
+      { id: 'medium-hold', condition: stats.volume > 30_000 },
+      { id: 'whale', condition: stats.volume > 300_000 },
+      { id: 'crypto', condition: stats.smartScore > 35 },
+      { id: 'rising-star', condition: stats.pnl > 0 && (stats.tradesCount || 0) < 800 },
+      { id: 'alpha-hunter', condition: stats.pnl > 50_000 && stats.smartScore > 55 },
+      { id: 'volume-king', condition: stats.volume > 1_000_000 },
     ]
 
     for (const fb of fallbacks) {
-      if (categories.length >= 3) break
+      if (categories.length >= MIN_CATEGORIES) break
       if (!existingIds.has(fb.id) && fb.condition && TRADER_CATEGORIES[fb.id]) {
         categories.push(TRADER_CATEGORIES[fb.id])
         existingIds.add(fb.id)
@@ -399,7 +412,7 @@ export function CategoriesRow({ categories, maxVisible = 3, size = 'sm', classNa
   const overflow = categories.slice(maxVisible)
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
+    <div className={cn('flex items-center gap-1.5 overflow-hidden', className)}>
       {visible.map((cat) => (
         <CategoryBadge key={cat.id} category={cat} size={size} />
       ))}
