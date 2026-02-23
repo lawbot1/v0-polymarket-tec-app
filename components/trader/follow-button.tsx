@@ -119,10 +119,11 @@ export function FollowButton({
             <Check className="h-3.5 w-3.5" />
           ) : (
             <Image
-              src="/vantake-logo-dark.png"
+              src="/vantake-logo-white.png"
               alt=""
               width={28}
               height={28}
+              className="opacity-90"
             />
           )}
           {!compact && (isFollowed ? 'Following' : 'Follow')}
