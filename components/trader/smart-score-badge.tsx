@@ -45,15 +45,13 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
         <div className="px-4 py-2.5 rounded-lg bg-score/10 border border-score/20 flex flex-col justify-between h-[62px] cursor-default">
           <div className="text-xs text-muted-foreground tracking-wider text-left leading-none">Smart Score</div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-[26px] h-[26px] rounded bg-score/15 flex-shrink-0">
-              <Image
-                src="/vantake-logo-white.png"
-                alt="Vantake"
-                width={18}
-                height={18}
-                className="opacity-80"
-              />
-            </div>
+            <Image
+              src="/vantake-logo-white.png"
+              alt="Vantake"
+              width={28}
+              height={28}
+              className="opacity-80 flex-shrink-0"
+            />
             <div className="flex items-baseline gap-0.5">
               <span className="text-2xl font-semibold tabular-nums text-score leading-none">{score.toFixed(1)}</span>
               <span className="text-xs text-muted-foreground/50 font-normal leading-none">/100</span>
@@ -80,15 +78,13 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
       <div className="px-3 py-2 rounded-lg bg-score/10 border border-score/20 flex flex-col justify-between h-[52px] cursor-default">
         <div className="text-[11px] text-muted-foreground tracking-wider text-left leading-none">Smart Score</div>
         <div className="flex items-center gap-1.5">
-          <div className="flex items-center justify-center w-[22px] h-[22px] rounded bg-score/15 flex-shrink-0">
-            <Image
-              src="/vantake-logo-white.png"
-              alt="Vantake"
-              width={16}
-              height={16}
-              className="opacity-80"
-            />
-          </div>
+          <Image
+            src="/vantake-logo-white.png"
+            alt="Vantake"
+            width={24}
+            height={24}
+            className="opacity-80 flex-shrink-0"
+          />
           <div className="flex items-baseline gap-0.5">
             <span className="text-lg font-semibold tabular-nums text-score leading-none">{score.toFixed(1)}</span>
             <span className="text-[10px] text-muted-foreground/50 font-normal leading-none">/100</span>
