@@ -1,18 +1,45 @@
 'use client'
 
-import { usePrivy } from '@privy-io/react-auth'
 import { useEffect, useState, useCallback } from 'react'
 
+// Dynamic import to avoid crash if Privy provider isn't available
+let usePrivyHook: (() => any) | null = null
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require('@privy-io/react-auth')
+  usePrivyHook = mod.usePrivy
+} catch {
+  // Privy not available
+}
+
 interface AuthUser {
-  id: string           // Supabase profile ID (= Privy DID)
-  privyId: string      // Privy DID
+  id: string
+  privyId: string
   email?: string
   walletAddress?: string
   displayName?: string
 }
 
+// Safe wrapper around usePrivy that won't crash if provider is missing
+function usePrivySafe() {
+  try {
+    if (usePrivyHook) {
+      return usePrivyHook()
+    }
+  } catch {
+    // Privy context not available (e.g., iframe restriction)
+  }
+  return {
+    ready: true,
+    authenticated: false,
+    user: null,
+    login: () => { console.warn('[Auth] Privy not available in this environment') },
+    logout: async () => {},
+  }
+}
+
 export function useAuth() {
-  const { ready, authenticated, user, login, logout } = usePrivy()
+  const { ready, authenticated, user, login, logout } = usePrivySafe()
   const [dbUser, setDbUser] = useState<AuthUser | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [synced, setSynced] = useState(false)
