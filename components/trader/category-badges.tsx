@@ -370,9 +370,16 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
   const iconSize = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'
   const imgSize = size === 'sm' ? 18 : 22
 
-  // Emoji takes priority for whale/shark/market categories
+  // Emoji takes priority for market categories -- scale up visually without affecting layout
   if (category.emoji) {
-    return <span className={cn(size === 'sm' ? 'text-sm' : 'text-base', 'leading-none')}>{category.emoji}</span>
+    return (
+      <span
+        className={cn(size === 'sm' ? 'text-xs' : 'text-sm', 'leading-none inline-flex items-center justify-center')}
+        style={{ transform: 'scale(1.8)', transformOrigin: 'center', width: size === 'sm' ? 14 : 16, height: size === 'sm' ? 14 : 16 }}
+      >
+        {category.emoji}
+      </span>
+    )
   }
   // Custom PNG icon
   if (category.customIcon) {
