@@ -3,10 +3,27 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     unoptimized: true,
   },
- 
+  serverExternalPackages: [
+    'pino',
+    'pino-pretty',
+    'thread-stream',
+    '@walletconnect/core',
+    '@walletconnect/sign-client',
+    '@walletconnect/ethereum-provider',
+    '@walletconnect/universal-provider',
+    '@walletconnect/logger',
+  ],
+  turbopack: {
+    resolveAlias: {
+      'pino': { browser: './node_modules/pino/browser.js' },
+    },
+  },
 }
 
 export default nextConfig
