@@ -1,16 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-
-// Dynamic import to avoid crash if Privy provider isn't available
-let usePrivyHook: (() => any) | null = null
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const mod = require('@privy-io/react-auth')
-  usePrivyHook = mod.usePrivy
-} catch {
-  // Privy not available
-}
+import { usePrivy } from '@privy-io/react-auth'
 
 interface AuthUser {
   id: string
@@ -20,21 +11,22 @@ interface AuthUser {
   displayName?: string
 }
 
-// Safe wrapper around usePrivy that won't crash if provider is missing
+const FALLBACK = {
+  ready: true,
+  authenticated: false,
+  user: null,
+  login: () => { console.warn('[Auth] Privy not available') },
+  logout: async () => {},
+}
+
+// Safe wrapper around usePrivy that won't crash if provider context is missing
 function usePrivySafe() {
   try {
-    if (usePrivyHook) {
-      return usePrivyHook()
-    }
+    const privy = usePrivy()
+    return privy
   } catch {
-    // Privy context not available (e.g., iframe restriction)
-  }
-  return {
-    ready: true,
-    authenticated: false,
-    user: null,
-    login: () => { console.warn('[Auth] Privy not available in this environment') },
-    logout: async () => {},
+    // Privy context not available (e.g., error boundary caught iframe failure)
+    return FALLBACK
   }
 }
 

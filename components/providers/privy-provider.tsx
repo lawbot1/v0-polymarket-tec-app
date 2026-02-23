@@ -47,12 +47,8 @@ export function PrivyProvider({ children }: { children: ReactNode }) {
             theme: 'dark',
             accentColor: '#22c55e',
             logo: '/vantake-main-logo.png',
-            showWalletLoginFirst: false,
           },
           loginMethods: ['email', 'wallet'],
-          embeddedWallets: {
-            createOnLogin: 'users-without-wallets',
-          },
         }}
       >
         {children}

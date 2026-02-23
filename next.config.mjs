@@ -13,16 +13,32 @@ const nextConfig = {
     'pino',
     'pino-pretty',
     'thread-stream',
-    '@walletconnect/core',
-    '@walletconnect/sign-client',
-    '@walletconnect/ethereum-provider',
-    '@walletconnect/universal-provider',
-    '@walletconnect/logger',
   ],
-  turbopack: {
-    resolveAlias: {
-      'pino': { browser: './node_modules/pino/browser.js' },
-    },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+        stream: false,
+        url: false,
+        zlib: false,
+        http: false,
+        https: false,
+        assert: false,
+        os: false,
+        path: false,
+        child_process: false,
+      }
+    }
+    // Ignore .node binary files
+    config.module.rules.push({
+      test: /\.node$/,
+      use: 'ignore-loader',
+    })
+    return config
   },
 }
 
