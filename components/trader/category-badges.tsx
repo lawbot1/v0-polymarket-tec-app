@@ -367,35 +367,51 @@ interface CategoryBadgeProps {
 }
 
 function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm' | 'md' }) {
-  const iconSize = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'
-  const imgSize = size === 'sm' ? 18 : 22
+  // Fixed box so layout is unaffected; scale() enlarges visually only
+  const box = size === 'sm' ? 14 : 16
 
-  // Emoji takes priority for market categories -- scale up visually without affecting layout
+  // Emoji -- market categories
   if (category.emoji) {
     return (
       <span
-        className={cn(size === 'sm' ? 'text-xs' : 'text-sm', 'leading-none inline-flex items-center justify-center')}
-        style={{ transform: 'scale(1.8)', transformOrigin: 'center', width: size === 'sm' ? 14 : 16, height: size === 'sm' ? 14 : 16 }}
+        className="leading-none inline-flex items-center justify-center text-xs flex-shrink-0"
+        style={{ transform: 'scale(2.4)', transformOrigin: 'center', width: box, height: box }}
       >
         {category.emoji}
       </span>
     )
   }
-  // Custom PNG icon
+  // Custom PNG icon -- scale x2 visually
   if (category.customIcon) {
     return (
-      <Image
-        src={category.customIcon}
-        alt=""
-        width={imgSize}
-        height={imgSize}
-        className="opacity-90 flex-shrink-0"
-      />
+      <span
+        className="inline-flex items-center justify-center flex-shrink-0"
+        style={{ width: box, height: box }}
+      >
+        <Image
+          src={category.customIcon}
+          alt=""
+          width={box}
+          height={box}
+          className="opacity-90"
+          style={{ transform: 'scale(2)', transformOrigin: 'center' }}
+        />
+      </span>
     )
   }
-  // Fallback: Lucide icon
+  // Fallback: Lucide icon -- scale x2 visually
   const Icon = category.icon
-  return <Icon className={cn(category.color, iconSize)} />
+  return (
+    <span
+      className="inline-flex items-center justify-center flex-shrink-0"
+      style={{ width: box, height: box }}
+    >
+      <Icon
+        className={cn(category.color, 'h-3.5 w-3.5')}
+        style={{ transform: 'scale(2)', transformOrigin: 'center' }}
+      />
+    </span>
+  )
 }
 
 export function CategoryBadge({ category, size = 'sm', className }: CategoryBadgeProps) {
