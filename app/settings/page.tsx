@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { Mail, MessageCircle, Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, Bell, Zap, Users, BarChart3, Send, ExternalLink, Copy, AlertTriangle } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -28,14 +28,23 @@ export default function SettingsPage() {
     polymarket_wallet: '',
   })
 
+  // Real DB columns from notification_settings
   const [notifications, setNotifications] = useState({
     large_trade_alerts: true,
-    portfolio_updates: true,
-    market_signals: false,
-    daily_digest: false,
+    new_market_alerts: false,
+    whale_alerts: true,
+    weekly_report: true,
   })
 
-  // Load data from Supabase on mount
+  // Telegram bot settings (stored in profiles.telegram_chat_id + notification_settings)
+  const [telegramChatId, setTelegramChatId] = useState('')
+  const [telegramEnabled, setTelegramEnabled] = useState(false)
+  const [telegramLinking, setTelegramLinking] = useState(false)
+  const [telegramLinked, setTelegramLinked] = useState(false)
+
+  // Generate a unique linking code for the user
+  const [linkingCode, setLinkingCode] = useState('')
+
   useEffect(() => {
     const loadData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -44,6 +53,9 @@ export default function SettingsPage() {
         return
       }
       setUserId(user.id)
+
+      // Generate a linking code from user ID (first 8 chars)
+      setLinkingCode(user.id.replace(/-/g, '').slice(0, 8).toUpperCase())
 
       // Load profile
       const { data: profile } = await supabase
@@ -59,22 +71,36 @@ export default function SettingsPage() {
           telegram_handle: profile.telegram_handle || '',
           polymarket_wallet: profile.polymarket_wallet || '',
         })
+        // Check if telegram is linked
+        if (profile.telegram_chat_id) {
+          setTelegramChatId(profile.telegram_chat_id)
+          setTelegramLinked(true)
+          setTelegramEnabled(true)
+        }
       }
 
       // Load notification settings
       const { data: notifSettings } = await supabase
         .from('notification_settings')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .single()
 
       if (notifSettings) {
         setNotifications({
-          large_trade_alerts: notifSettings.large_trade_alerts,
-          portfolio_updates: notifSettings.portfolio_updates,
-          market_signals: notifSettings.market_signals,
-          daily_digest: notifSettings.daily_digest,
+          large_trade_alerts: notifSettings.large_trade_alerts ?? true,
+          new_market_alerts: notifSettings.new_market_alerts ?? false,
+          whale_alerts: notifSettings.whale_alerts ?? true,
+          weekly_report: notifSettings.weekly_report ?? true,
         })
+        // Also check telegram fields if they exist on notification_settings
+        if (notifSettings.telegram_notifications_enabled !== undefined) {
+          setTelegramEnabled(notifSettings.telegram_notifications_enabled)
+        }
+        if (notifSettings.telegram_chat_id) {
+          setTelegramChatId(notifSettings.telegram_chat_id)
+          setTelegramLinked(true)
+        }
       }
 
       setLoading(false)
@@ -97,15 +123,22 @@ export default function SettingsPage() {
       })
       .eq('id', userId)
 
-    // Update notification settings
+    // Upsert notification settings (use id = userId since PK is user id)
     await supabase
       .from('notification_settings')
-      .update(notifications)
-      .eq('user_id', userId)
+      .upsert({
+        id: userId,
+        ...notifications,
+        updated_at: new Date().toISOString(),
+      })
 
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const copyLinkingCode = () => {
+    navigator.clipboard.writeText(linkingCode)
   }
 
   if (loading) {
@@ -113,7 +146,8 @@ export default function SettingsPage() {
       <AppShell title="Settings">
         <div className="max-w-3xl space-y-6">
           <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-96 w-full" />
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </AppShell>
     )
@@ -122,7 +156,8 @@ export default function SettingsPage() {
   return (
     <AppShell title="Settings">
       <div className="max-w-3xl space-y-6">
-        {/* Profile Settings */}
+
+        {/* ──── Profile Settings ──── */}
         <div className="sharp-panel p-6">
           <div className="mb-6">
             <h2 className="font-medium text-foreground">Profile Settings</h2>
@@ -174,22 +209,158 @@ export default function SettingsPage() {
                 onChange={(e) => setProfileForm({ ...profileForm, telegram_handle: e.target.value })}
                 className="bg-secondary border-border"
               />
-              <p className="text-xs text-muted-foreground">Connect your Telegram for real-time alerts</p>
             </div>
           </div>
         </div>
 
-        {/* Notification Settings */}
+        {/* ──── Telegram Bot Notifications ──── */}
         <div className="sharp-panel p-6">
-          <div className="mb-6">
-            <h2 className="font-medium text-foreground">Notification Settings</h2>
-            <p className="text-sm text-muted-foreground">Choose how you want to receive alerts</p>
+          <div className="mb-6 flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Send className="h-5 w-5 text-[#26A5E4]" />
+                <h2 className="font-medium text-foreground">Telegram Notifications</h2>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Receive real-time alerts about tracked wallet trades directly in Telegram
+              </p>
+            </div>
+            {telegramLinked && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30">
+                <Check className="h-3 w-3" /> Connected
+              </span>
+            )}
           </div>
 
-          <div className="space-y-6">
+          {!telegramLinked ? (
+            <div className="space-y-4">
+              {/* Step-by-step guide */}
+              <div className="bg-secondary/50 rounded-lg p-4 space-y-3">
+                <p className="text-sm font-medium text-foreground">How to connect:</p>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="flex gap-2">
+                    <span className="text-primary font-mono font-bold">1.</span>
+                    <span>
+                      Open our Telegram bot:{' '}
+                      <a
+                        href="https://t.me/VantakeBot"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#26A5E4] hover:underline inline-flex items-center gap-1"
+                      >
+                        @VantakeBot <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-primary font-mono font-bold">2.</span>
+                    <span>{'Send the command: /start'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-primary font-mono font-bold">3.</span>
+                    <div>
+                      <span>Send your linking code:</span>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <code className="bg-background px-3 py-1.5 rounded font-mono text-foreground text-sm tracking-widest border border-border">
+                          {linkingCode}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={copyLinkingCode}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-primary font-mono font-bold">4.</span>
+                    <span>The bot will confirm the link and you will start receiving notifications</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+                <p className="text-xs text-yellow-500">
+                  The Telegram bot is coming soon. You can set up your preferences now and connect when it launches.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <div className="text-sm text-foreground">Enable Telegram Alerts</div>
+                  <div className="text-xs text-muted-foreground">Master toggle for all Telegram notifications</div>
+                </div>
+                <Switch
+                  checked={telegramEnabled}
+                  onCheckedChange={setTelegramEnabled}
+                />
+              </div>
+
+              <div className="pl-4 border-l-2 border-border space-y-3">
+                <div className="flex items-center justify-between py-1.5">
+                  <div>
+                    <div className="text-sm text-foreground">Tracked Wallet Trades</div>
+                    <div className="text-xs text-muted-foreground">Notify when tracked wallets place bets</div>
+                  </div>
+                  <Switch
+                    checked={telegramEnabled && notifications.large_trade_alerts}
+                    disabled={!telegramEnabled}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, large_trade_alerts: checked })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-1.5">
+                  <div>
+                    <div className="text-sm text-foreground">Whale Alerts</div>
+                    <div className="text-xs text-muted-foreground">Large trades from top traders</div>
+                  </div>
+                  <Switch
+                    checked={telegramEnabled && notifications.whale_alerts}
+                    disabled={!telegramEnabled}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, whale_alerts: checked })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-1.5">
+                  <div>
+                    <div className="text-sm text-foreground">New Market Alerts</div>
+                    <div className="text-xs text-muted-foreground">Interesting new markets on Polymarket</div>
+                  </div>
+                  <Switch
+                    checked={telegramEnabled && notifications.new_market_alerts}
+                    disabled={!telegramEnabled}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, new_market_alerts: checked })}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  {'Connected to Telegram Chat ID: '}
+                  <code className="font-mono text-foreground">{telegramChatId}</code>
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ──── In-App Notification Settings ──── */}
+        <div className="sharp-panel p-6">
+          <div className="mb-6">
+            <h2 className="font-medium text-foreground">In-App Notifications</h2>
+            <p className="text-sm text-muted-foreground">Control which alerts appear in your notification feed</p>
+          </div>
+
+          <div className="space-y-4">
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-muted-foreground" />
+                <Zap className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="text-sm text-foreground">Large Trade Alerts</div>
                   <div className="text-xs text-muted-foreground">Get notified when tracked wallets make large trades</div>
@@ -203,37 +374,43 @@ export default function SettingsPage() {
 
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
-                <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                <Users className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-foreground">Portfolio Updates</div>
-                  <div className="text-xs text-muted-foreground">Updates on your linked portfolio performance</div>
+                  <div className="text-sm text-foreground">Whale Alerts</div>
+                  <div className="text-xs text-muted-foreground">Movements from top 1% traders</div>
                 </div>
               </div>
               <Switch
-                checked={notifications.portfolio_updates}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, portfolio_updates: checked })}
+                checked={notifications.whale_alerts}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, whale_alerts: checked })}
               />
             </div>
 
             <div className="flex items-center justify-between py-2">
-              <div>
-                <div className="text-sm text-foreground">Market Signals</div>
-                <div className="text-xs text-muted-foreground">Smart money movement alerts</div>
+              <div className="flex items-center gap-3">
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <div className="text-sm text-foreground">New Market Alerts</div>
+                  <div className="text-xs text-muted-foreground">Alerts when interesting new markets are created</div>
+                </div>
               </div>
               <Switch
-                checked={notifications.market_signals}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, market_signals: checked })}
+                checked={notifications.new_market_alerts}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, new_market_alerts: checked })}
               />
             </div>
 
             <div className="flex items-center justify-between py-2">
-              <div>
-                <div className="text-sm text-foreground">Daily Digest</div>
-                <div className="text-xs text-muted-foreground">Daily summary of top performers and trends</div>
+              <div className="flex items-center gap-3">
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <div className="text-sm text-foreground">Weekly Report</div>
+                  <div className="text-xs text-muted-foreground">Weekly summary of top performers and your portfolio</div>
+                </div>
               </div>
               <Switch
-                checked={notifications.daily_digest}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, daily_digest: checked })}
+                checked={notifications.weekly_report}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, weekly_report: checked })}
               />
             </div>
           </div>

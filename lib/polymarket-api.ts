@@ -636,14 +636,15 @@ export function formatVolume(volume: number): string {
 }
 
 export function formatPnl(pnl: number): string {
-  const prefix = pnl >= 0 ? '+' : ''
-  if (Math.abs(pnl) >= 1_000_000) {
-    return `${prefix}$${(pnl / 1_000_000).toFixed(2)}M`
+  const sign = pnl >= 0 ? '+' : '-'
+  const abs = Math.abs(pnl)
+  if (abs >= 1_000_000) {
+    return `${sign}$${(abs / 1_000_000).toFixed(2)}M`
   }
-  if (Math.abs(pnl) >= 1_000) {
-    return `${prefix}$${(pnl / 1_000).toFixed(1)}K`
+  if (abs >= 1_000) {
+    return `${sign}$${(abs / 1_000).toFixed(1)}K`
   }
-  return `${prefix}$${pnl.toFixed(0)}`
+  return `${sign}$${abs.toFixed(0)}`
 }
 
 export function formatPercentage(value: number, decimals = 1): string {
