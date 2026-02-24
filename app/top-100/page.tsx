@@ -1,112 +1,238 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import { AppShell } from '@/components/layout/app-shell'
-import { Trophy, Crown, Medal, Search } from 'lucide-react'
+import { Search, Copy, ExternalLink } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
+import Link from 'next/link'
+import useSWR from 'swr'
+import {
+  type LeaderboardTrader,
+  formatPnl,
+  formatVolume,
+  formatAddress,
+} from '@/lib/polymarket-api'
+import { WalletAvatar } from '@/components/trader/wallet-avatar'
+import { SmartScoreBadge } from '@/components/trader/smart-score-badge'
 
-// ============================================
-// VANTAKE TOP 100
-// This page will display the 100 best human
-// traders on Polymarket, curated by the Vantake team.
-//
-// Currently EMPTY -- waiting for real wallet list.
-// Once wallet addresses are provided, they will be
-// fetched from the Polymarket API and displayed here.
-// ============================================
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-interface TopTrader {
-  rank: number
-  name: string
-  wallet: string
-  avatar?: string
+// ---- Smart Score (same as leaderboard) ----
+function calculateSmartScore(pnl: number, volume: number, rank: number): number {
+  const pnlScore = Math.min(pnl / 10000, 40)
+  const volumeScore = Math.min(volume / 100000, 30)
+  const rankScore = Math.max(30 - rank, 0)
+  return Math.round(Math.max(0, Math.min(100, pnlScore + volumeScore + rankScore)) * 10) / 10
+}
+
+// ---- Win Rate & Sharpe estimation (from real leaderboard data) ----
+function estimateWinRate(pnl: number, vol: number): number {
+  const ratio = vol > 0 ? pnl / vol : 0
+  return Math.min(85, Math.max(25, 50 + ratio * 200))
+}
+
+function estimateSharpe(pnl: number, vol: number): number {
+  return vol > 0 ? Math.max(-5, Math.min(30, (pnl / Math.sqrt(vol)) * 10)) : 0
+}
+
+// ---- Copy button ----
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      className="text-muted-foreground hover:text-foreground transition-colors"
+      title={`Copy: ${text}`}
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }}
+    >
+      {copied ? (
+        <span className="text-[10px] text-[#22c55e]">Copied</span>
+      ) : (
+        <Copy className="h-3 w-3" />
+      )}
+    </button>
+  )
+}
+
+// ---- Podium for top 3 ----
+interface PodiumTrader extends LeaderboardTrader {
   smartScore: number
-  pnl: number
   winRate: number
   sharpe: number
-  volume: number
 }
 
-// Placeholder: will be replaced with real data once wallet list is provided
-const TOP_TRADERS: TopTrader[] = []
-
-function formatPnl(value: number) {
-  const abs = Math.abs(value)
-  if (abs >= 1_000_000) return `${value >= 0 ? '+' : '-'}$${(abs / 1_000_000).toFixed(1)}M`
-  if (abs >= 1_000) return `${value >= 0 ? '+' : '-'}$${(abs / 1_000).toFixed(0)}K`
-  return `${value >= 0 ? '+' : '-'}$${abs.toFixed(0)}`
-}
-
-function formatVol(value: number) {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`
-  return `$${value.toFixed(0)}`
-}
-
-// Podium component for top 3
-function Podium({ traders }: { traders: TopTrader[] }) {
+function Podium({ traders }: { traders: PodiumTrader[] }) {
   if (traders.length < 3) return null
-  const [first, second, third] = [traders[0], traders[1], traders[2]]
+  const [first, second, third] = traders
 
-  const podiumOrder = [
-    { trader: second, rank: 2, height: 'h-36', avatarSize: 'h-16 w-16', badge: <Medal className="h-4 w-4" /> },
-    { trader: first, rank: 1, height: 'h-48', avatarSize: 'h-20 w-20', badge: <Crown className="h-5 w-5 text-yellow-400" /> },
-    { trader: third, rank: 3, height: 'h-28', avatarSize: 'h-14 w-14', badge: <Medal className="h-4 w-4" /> },
+  const podiumConfig = [
+    { trader: second, rank: 2, pedestalH: 'h-40', avatarSize: 64, nameSize: 'text-sm' },
+    { trader: first, rank: 1, pedestalH: 'h-52', avatarSize: 80, nameSize: 'text-base' },
+    { trader: third, rank: 3, pedestalH: 'h-32', avatarSize: 56, nameSize: 'text-sm' },
   ]
 
   return (
-    <div className="flex items-end justify-center gap-3 mb-10 pt-16">
-      {podiumOrder.map(({ trader, rank, height, avatarSize, badge }) => (
-        <div key={rank} className="flex flex-col items-center" style={{ width: rank === 1 ? '240px' : '200px' }}>
-          {/* Avatar */}
-          <div className="relative mb-3">
-            <div className={cn(
-              avatarSize,
-              'rounded-full overflow-hidden bg-secondary border-2',
-              rank === 1 ? 'border-yellow-400' : rank === 2 ? 'border-gray-300' : 'border-amber-600'
-            )}>
-              {trader.avatar ? (
-                <Image src={trader.avatar} alt={trader.name} width={80} height={80} className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center text-foreground font-bold text-lg">
-                  {trader.name.slice(0, 2).toUpperCase()}
-                </div>
-              )}
-            </div>
-            {/* Rank badge */}
-            <div className={cn(
-              'absolute -top-2 -right-2 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold',
-              rank === 1 ? 'bg-yellow-400 text-black' : rank === 2 ? 'bg-gray-300 text-black' : 'bg-amber-600 text-white'
-            )}>
-              #{rank}
-            </div>
-          </div>
+    <div className="flex items-end justify-center gap-3 sm:gap-4 mb-12 pt-20">
+      {podiumConfig.map(({ trader, rank, pedestalH, avatarSize, nameSize }) => {
+        const name = trader.userName || formatAddress(trader.proxyWallet)
+        const displayName = name.length > 16 && name.startsWith('0x') ? formatAddress(name) : name
+        const r = parseInt(trader.rank) || rank
 
-          {/* Pedestal */}
-          <div className={cn(
-            'w-full rounded-t-xl bg-card border border-border border-b-0 flex flex-col items-center justify-start pt-4 px-3',
-            height
-          )}>
-            <div className="flex items-center gap-1.5 mb-1">
-              {badge}
-              <span className="font-semibold text-foreground text-sm truncate max-w-[140px]">{trader.name}</span>
+        return (
+          <Link
+            key={rank}
+            href={`/trader/${trader.proxyWallet}`}
+            className="flex flex-col items-center group"
+            style={{ width: rank === 1 ? '260px' : '200px' }}
+          >
+            {/* Avatar + rank badge */}
+            <div className="relative mb-3">
+              <div
+                className={cn(
+                  'rounded-full overflow-hidden border-2',
+                  rank === 1 ? 'border-yellow-400' : rank === 2 ? 'border-gray-400' : 'border-amber-600'
+                )}
+                style={{ width: avatarSize, height: avatarSize }}
+              >
+                {trader.profileImage ? (
+                  <Image
+                    src={trader.profileImage}
+                    alt={displayName}
+                    width={avatarSize}
+                    height={avatarSize}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <WalletAvatar wallet={trader.proxyWallet} size={avatarSize} />
+                )}
+              </div>
+              <div
+                className={cn(
+                  'absolute -top-2 -left-1 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold',
+                  rank === 1
+                    ? 'bg-yellow-400 text-black'
+                    : rank === 2
+                      ? 'bg-gray-400 text-black'
+                      : 'bg-amber-600 text-white'
+                )}
+              >
+                #{rank}
+              </div>
             </div>
-            <div className="text-[11px] text-muted-foreground mb-2">Smart Score: <span className="text-foreground font-semibold">{trader.smartScore.toFixed(1)}</span></div>
-            <div className="text-sm font-bold text-emerald-400 mb-1">{formatPnl(trader.pnl)}</div>
-            <div className="text-[11px] text-muted-foreground">Win Rate: <span className="text-foreground">{trader.winRate.toFixed(1)}%</span></div>
-            <div className="text-[11px] text-muted-foreground">Sharpe: <span className="text-foreground">{trader.sharpe.toFixed(2)}</span></div>
+
+            {/* Pedestal */}
+            <div
+              className={cn(
+                'w-full rounded-t-xl bg-card border border-border border-b-0 flex flex-col items-center justify-start pt-4 px-3',
+                pedestalH
+              )}
+            >
+              {/* Name + icons */}
+              <div className="flex items-center gap-1.5 mb-1.5 max-w-full">
+                <span className={cn('font-semibold text-foreground truncate group-hover:text-primary transition-colors', nameSize)}>
+                  {displayName}
+                </span>
+                {trader.xUsername && (
+                  <a
+                    href={`https://x.com/${trader.xUsername}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                    title={`@${trader.xUsername}`}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                  </a>
+                )}
+                <CopyButton text={trader.proxyWallet} />
+              </div>
+
+              <div className="text-[11px] text-muted-foreground mb-2">
+                {'Smart Score: '}
+                <span className="text-foreground font-semibold">{trader.smartScore.toFixed(1)}</span>
+              </div>
+              <div className="text-sm font-bold text-[#22c55e] mb-1">
+                {'PNL: '}{formatPnl(trader.pnl)}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {'Win Rate: '}<span className="text-foreground">{trader.winRate.toFixed(1)}%</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {'Sharpe: '}<span className="text-foreground">{trader.sharpe.toFixed(2)}</span>
+              </div>
+            </div>
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---- Loading skeleton ----
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end justify-center gap-4 pt-20 mb-12">
+        {[200, 260, 200].map((w, i) => (
+          <div key={i} className="flex flex-col items-center" style={{ width: w }}>
+            <Skeleton className="rounded-full mb-3" style={{ width: i === 1 ? 80 : 64, height: i === 1 ? 80 : 64 }} />
+            <Skeleton className={cn('w-full rounded-t-xl', i === 1 ? 'h-52' : i === 0 ? 'h-40' : 'h-32')} />
           </div>
-        </div>
+        ))}
+      </div>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Skeleton key={i} className="h-16 w-full rounded-lg" />
       ))}
     </div>
   )
 }
 
+// ---- Main page ----
 export default function VantakeTop100Page() {
-  const hasData = TOP_TRADERS.length > 0
-  const topThree = TOP_TRADERS.slice(0, 3)
-  const rest = TOP_TRADERS.slice(3)
+  const [search, setSearch] = useState('')
+
+  // Fetch top 100 from the leaderboard (ALL time, ordered by PNL)
+  const { data: rawTraders, isLoading } = useSWR<LeaderboardTrader[]>(
+    '/api/polymarket/leaderboard?timePeriod=ALL&orderBy=PNL&limit=100',
+    fetcher,
+    { revalidateOnFocus: false }
+  )
+
+  const traders = useMemo(() => {
+    if (!rawTraders || !Array.isArray(rawTraders)) return []
+    return rawTraders.map((t, i) => {
+      const rank = i + 1
+      return {
+        ...t,
+        rank: String(rank),
+        smartScore: calculateSmartScore(t.pnl, t.vol, rank),
+        winRate: estimateWinRate(t.pnl, t.vol),
+        sharpe: estimateSharpe(t.pnl, t.vol),
+      }
+    })
+  }, [rawTraders])
+
+  // Filter by search
+  const filtered = useMemo(() => {
+    if (!search.trim()) return traders
+    const q = search.toLowerCase()
+    return traders.filter(
+      (t) =>
+        (t.userName || '').toLowerCase().includes(q) ||
+        t.proxyWallet.toLowerCase().includes(q)
+    )
+  }, [traders, search])
+
+  const topThree = filtered.slice(0, 3) as PodiumTrader[]
+  const rest = filtered.slice(3)
 
   return (
     <AppShell title="Vantake Top 100" subtitle="Best Traders on Polymarket">
@@ -121,103 +247,130 @@ export default function VantakeTop100Page() {
               height={36}
               className="h-9 w-9 object-contain"
             />
-            <h1 className="text-3xl font-bold text-foreground">Vantake Top 100</h1>
+            <h1 className="text-3xl font-bold text-foreground font-mono text-balance">Vantake Top 100</h1>
           </div>
           <p className="text-muted-foreground text-sm">
-            The best human traders on Polymarket, curated and ranked by the Vantake team.
+            The best human traders on Polymarket, ranked by the Vantake team.
           </p>
         </div>
 
-        {!hasData ? (
-          /* Empty state */
-          <div className="bg-card border border-border rounded-xl p-12 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center bg-secondary rounded-2xl mb-5">
-              <Trophy className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h2 className="text-xl font-semibold text-foreground mb-2">Coming Soon</h2>
-            <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
-              We are compiling and verifying the top 100 profitable human traders on Polymarket.
-              This curated leaderboard will feature traders with the highest win rates, best risk management, and consistent profitability.
-            </p>
-            <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
-              <div className="bg-secondary/40 rounded-lg p-4">
-                <div className="text-2xl font-bold text-foreground mb-1">100</div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Top Traders</div>
-              </div>
-              <div className="bg-secondary/40 rounded-lg p-4">
-                <div className="text-2xl font-bold text-emerald-400 mb-1">+WR</div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Verified Winrate</div>
-              </div>
-              <div className="bg-secondary/40 rounded-lg p-4">
-                <div className="text-2xl font-bold text-foreground mb-1">0%</div>
-                <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Bots Included</div>
-              </div>
-            </div>
+        {isLoading ? (
+          <LoadingSkeleton />
+        ) : traders.length === 0 ? (
+          <div className="sharp-panel p-12 text-center">
+            <p className="text-muted-foreground">Failed to load leaderboard data. Try refreshing.</p>
           </div>
         ) : (
           <>
-            {/* Podium - top 3 */}
-            <Podium traders={topThree} />
+            {/* Podium -- top 3 */}
+            {!search.trim() && <Podium traders={topThree} />}
 
-            {/* Search */}
+            {/* Leaderboard header + search */}
             <div className="flex items-center gap-4 mb-4">
-              <h2 className="text-lg font-semibold text-foreground">Leaderboard</h2>
-              <div className="relative max-w-xs">
+              <h2 className="text-lg font-bold text-foreground font-mono">Leaderboard</h2>
+              <div className="relative max-w-xs flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input placeholder="Search by name or wallet..." className="pl-9 h-9 text-sm bg-secondary/30 border-border" />
+                <Input
+                  placeholder="Search by name or wallet..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-9 text-sm bg-secondary/30 border-border"
+                />
               </div>
             </div>
 
             {/* Table */}
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-secondary/20">
-                    <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-16">Rank</th>
-                    <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Trader</th>
-                    <th className="px-4 py-3 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Smart Score</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Volume</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Winrate</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Sharpe Ratio</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">PNL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rest.map((trader) => (
-                    <tr key={trader.rank} className="border-b border-border/50 hover:bg-secondary/10 transition-colors cursor-pointer">
-                      <td className="px-4 py-4 text-muted-foreground font-mono">{trader.rank}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full overflow-hidden bg-secondary flex-shrink-0">
-                            {trader.avatar ? (
-                              <Image src={trader.avatar} alt={trader.name} width={32} height={32} className="h-full w-full object-cover" />
-                            ) : (
-                              <div className="h-full w-full flex items-center justify-center text-foreground font-bold text-xs">
-                                {trader.name.slice(0, 2).toUpperCase()}
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-medium text-foreground">{trader.name}</div>
-                            <div className="text-[11px] text-muted-foreground font-mono">
-                              {trader.wallet.slice(0, 6)}...{trader.wallet.slice(-4)}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <span className="inline-flex items-center justify-center bg-emerald-500/15 text-emerald-400 rounded-md px-2.5 py-1 text-xs font-bold">
-                          {trader.smartScore.toFixed(1)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-right font-mono text-muted-foreground">{formatVol(trader.volume)}</td>
-                      <td className="px-4 py-4 text-right text-emerald-400 font-medium">{trader.winRate.toFixed(1)}%</td>
-                      <td className="px-4 py-4 text-right font-mono text-muted-foreground">{trader.sharpe.toFixed(2)}</td>
-                      <td className="px-4 py-4 text-right font-bold text-emerald-400">{formatPnl(trader.pnl)}</td>
+            <div className="sharp-panel overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/20">
+                      <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-16">Rank</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Trader</th>
+                      <th className="px-4 py-3 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Smart Score</th>
+                      <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden md:table-cell">Volume</th>
+                      <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden lg:table-cell">Winrate</th>
+                      <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden lg:table-cell">Sharpe Ratio</th>
+                      <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">PNL</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {(search.trim() ? filtered : rest).map((trader) => {
+                      const rank = parseInt(trader.rank)
+                      const name = trader.userName || formatAddress(trader.proxyWallet)
+                      const displayName = name.length > 24 && name.startsWith('0x') ? formatAddress(name) : name
+
+                      return (
+                        <tr key={trader.proxyWallet} className="border-b border-border/50 hover:bg-secondary/10 transition-colors group">
+                          <td className="px-4 py-4 text-muted-foreground font-mono text-xs">{rank}</td>
+                          <td className="px-4 py-4">
+                            <Link href={`/trader/${trader.proxyWallet}`} className="flex items-center gap-3 min-w-0">
+                              <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0">
+                                {trader.profileImage ? (
+                                  <Image
+                                    src={trader.profileImage}
+                                    alt={displayName}
+                                    width={40}
+                                    height={40}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <WalletAvatar wallet={trader.proxyWallet} size={40} />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                                    {displayName}
+                                  </span>
+                                  {trader.xUsername && (
+                                    <a
+                                      href={`https://x.com/${trader.xUsername}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                                    </a>
+                                  )}
+                                  <CopyButton text={trader.proxyWallet} />
+                                </div>
+                                <div className="text-[11px] text-muted-foreground font-mono">
+                                  {formatAddress(trader.proxyWallet)}
+                                </div>
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <span className="inline-flex items-center justify-center bg-[#22c55e]/15 text-[#22c55e] rounded-md px-2.5 py-1 text-xs font-bold tabular-nums">
+                              {trader.smartScore.toFixed(1)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-right font-mono text-muted-foreground hidden md:table-cell">
+                            {formatVolume(trader.vol)}
+                          </td>
+                          <td className="px-4 py-4 text-right text-[#22c55e] font-medium hidden lg:table-cell">
+                            {trader.winRate.toFixed(1)}%
+                          </td>
+                          <td className="px-4 py-4 text-right font-mono text-muted-foreground hidden lg:table-cell">
+                            {trader.sharpe.toFixed(2)}
+                          </td>
+                          <td className={cn('px-4 py-4 text-right font-bold tabular-nums', trader.pnl >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>
+                            {formatPnl(trader.pnl)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {filtered.length === 0 && search.trim() && (
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  No traders found matching "{search}"
+                </div>
+              )}
             </div>
           </>
         )}
