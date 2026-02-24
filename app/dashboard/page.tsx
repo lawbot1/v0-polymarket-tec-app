@@ -343,8 +343,8 @@ export default function MyDashboardPage() {
                   </a>
                 </div>
                 <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5" />{followedCount} followed</span>
-                  <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{trackedCount} tracked</span>
+                  <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5" />Following {followedCount}</span>
+                  <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />Tracking {trackedCount}</span>
                 </div>
                 {!isLoading && traderCategories.length > 0 && (
                   <div className="mt-3">
