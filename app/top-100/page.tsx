@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { AppShell } from '@/components/layout/app-shell'
-import { Search, Copy, ExternalLink } from 'lucide-react'
+import { Search, Copy } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -16,7 +16,11 @@ import {
   formatAddress,
 } from '@/lib/polymarket-api'
 import { WalletAvatar } from '@/components/trader/wallet-avatar'
-import { SmartScoreBadge } from '@/components/trader/smart-score-badge'
+import {
+  getTraderCategories,
+  CategoriesRow,
+  type TraderStats,
+} from '@/components/trader/category-badges'
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -28,7 +32,7 @@ function calculateSmartScore(pnl: number, volume: number, rank: number): number 
   return Math.round(Math.max(0, Math.min(100, pnlScore + volumeScore + rankScore)) * 10) / 10
 }
 
-// ---- Win Rate & Sharpe estimation (from real leaderboard data) ----
+// ---- Win Rate & Sharpe estimation from real data ----
 function estimateWinRate(pnl: number, vol: number): number {
   const ratio = vol > 0 ? pnl / vol : 0
   return Math.min(85, Math.max(25, 50 + ratio * 200))
@@ -36,7 +40,6 @@ function estimateWinRate(pnl: number, vol: number): number {
 
 function estimateSharpe(pnl: number, vol: number): number {
   if (vol <= 0) return 0
-  // Normalize: ratio of PnL to Volume, scaled to typical Sharpe range (0-10)
   const ratio = pnl / vol
   return Math.max(-3, Math.min(10, ratio * 50))
 }
@@ -65,21 +68,41 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-// ---- Podium for top 3 ----
-interface PodiumTrader extends LeaderboardTrader {
+// ---- X (Twitter) icon ----
+function XIcon({ username }: { username: string }) {
+  return (
+    <a
+      href={`https://x.com/${username}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-muted-foreground hover:text-foreground flex-shrink-0 transition-colors"
+      onClick={(e) => e.stopPropagation()}
+      title={`@${username}`}
+    >
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+      </svg>
+    </a>
+  )
+}
+
+// ---- Extended trader type ----
+interface Top100Trader extends LeaderboardTrader {
   smartScore: number
   winRate: number
   sharpe: number
+  categories: ReturnType<typeof getTraderCategories>
 }
 
-function Podium({ traders }: { traders: PodiumTrader[] }) {
+// ---- Podium for top 3 ----
+function Podium({ traders }: { traders: Top100Trader[] }) {
   if (traders.length < 3) return null
   const [first, second, third] = traders
 
   const podiumConfig = [
-    { trader: second, rank: 2, pedestalH: 'h-40', avatarSize: 64, nameSize: 'text-sm' },
-    { trader: first, rank: 1, pedestalH: 'h-52', avatarSize: 80, nameSize: 'text-base' },
-    { trader: third, rank: 3, pedestalH: 'h-32', avatarSize: 56, nameSize: 'text-sm' },
+    { trader: second, rank: 2, pedestalH: 'h-48', avatarSize: 64, nameSize: 'text-sm' },
+    { trader: first, rank: 1, pedestalH: 'h-60', avatarSize: 80, nameSize: 'text-base' },
+    { trader: third, rank: 3, pedestalH: 'h-40', avatarSize: 56, nameSize: 'text-sm' },
   ]
 
   return (
@@ -87,7 +110,6 @@ function Podium({ traders }: { traders: PodiumTrader[] }) {
       {podiumConfig.map(({ trader, rank, pedestalH, avatarSize, nameSize }) => {
         const name = trader.userName || formatAddress(trader.proxyWallet)
         const displayName = name.length > 16 && name.startsWith('0x') ? formatAddress(name) : name
-        const r = parseInt(trader.rank) || rank
 
         return (
           <Link
@@ -139,26 +161,20 @@ function Podium({ traders }: { traders: PodiumTrader[] }) {
               )}
             >
               {/* Name + icons */}
-              <div className="flex items-center gap-1.5 mb-1.5 max-w-full">
+              <div className="flex items-center gap-1.5 mb-2 max-w-full">
                 <span className={cn('font-semibold text-foreground truncate group-hover:text-primary transition-colors', nameSize)}>
                   {displayName}
                 </span>
-                {trader.xUsername && (
-                  <a
-                    href={`https://x.com/${trader.xUsername}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground hover:text-foreground flex-shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                    title={`@${trader.xUsername}`}
-                  >
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-                  </a>
-                )}
+                {trader.xUsername && <XIcon username={trader.xUsername} />}
                 <CopyButton text={trader.proxyWallet} />
               </div>
 
-              <div className="text-[11px] text-muted-foreground mb-2">
+              {/* Category badges */}
+              <div className="mb-2 max-w-full overflow-hidden">
+                <CategoriesRow categories={trader.categories} maxVisible={2} size="sm" />
+              </div>
+
+              <div className="text-[11px] text-muted-foreground mb-1">
                 {'Smart Score: '}
                 <span className="text-foreground font-semibold">{trader.smartScore.toFixed(1)}</span>
               </div>
@@ -187,7 +203,7 @@ function LoadingSkeleton() {
         {[200, 260, 200].map((w, i) => (
           <div key={i} className="flex flex-col items-center" style={{ width: w }}>
             <Skeleton className="rounded-full mb-3" style={{ width: i === 1 ? 80 : 64, height: i === 1 ? 80 : 64 }} />
-            <Skeleton className={cn('w-full rounded-t-xl', i === 1 ? 'h-52' : i === 0 ? 'h-40' : 'h-32')} />
+            <Skeleton className={cn('w-full rounded-t-xl', i === 1 ? 'h-60' : i === 0 ? 'h-48' : 'h-40')} />
           </div>
         ))}
       </div>
@@ -202,24 +218,31 @@ function LoadingSkeleton() {
 export default function VantakeTop100Page() {
   const [search, setSearch] = useState('')
 
-  // Fetch top 100 from the leaderboard (ALL time, ordered by PNL)
+  // Fetch curated top 100 from our API
   const { data: rawTraders, isLoading } = useSWR<LeaderboardTrader[]>(
-    '/api/polymarket/leaderboard?timePeriod=ALL&orderBy=PNL&limit=100',
+    '/api/polymarket/top100',
     fetcher,
     { revalidateOnFocus: false }
   )
 
-  const traders = useMemo(() => {
+  const traders: Top100Trader[] = useMemo(() => {
     if (!rawTraders || !Array.isArray(rawTraders)) return []
     return rawTraders.map((t, i) => {
       const rank = i + 1
-      return {
-        ...t,
-        rank: String(rank),
-        smartScore: calculateSmartScore(t.pnl, t.vol, rank),
-        winRate: estimateWinRate(t.pnl, t.vol),
-        sharpe: estimateSharpe(t.pnl, t.vol),
+      const smartScore = calculateSmartScore(t.pnl, t.vol, rank)
+      const winRate = estimateWinRate(t.pnl, t.vol)
+      const sharpe = estimateSharpe(t.pnl, t.vol)
+
+      const stats: TraderStats = {
+        pnl: t.pnl,
+        volume: t.vol,
+        smartScore,
+        winRate,
+        rank,
       }
+      const categories = getTraderCategories(stats)
+
+      return { ...t, rank: String(rank), smartScore, winRate, sharpe, categories }
     })
   }, [rawTraders])
 
@@ -234,7 +257,7 @@ export default function VantakeTop100Page() {
     )
   }, [traders, search])
 
-  const topThree = filtered.slice(0, 3) as PodiumTrader[]
+  const topThree = filtered.slice(0, 3)
   const rest = filtered.slice(3)
 
   return (
@@ -313,24 +336,15 @@ export default function VantakeTop100Page() {
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-medium text-foreground group-hover:text-primary transition-colors truncate max-w-[180px]">
                                     {displayName}
                                   </span>
-                                  {trader.xUsername && (
-                                    <a
-                                      href={`https://x.com/${trader.xUsername}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-muted-foreground hover:text-foreground flex-shrink-0"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-                                    </a>
-                                  )}
+                                  {trader.xUsername && <XIcon username={trader.xUsername} />}
                                   <CopyButton text={trader.proxyWallet} />
+                                  <CategoriesRow categories={trader.categories} maxVisible={3} size="sm" />
                                 </div>
-                                <div className="text-[11px] text-muted-foreground font-mono">
+                                <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
                                   {formatAddress(trader.proxyWallet)}
                                 </div>
                               </div>
@@ -362,7 +376,7 @@ export default function VantakeTop100Page() {
 
               {filtered.length === 0 && search.trim() && (
                 <div className="py-12 text-center text-muted-foreground text-sm">
-                  No traders found matching "{search}"
+                  {'No traders found matching "'}{search}{'"'}
                 </div>
               )}
             </div>
