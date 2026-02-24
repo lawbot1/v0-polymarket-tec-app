@@ -3,13 +3,7 @@
 import React, { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronDown } from 'lucide-react'
-import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  ResponsiveContainer,
-} from 'recharts'
+// Custom SVG radar -- no recharts dependency for this chart
 
 // ---- Polymarket market categories with emojis ----
 const MARKET_CATEGORIES = [
@@ -63,6 +57,76 @@ interface CategoryProficiencyProps {
     vol: number
   } | null
   slugToCategory: Record<string, string>
+}
+
+// ---- Custom SVG Radar Polygon (no library) ----
+function CustomRadar({ data }: { data: { category: string; score: number }[] }) {
+  const size = 340
+  const cx = size / 2
+  const cy = size / 2
+  const maxRadius = size * 0.35 // outer edge
+  const minRadius = 8 // minimum so zero scores still show a tiny bump
+  const n = data.length
+
+  // Compute vertex positions for each data point
+  const vertices = data.map((d, i) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2 // start from top
+    const r = minRadius + ((d.score / 100) * (maxRadius - minRadius))
+    return {
+      x: cx + r * Math.cos(angle),
+      y: cy + r * Math.sin(angle),
+      labelX: cx + (maxRadius + 24) * Math.cos(angle),
+      labelY: cy + (maxRadius + 24) * Math.sin(angle),
+      label: d.category,
+      score: d.score,
+    }
+  })
+
+  const polygonPoints = vertices.map(v => `${v.x},${v.y}`).join(' ')
+
+  return (
+    <div className="flex items-center justify-center" style={{ height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {/* Polygon filled area */}
+        <polygon
+          points={polygonPoints}
+          fill="rgba(163, 230, 53, 0.18)"
+          stroke="rgba(163, 230, 53, 0.7)"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+        />
+
+        {/* Dots at each vertex */}
+        {vertices.map((v, i) => (
+          <circle
+            key={i}
+            cx={v.x}
+            cy={v.y}
+            r={v.score > 0 ? 4.5 : 2.5}
+            fill={v.score > 0 ? 'rgba(163, 230, 53, 0.9)' : 'rgba(255,255,255,0.15)'}
+            stroke={v.score > 0 ? 'rgba(163, 230, 53, 1)' : 'rgba(255,255,255,0.1)'}
+            strokeWidth={1}
+          />
+        ))}
+
+        {/* Category labels around the polygon */}
+        {vertices.map((v, i) => (
+          <text
+            key={i}
+            x={v.labelX}
+            y={v.labelY}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill={v.score > 0 ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.2)'}
+            fontSize={10}
+            fontWeight={500}
+          >
+            {v.label}
+          </text>
+        ))}
+      </svg>
+    </div>
+  )
 }
 
 export function CategoryProficiency({ positions, trades, profile, slugToCategory }: CategoryProficiencyProps) {
@@ -172,62 +236,13 @@ export function CategoryProficiency({ positions, trades, profile, slugToCategory
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-      {/* LEFT: Radar Chart */}
+      {/* LEFT: Custom SVG Radar Polygon */}
       <div className="sharp-panel p-5">
         <h3 className="text-sm font-semibold text-foreground mb-1">Category Proficiency</h3>
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-4">
           Smart scores across market categories
         </p>
-        <div className="h-[340px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
-              <PolarGrid
-                stroke="rgba(255,255,255,0.06)"
-                radialLines={true}
-                gridType="polygon"
-              />
-              <PolarAngleAxis
-                dataKey="category"
-                tick={({ x, y, payload, cx: cX, cy: cY }) => {
-                  // Push labels outward from center
-                  const dx = x - (cX ?? 0)
-                  const dy = y - (cY ?? 0)
-                  const dist = Math.sqrt(dx * dx + dy * dy)
-                  const push = 16
-                  const nx = x + (dx / dist) * push
-                  const ny = y + (dy / dist) * push
-                  return (
-                    <text
-                      x={nx}
-                      y={ny}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fill="rgba(255,255,255,0.45)"
-                      fontSize={10}
-                      fontWeight={500}
-                    >
-                      {payload.value}
-                    </text>
-                  )
-                }}
-              />
-              <Radar
-                name="Score"
-                dataKey="score"
-                stroke="rgba(163, 230, 53, 0.9)"
-                fill="rgba(163, 230, 53, 0.2)"
-                fillOpacity={1}
-                strokeWidth={1.5}
-                dot={{
-                  r: 4,
-                  fill: 'rgba(163, 230, 53, 0.9)',
-                  stroke: 'rgba(163, 230, 53, 1)',
-                  strokeWidth: 1,
-                }}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
+        <CustomRadar data={radarData} />
       </div>
 
       {/* RIGHT: Category Details Accordion */}
