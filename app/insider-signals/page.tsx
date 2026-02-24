@@ -9,21 +9,20 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { WalletAvatar } from '@/components/trader/wallet-avatar'
 import {
   type UserTrade,
   type LeaderboardTrader,
   formatVolume,
+  formatAddress,
   timeAgo,
   normalizeTimestamp,
 } from '@/lib/polymarket-api'
 import { cn } from '@/lib/utils'
 import {
   Zap,
-  AlertTriangle,
-  TrendingUp,
   Filter,
   ChevronDown,
-  ExternalLink,
   Sparkles,
   RefreshCw,
 } from 'lucide-react'
@@ -35,6 +34,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 
+// ---- Types ----
 type SignalEntry = UserTrade & {
   traderPnl: number
   traderRank?: number
@@ -47,137 +47,180 @@ type SignalEntry = UserTrade & {
 const sortOptions = ['Recent', 'Size', 'Confidence'] as const
 type SortOption = (typeof sortOptions)[number]
 
+// ---- Category mapping (same as trader profile) ----
+const SLUG_TO_CATEGORY: Record<string, string> = {
+  epl: 'Sports', nba: 'Sports', nfl: 'Sports', mlb: 'Sports', nhl: 'Sports',
+  ufc: 'Sports', soccer: 'Sports', tennis: 'Sports', f1: 'Sports', mls: 'Sports',
+  golf: 'Sports', boxing: 'Sports', cricket: 'Sports', sport: 'Sports', liga: 'Sports',
+  ncaa: 'Sports', wnba: 'Sports', rugby: 'Sports', ligue: 'Sports', serie: 'Sports',
+  bundesliga: 'Sports', laliga: 'Sports', champions: 'Sports', atp: 'Sports',
+  wta: 'Sports', fifa: 'Sports', olympics: 'Sports', nascar: 'Sports',
+  lol: 'Sports', csgo: 'Sports', dota: 'Sports', valorant: 'Sports', esports: 'Sports',
+  league: 'Sports', overwatch: 'Sports', ipl: 'Sports', pga: 'Sports',
+  bitcoin: 'Crypto', btc: 'Crypto', ethereum: 'Crypto', eth: 'Crypto',
+  solana: 'Crypto', sol: 'Crypto', crypto: 'Crypto', defi: 'Crypto',
+  token: 'Crypto', xrp: 'Crypto', doge: 'Crypto', memecoin: 'Crypto',
+  nft: 'Crypto', web3: 'Crypto', stablecoin: 'Crypto', altcoin: 'Crypto',
+  trump: 'Politics', biden: 'Politics', election: 'Elections', vote: 'Elections',
+  president: 'Politics', congress: 'Politics', senate: 'Politics', governor: 'Politics',
+  democrat: 'Politics', republican: 'Politics', gop: 'Politics', primary: 'Elections',
+  political: 'Politics', politics: 'Politics', harris: 'Politics', desantis: 'Politics',
+  vance: 'Politics', newsom: 'Politics', midterm: 'Elections', ballot: 'Elections',
+  ai: 'Tech', apple: 'Tech', google: 'Tech', openai: 'Tech', spacex: 'Tech',
+  tesla: 'Tech', meta: 'Tech', microsoft: 'Tech', nvidia: 'Tech', tech: 'Tech',
+  twitter: 'Tech', tiktok: 'Tech', amazon: 'Tech', chatgpt: 'Tech', gpt: 'Tech',
+  robot: 'Tech', android: 'Tech', iphone: 'Tech', chip: 'Tech', semiconductor: 'Tech',
+  fed: 'Economy', inflation: 'Economy', gdp: 'Economy', rate: 'Economy',
+  stock: 'Economy', market: 'Economy', sp500: 'Economy', nasdaq: 'Economy',
+  earnings: 'Earnings', revenue: 'Earnings', ipo: 'Earnings',
+  dow: 'Economy', treasury: 'Economy', bond: 'Economy', recession: 'Economy',
+  jobs: 'Economy', unemployment: 'Economy', cpi: 'Economy', forex: 'Economy',
+  war: 'Geopolitics', ukraine: 'Geopolitics', russia: 'Geopolitics', china: 'Geopolitics',
+  nato: 'Geopolitics', iran: 'Geopolitics', israel: 'Geopolitics', gaza: 'Geopolitics',
+  taiwan: 'Geopolitics', korea: 'Geopolitics', sanctions: 'Geopolitics',
+  india: 'Geopolitics', syria: 'Geopolitics', eu: 'Geopolitics', brexit: 'Geopolitics',
+  oscar: 'Culture', emmy: 'Culture', grammy: 'Culture',
+  movie: 'Culture', film: 'Culture', celebrity: 'Culture',
+  music: 'Culture', superbowl: 'Culture', culture: 'Culture',
+  kanye: 'Culture', taylor: 'Culture', drake: 'Culture', netflix: 'Culture',
+  disney: 'Culture', youtube: 'Culture', twitch: 'Culture',
+  weather: 'World', covid: 'World', climate: 'World', earthquake: 'World',
+  who: 'World', un: 'World', world: 'World', pandemic: 'World', hurricane: 'World',
+  will: 'World', when: 'World', how: 'World', what: 'World', other: 'World',
+}
+
+const CATEGORIES = ['All', 'Sports', 'Crypto', 'Politics', 'Elections', 'Tech', 'Economy', 'Earnings', 'Geopolitics', 'Culture', 'World'] as const
+type CategoryFilter = (typeof CATEGORIES)[number]
+
+function getTradeCategory(signal: SignalEntry): string {
+  const rawSlug = signal.eventSlug?.split('-')[0]?.toLowerCase() || 'other'
+  return SLUG_TO_CATEGORY[rawSlug] || rawSlug.charAt(0).toUpperCase() + rawSlug.slice(1)
+}
+
+// ---- Confidence badge ----
 function ConfidenceBadge({ confidence }: { confidence: 'High' | 'Medium' | 'Low' }) {
   const styles = {
-    High: 'bg-primary/20 text-primary border-primary/30',
-    Medium: 'bg-chart-3/20 text-chart-3 border-chart-3/30',
+    High: 'bg-[#22c55e]/20 text-[#22c55e] border-[#22c55e]/30',
+    Medium: 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30',
     Low: 'bg-muted text-muted-foreground border-border',
   }
-
   return (
-    <span className={cn('inline-flex items-center gap-1  border px-2 py-0.5 text-xs font-medium', styles[confidence])}>
+    <span className={cn('inline-flex items-center gap-1 border px-2 py-0.5 text-xs font-medium rounded', styles[confidence])}>
       {confidence === 'High' && <Sparkles className="h-3 w-3" />}
       {confidence}
     </span>
   )
 }
 
+// ---- Signal card (matching wallet-tracker FeedEntry style) ----
 function SignalCard({ signal }: { signal: SignalEntry }) {
+  // Outcome: use trade.outcome if available
+  const outcomeText = signal.outcome || (signal.side === 'BUY' ? 'Yes' : 'No')
+  const outcomeLower = outcomeText.toLowerCase()
+
+  // Badge color: Yes = green, No = red, other = yellow
+  const badgeColor = outcomeLower === 'yes'
+    ? 'bg-[#22c55e]/20 text-[#22c55e]'
+    : outcomeLower === 'no'
+      ? 'bg-red-500/20 text-red-500'
+      : 'bg-yellow-500/20 text-yellow-500'
+
+  const ts = signal.timestamp < 1e12 ? signal.timestamp * 1000 : signal.timestamp
+
+  // Truncate long names
+  const rawName = signal.traderName || signal.proxyWallet || ''
+  const displayName = rawName.length > 18 && rawName.startsWith('0x')
+    ? formatAddress(rawName)
+    : rawName
+
+  const category = getTradeCategory(signal)
+
   return (
-    <div className="sharp-panel  p-4 hover:border-primary/30 transition-colors">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="sharp-panel p-4 hover:border-primary/30 transition-colors">
+      {/* Top: trader + time + confidence */}
+      <div className="flex items-center justify-between mb-3">
+        <Link href={`/trader/${signal.proxyWallet}`} className="flex items-center gap-2 group min-w-0">
           {signal.traderProfileImage ? (
             <Image
-              src={signal.traderProfileImage || "/placeholder.svg"}
-              alt={signal.traderName || 'Trader'}
-              width={36}
-              height={36}
-              className="h-9 w-9 rounded-full object-cover"
+              src={signal.traderProfileImage}
+              alt={displayName}
+              width={28}
+              height={28}
+              className="h-7 w-7 rounded-full object-cover flex-shrink-0"
             />
           ) : (
-            <div
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-full',
-                signal.isWhale
-                  ? 'bg-chart-3/20 text-chart-3'
-                  : 'bg-primary/20 text-primary'
-              )}
-            >
-              {signal.isWhale ? (
-                <AlertTriangle className="h-5 w-5" />
-              ) : (
-                <Zap className="h-5 w-5" />
-              )}
-            </div>
+            <WalletAvatar wallet={signal.proxyWallet || ''} size={28} />
           )}
-          <div>
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/trader/${signal.proxyWallet}`}
-                className="font-medium text-sm text-foreground hover:text-primary transition-colors"
-              >
-                {signal.traderName || `${signal.proxyWallet?.slice(0, 6)}...${signal.proxyWallet?.slice(-4)}`}
-              </Link>
-              {signal.isWhale && (
-                <Badge variant="outline" className="text-xs border-chart-3/30 text-chart-3">
-                  Whale
-                </Badge>
-              )}
-            </div>
-            <div className="text-xs text-muted-foreground">{timeAgo(signal.timestamp)}</div>
-          </div>
-        </div>
-        <ConfidenceBadge confidence={signal.confidence} />
-      </div>
-
-      <div className="mt-4">
-        <Link
-          href={`/markets/${signal.conditionId}`}
-          className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
-        >
-          {signal.icon && (
-            <Image
-              src={signal.icon || "/placeholder.svg"}
-              alt=""
-              width={20}
-              height={20}
-              className="h-5 w-5 rounded"
-            />
-          )}
-          <span className="line-clamp-2">{signal.title}</span>
-        </Link>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <div className="text-xs text-muted-foreground">Side</div>
-            <span
-              className={cn(
-                'inline-flex rounded px-2 py-0.5 text-xs font-medium',
-                signal.side === 'BUY'
-                  ? 'bg-primary/20 text-primary'
-                  : 'bg-destructive/20 text-destructive'
-              )}
-            >
-              {signal.side} {signal.outcome}
-            </span>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Price</div>
-            <div className="text-sm font-medium text-foreground">
-              {((signal.price || 0) * 100).toFixed(1)}c
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Size</div>
-            <div className="text-sm font-medium text-foreground">
-              {formatVolume(signal.size * signal.price)}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {signal.traderRank && signal.traderRank <= 100 && (
-            <Badge variant="secondary" className="text-xs">
-              #{signal.traderRank}
+          <span className="text-sm font-medium text-foreground group-hover:underline truncate">{displayName}</span>
+          {signal.isWhale && (
+            <Badge variant="outline" className="text-[10px] border-yellow-500/30 text-yellow-500 flex-shrink-0">
+              Whale
             </Badge>
           )}
-          <a
-            href={`https://polymarket.com/event/${signal.conditionId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ExternalLink className="h-4 w-4" />
-          </a>
+        </Link>
+        <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">{timeAgo(signal.timestamp)}</span>
+      </div>
+
+      {/* Market title + outcome badge */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <Link
+          href={`/markets/${signal.conditionId}`}
+          className="text-sm text-foreground leading-snug hover:underline line-clamp-2"
+        >
+          {signal.title || 'Unknown Market'}
+        </Link>
+        <span className={cn(
+          'flex-shrink-0 inline-flex px-2.5 py-0.5 rounded text-xs font-semibold',
+          badgeColor
+        )}>
+          {outcomeText}
+        </span>
+      </div>
+
+      {/* Trade details */}
+      <div className="space-y-1.5 border-t border-border pt-3">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Date & Time</span>
+          <span className="text-foreground tabular-nums">
+            {new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Amount</span>
+          <span className="text-foreground font-semibold tabular-nums">
+            ${signal.size * signal.price >= 1000
+              ? ((signal.size * signal.price) / 1000).toFixed(1) + 'k'
+              : (signal.size * signal.price).toFixed(2)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Entry Price</span>
+          <span className="text-foreground font-semibold tabular-nums">
+            {((signal.price || 0) * 100).toFixed(1)}c
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Category</span>
+          <span className="text-foreground font-medium">{category}</span>
+        </div>
+      </div>
+
+      {/* Bottom: rank + confidence */}
+      <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
+        <div className="flex items-center gap-2">
+          {signal.traderRank && signal.traderRank <= 100 && (
+            <Badge variant="secondary" className="text-[10px]">
+              Rank #{signal.traderRank}
+            </Badge>
+          )}
+          <ConfidenceBadge confidence={signal.confidence} />
         </div>
       </div>
     </div>
   )
 }
 
+// ---- Main page ----
 export default function InsiderSignalsPage() {
   const [signals, setSignals] = useState<SignalEntry[]>([])
   const [topTraders, setTopTraders] = useState<LeaderboardTrader[]>([])
@@ -186,11 +229,12 @@ export default function InsiderSignalsPage() {
   const [minSize, setMinSize] = useState('')
   const [whalesOnly, setWhalesOnly] = useState(false)
   const [confidenceFilter, setConfidenceFilter] = useState<'All' | 'High' | 'Medium' | 'Low'>('All')
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All')
 
   const fetchSignals = async () => {
     setIsLoading(true)
     try {
-      // Fetch top traders first
+      // Fetch top traders
       const leaderboardRes = await fetch('/api/polymarket/leaderboard?window=day&limit=50')
       let traders: LeaderboardTrader[] = []
       if (leaderboardRes.ok) {
@@ -198,10 +242,8 @@ export default function InsiderSignalsPage() {
         setTopTraders(traders)
       }
 
-      // Fetch recent trades from top traders
+      // Fetch recent trades from top 10 traders in parallel
       const allSignals: SignalEntry[] = []
-
-      // Fetch trades from top 10 traders in parallel
       const tradePromises = traders.slice(0, 10).map(async (trader) => {
         try {
           const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=5`)
@@ -209,10 +251,10 @@ export default function InsiderSignalsPage() {
             const trades: UserTrade[] = await tradesRes.json()
             return trades.map(trade => {
               const tradeValue = trade.size * trade.price
-              const confidence: 'High' | 'Medium' | 'Low' = 
+              const confidence: 'High' | 'Medium' | 'Low' =
                 trader.rank && trader.rank <= 10 && tradeValue >= 1000 ? 'High' :
                 trader.rank && trader.rank <= 50 && tradeValue >= 500 ? 'Medium' : 'Low'
-              
+
               return {
                 ...trade,
                 traderPnl: trader.pnl || 0,
@@ -235,9 +277,8 @@ export default function InsiderSignalsPage() {
         allSignals.push(...trades)
       })
 
-// Sort by timestamp (newest first)
-    allSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
-      
+      // Sort by timestamp (newest first)
+      allSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
       setSignals(allSignals)
     } catch (err) {
       console.error('Error fetching signals:', err)
@@ -252,6 +293,11 @@ export default function InsiderSignalsPage() {
 
   const filteredSignals = useMemo(() => {
     let result = [...signals]
+
+    // Filter by category
+    if (categoryFilter !== 'All') {
+      result = result.filter((s) => getTradeCategory(s) === categoryFilter)
+    }
 
     // Filter by confidence
     if (confidenceFilter !== 'All') {
@@ -280,7 +326,7 @@ export default function InsiderSignalsPage() {
     }
 
     return result
-  }, [signals, confidenceFilter, minSize, whalesOnly, sortBy])
+  }, [signals, categoryFilter, confidenceFilter, minSize, whalesOnly, sortBy])
 
   const highConfidenceCount = signals.filter((s) => s.confidence === 'High').length
   const whaleCount = signals.filter((s) => s.isWhale).length
@@ -291,7 +337,7 @@ export default function InsiderSignalsPage() {
       <div className="space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div className="sharp-panel  p-4">
+          <div className="sharp-panel p-4">
             <div className="flex items-center gap-2 text-primary">
               <img
                 src="/icon-lightning.png"
@@ -307,7 +353,7 @@ export default function InsiderSignalsPage() {
             </div>
             <div className="text-xs text-muted-foreground mt-1">Total Signals</div>
           </div>
-          <div className="sharp-panel  p-4">
+          <div className="sharp-panel p-4">
             <div className="flex items-center gap-2 text-primary">
               <img
                 src="/icon-checkmark.png"
@@ -323,8 +369,8 @@ export default function InsiderSignalsPage() {
             </div>
             <div className="text-xs text-muted-foreground mt-1">High Confidence</div>
           </div>
-          <div className="sharp-panel  p-4">
-            <div className="flex items-center gap-2 text-chart-3">
+          <div className="sharp-panel p-4">
+            <div className="flex items-center gap-2 text-yellow-500">
               <img
                 src="/icon-whale.png"
                 alt="Whale Trades"
@@ -339,7 +385,7 @@ export default function InsiderSignalsPage() {
             </div>
             <div className="text-xs text-muted-foreground mt-1">Whale Trades</div>
           </div>
-          <div className="sharp-panel  p-4">
+          <div className="sharp-panel p-4">
             <div className="flex items-center gap-2 text-foreground">
               <img
                 src="/icon-volume.png"
@@ -358,12 +404,33 @@ export default function InsiderSignalsPage() {
         </div>
 
         {/* Filters */}
-        <div className="sharp-panel  p-4">
+        <div className="sharp-panel p-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Filter className="h-4 w-4" />
-              <span className="text-sm">Filters:</span>
+              <span className="text-sm font-medium">Filters</span>
             </div>
+
+            {/* Category */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 bg-transparent border-border">
+                  Category: {categoryFilter}
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="bg-card border-border max-h-64 overflow-y-auto">
+                {CATEGORIES.map((cat) => (
+                  <DropdownMenuItem
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={cn(categoryFilter === cat && 'bg-primary/10 text-primary')}
+                  >
+                    {cat}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Sort */}
             <DropdownMenu>
@@ -446,26 +513,26 @@ export default function InsiderSignalsPage() {
         {isLoading ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="sharp-panel  p-4">
+              <div key={i} className="sharp-panel p-4">
                 <div className="flex items-center gap-3">
-                  <Skeleton className="h-10 w-10 " />
+                  <Skeleton className="h-7 w-7 rounded-full" />
                   <div className="space-y-2">
                     <Skeleton className="h-4 w-24" />
                     <Skeleton className="h-3 w-16" />
                   </div>
                 </div>
                 <Skeleton className="mt-4 h-10 w-full" />
-                <div className="mt-4 flex gap-4">
-                  <Skeleton className="h-8 w-16" />
-                  <Skeleton className="h-8 w-16" />
-                  <Skeleton className="h-8 w-16" />
+                <div className="mt-4 space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredSignals.length === 0 ? (
-          <div className="sharp-panel  p-12 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center  bg-muted">
+          <div className="sharp-panel p-12 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
               <Zap className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="mt-4 text-lg font-medium text-foreground">No signals found</h3>
