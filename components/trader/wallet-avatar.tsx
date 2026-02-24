@@ -5,27 +5,26 @@ import { cn } from '@/lib/utils'
 
 /**
  * Generates a deterministic gradient avatar from a wallet address.
- * Colors are drawn from a palette that matches the site's dark theme
- * (greens, limes, yellows, ambers, teals, pinks, reds).
+ * Uses only monochrome tones (black / white / grays) to match the site palette.
  */
 
 const PALETTE = [
-  '#22c55e', // green-500
-  '#84cc16', // lime-500
-  '#eab308', // yellow-500
-  '#f59e0b', // amber-500
-  '#14b8a6', // teal-500
-  '#10b981', // emerald-500
-  '#ef4444', // red-500
-  '#f97316', // orange-500
-  '#ec4899', // pink-500
-  '#a3e635', // lime-400
-  '#4ade80', // green-400
-  '#facc15', // yellow-400
-  '#fb923c', // orange-400
-  '#f87171', // red-400
-  '#34d399', // emerald-400
-  '#2dd4bf', // teal-400
+  '#ffffff', // white
+  '#e5e5e5', // neutral-200
+  '#d4d4d4', // neutral-300
+  '#a3a3a3', // neutral-400
+  '#737373', // neutral-500
+  '#525252', // neutral-600
+  '#404040', // neutral-700
+  '#2a2a2a', // dark gray
+  '#1a1a1a', // near-black
+  '#0a0a0a', // almost black
+  '#171717', // neutral-900
+  '#262626', // neutral-800
+  '#f5f5f5', // neutral-100
+  '#333333', // charcoal
+  '#4a4a4a', // mid-dark
+  '#8a8a8a', // mid-light
 ]
 
 function hashWallet(wallet: string): number {
@@ -52,14 +51,24 @@ interface WalletAvatarProps {
   className?: string
 }
 
+// Determines if a hex color is "light" (needs dark text) or "dark" (needs light text)
+function isLightColor(hex: string): boolean {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return (r * 299 + g * 587 + b * 114) / 1000 > 140
+}
+
 export function WalletAvatar({ wallet, name, size = 40, className }: WalletAvatarProps) {
   const { c1, c2, c3, angle } = useMemo(() => getGradientColors(wallet), [wallet])
   const initials = (name || wallet.slice(2, 4)).toUpperCase().slice(0, 2)
+  // Pick text color based on the dominant (middle) gradient color
+  const textColor = isLightColor(c2) ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)'
 
   return (
     <div
       className={cn(
-        'rounded-full flex-shrink-0 flex items-center justify-center font-bold text-white/90 select-none',
+        'rounded-full flex-shrink-0 flex items-center justify-center font-bold select-none ring-1 ring-white/10',
         className,
       )}
       style={{
@@ -67,7 +76,7 @@ export function WalletAvatar({ wallet, name, size = 40, className }: WalletAvata
         height: size,
         background: `linear-gradient(${angle}deg, ${c1}, ${c2}, ${c3})`,
         fontSize: size * 0.3,
-        textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+        color: textColor,
       }}
     >
       {initials}
