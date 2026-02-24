@@ -14,6 +14,7 @@ import {
 import { useState, useEffect } from 'react'
 import useSWR from 'swr'
 import { createClient } from '@/lib/supabase/client'
+import { WalletAvatar } from '@/components/trader/wallet-avatar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, ChevronDown, Grid3X3, List, Star, TrendingUp, Clock, Users, Zap, Shield, Target, Flame, Crown, Gem, Activity } from 'lucide-react'
@@ -235,9 +236,11 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet, ac
               />
             </div>
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center bg-secondary border border-border rounded-full flex-shrink-0 text-foreground font-bold text-sm">
-              {(trader.userName || trader.proxyWallet.slice(2, 4)).toUpperCase().slice(0, 2)}
-            </div>
+            <WalletAvatar
+              wallet={trader.proxyWallet}
+              name={trader.userName}
+              size={40}
+            />
           )}
           <div className="min-w-0">
             <div className="font-semibold text-foreground text-sm truncate leading-tight">

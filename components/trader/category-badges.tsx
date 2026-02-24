@@ -377,17 +377,29 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
       </span>
     )
   }
-  // Custom PNG icon
+  // Custom PNG icon -- per-category scale
   if (category.customIcon) {
-    return (
-      <Image
-        src={category.customIcon}
-        alt=""
-        width={imgSize}
-        height={imgSize}
-        className="opacity-90 flex-shrink-0 -my-1"
-      />
-    )
+  const scaleMap: Record<string, number> = {
+    'shark': 1.36,
+    'whale': 1.92,
+    'diamond-hands': 1.2,
+  }
+  const scale = scaleMap[category.id] ?? 1.6
+  return (
+  <span
+    className="inline-flex items-center justify-center flex-shrink-0"
+    style={{ width: imgSize, height: imgSize, overflow: 'visible' }}
+  >
+    <Image
+      src={category.customIcon}
+      alt=""
+      width={imgSize}
+      height={imgSize}
+      className="opacity-90"
+      style={{ transform: `scale(${scale})`, transformOrigin: 'center' }}
+    />
+  </span>
+  )
   }
   // Fallback: Lucide icon
   const Icon = category.icon
