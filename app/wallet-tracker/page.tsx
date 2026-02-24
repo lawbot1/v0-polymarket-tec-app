@@ -89,21 +89,25 @@ function TraderCard({
     <div className="sharp-panel p-4">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <Link href={`/trader/${wallet.address}`} className="flex items-center gap-3 group">
+        <Link href={`/trader/${wallet.address}`} className="flex items-center gap-3 group min-w-0 flex-1">
           {wallet.profile?.profileImage ? (
             <Image
               src={wallet.profile.profileImage}
               alt={wallet.label}
               width={40}
               height={40}
-              className="h-10 w-10 rounded-full object-cover"
+              className="h-10 w-10 rounded-full object-cover flex-shrink-0"
             />
           ) : (
             <WalletAvatar wallet={wallet.address} size={40} />
           )}
-          <div>
-            <div className="font-medium text-foreground group-hover:underline">{wallet.label}</div>
-            <div className="text-xs text-muted-foreground font-mono">{formatAddress(wallet.address)}</div>
+          <div className="min-w-0">
+            <div className="font-medium text-foreground group-hover:underline truncate">
+              {wallet.label.length > 20 && wallet.label.startsWith('0x')
+                ? formatAddress(wallet.label)
+                : wallet.label}
+            </div>
+            <div className="text-xs text-muted-foreground font-mono truncate">{formatAddress(wallet.address)}</div>
           </div>
         </Link>
         <Button variant="ghost" size="icon" onClick={onDelete} className="text-muted-foreground hover:text-red-500 h-7 w-7">
@@ -162,41 +166,57 @@ function TraderCard({
 // ---- Feed item ----
 function FeedEntry({ item }: { item: FeedItem }) {
   const { trade, traderName, traderAddress, traderImage } = item
-  const isBuy = trade.side === 'BUY'
+
+  // Determine outcome: use trade.outcome if available, otherwise infer from side + outcomeIndex
+  const outcomeText = trade.outcome
+    ? trade.outcome
+    : (trade.side === 'BUY' ? 'Yes' : 'No')
+  const isYes = outcomeText.toLowerCase() === 'yes'
+
+  // Determine action: BUY Yes = bullish, SELL Yes = bearish, BUY No = bearish, SELL No = bullish
+  const isBullish = (trade.side === 'BUY' && isYes) || (trade.side === 'SELL' && !isYes)
+
+  const ts = trade.timestamp < 1e12 ? trade.timestamp * 1000 : trade.timestamp
+
+  // Truncate long trader names
+  const displayName = traderName.length > 18 && traderName.startsWith('0x')
+    ? formatAddress(traderName)
+    : traderName
 
   return (
-    <div className="py-4 border-b border-border last:border-0">
+    <div className="sharp-panel p-4 mb-3">
       {/* Trader + time */}
-      <div className="flex items-center justify-between mb-2">
-        <Link href={`/trader/${traderAddress}`} className="flex items-center gap-2 group">
+      <div className="flex items-center justify-between mb-3">
+        <Link href={`/trader/${traderAddress}`} className="flex items-center gap-2 group min-w-0">
           {traderImage ? (
-            <Image src={traderImage} alt={traderName} width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
+            <Image src={traderImage} alt={displayName} width={28} height={28} className="h-7 w-7 rounded-full object-cover flex-shrink-0" />
           ) : (
             <WalletAvatar wallet={traderAddress} size={28} />
           )}
-          <span className="text-sm font-medium text-foreground group-hover:underline">{traderName}</span>
+          <span className="text-sm font-medium text-foreground group-hover:underline truncate">{displayName}</span>
         </Link>
-        <span className="text-xs text-muted-foreground">{timeAgo(trade.timestamp)}</span>
+        <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">{timeAgo(trade.timestamp)}</span>
       </div>
 
-      {/* Market title + side */}
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <span className="text-sm text-foreground leading-snug">{trade.title || 'Unknown Market'}</span>
+      {/* Market title + outcome badge */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <Link href={trade.slug ? `/markets/${trade.slug}` : '#'} className="text-sm text-foreground leading-snug hover:underline">
+          {trade.title || 'Unknown Market'}
+        </Link>
         <span className={cn(
-          'flex-shrink-0 inline-flex px-2 py-0.5 rounded text-xs font-semibold',
-          isBuy ? 'bg-[#22c55e]/20 text-[#22c55e]' : 'bg-red-500/20 text-red-500'
+          'flex-shrink-0 inline-flex px-2.5 py-0.5 rounded text-xs font-semibold',
+          isBullish ? 'bg-[#22c55e]/20 text-[#22c55e]' : 'bg-red-500/20 text-red-500'
         )}>
-          {isBuy ? 'Yes' : 'No'}
+          {outcomeText}
         </span>
       </div>
 
       {/* Trade details */}
-      <div className="space-y-1">
+      <div className="space-y-1.5 border-t border-border pt-3">
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">Date & Time</span>
           <span className="text-foreground tabular-nums">
-            {new Date(trade.timestamp < 1e12 ? trade.timestamp * 1000 : trade.timestamp)
-              .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+            {new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
           </span>
         </div>
         <div className="flex items-center justify-between text-xs">
@@ -539,14 +559,14 @@ export default function WalletTrackerPage() {
             </div>
 
             {/* RIGHT: Feed */}
-            <div className="sharp-panel p-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto custom-scrollbar">
-              <div className="mb-2">
+            <div className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto custom-scrollbar">
+              <div className="mb-3">
                 <h3 className="text-lg font-bold text-foreground font-mono">Feed</h3>
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Refreshes every 2 minutes</p>
               </div>
 
               {feedItems.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground text-sm">
+                <div className="sharp-panel py-12 text-center text-muted-foreground text-sm">
                   No recent trades from tracked wallets yet.
                 </div>
               ) : (
