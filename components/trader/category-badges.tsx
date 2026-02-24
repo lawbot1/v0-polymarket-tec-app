@@ -367,51 +367,31 @@ interface CategoryBadgeProps {
 }
 
 function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm' | 'md' }) {
-  // Fixed box so layout is unaffected; scale() enlarges visually only
-  const box = size === 'sm' ? 14 : 16
+  const imgSize = size === 'sm' ? 20 : 24
 
   // Emoji -- market categories
   if (category.emoji) {
     return (
-      <span
-        className="leading-none inline-flex items-center justify-center text-xs flex-shrink-0"
-        style={{ transform: 'scale(2.4)', transformOrigin: 'center', width: box, height: box }}
-      >
+      <span className={cn('leading-none flex-shrink-0', size === 'sm' ? 'text-lg' : 'text-xl')}>
         {category.emoji}
       </span>
     )
   }
-  // Custom PNG icon -- scale x2 visually
+  // Custom PNG icon
   if (category.customIcon) {
     return (
-      <span
-        className="inline-flex items-center justify-center flex-shrink-0"
-        style={{ width: box, height: box }}
-      >
-        <Image
-          src={category.customIcon}
-          alt=""
-          width={box}
-          height={box}
-          className="opacity-90"
-          style={{ transform: 'scale(2)', transformOrigin: 'center' }}
-        />
-      </span>
+      <Image
+        src={category.customIcon}
+        alt=""
+        width={imgSize}
+        height={imgSize}
+        className="opacity-90 flex-shrink-0 -my-1"
+      />
     )
   }
-  // Fallback: Lucide icon -- scale x2 visually
+  // Fallback: Lucide icon
   const Icon = category.icon
-  return (
-    <span
-      className="inline-flex items-center justify-center flex-shrink-0"
-      style={{ width: box, height: box }}
-    >
-      <Icon
-        className={cn(category.color, 'h-3.5 w-3.5')}
-        style={{ transform: 'scale(2)', transformOrigin: 'center' }}
-      />
-    </span>
-  )
+  return <Icon className={cn(category.color, size === 'sm' ? 'h-5 w-5' : 'h-6 w-6', 'flex-shrink-0 -my-1')} />
 }
 
 export function CategoryBadge({ category, size = 'sm', className }: CategoryBadgeProps) {
@@ -425,7 +405,7 @@ export function CategoryBadge({ category, size = 'sm', className }: CategoryBadg
     >
       <span
         className={cn(
-          'inline-flex items-center gap-1.5 border bg-transparent rounded-full cursor-default transition-all whitespace-nowrap',
+          'inline-flex items-center gap-1.5 border bg-transparent rounded-full cursor-default transition-all whitespace-nowrap overflow-visible',
           category.borderColor,
           'hover:bg-white/[0.03]',
           size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
@@ -473,7 +453,7 @@ export function CategoriesRow({ categories, maxVisible = 3, size = 'sm', classNa
   const overflow = categories.slice(maxVisible)
 
   return (
-    <div className={cn('flex items-center gap-1.5 overflow-hidden', className)}>
+    <div className={cn('flex items-center gap-1.5 overflow-visible', className)}>
       {visible.map((cat) => (
         <CategoryBadge key={cat.id} category={cat} size={size} />
       ))}
