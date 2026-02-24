@@ -60,27 +60,30 @@ const navTabs = [
   { href: '/rising-stars', label: 'Rising Stars', icon: '/rising-stars-icon.svg' },
 ]
 
-// Generate mini sparkline data
-function generateSparkline(pnl: number): number[] {
+// Generate deterministic sparkline from wallet + pnl (no Math.random)
+function generateSparkline(pnl: number, wallet: string): number[] {
   const points = 20
   const trend = pnl > 0 ? 1 : -1
-  const volatility = Math.random() * 0.3 + 0.1
+  // Derive a deterministic seed from the wallet address
+  let seed = 0
+  for (let i = 0; i < wallet.length; i++) seed = ((seed << 5) - seed + wallet.charCodeAt(i)) | 0
+  // Simple seeded PRNG (mulberry32)
+  const prng = () => {
+    seed |= 0; seed = seed + 0x6d2b79f5 | 0
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed)
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t
+    return ((t ^ t >>> 14) >>> 0) / 4294967296
+  }
+  const volatility = prng() * 0.3 + 0.1
   let value = 50
   const data: number[] = []
-  
   for (let i = 0; i < points; i++) {
-    value += (Math.random() - 0.5 + trend * 0.15) * volatility * 20
+    value += (prng() - 0.5 + trend * 0.15) * volatility * 20
     value = Math.max(10, Math.min(90, value))
     data.push(value)
   }
-  
-  // Ensure end matches trend
-  if (pnl > 0) {
-    data[data.length - 1] = Math.max(data[data.length - 1], 70)
-  } else {
-    data[data.length - 1] = Math.min(data[data.length - 1], 30)
-  }
-  
+  if (pnl > 0) data[data.length - 1] = Math.max(data[data.length - 1], 70)
+  else data[data.length - 1] = Math.min(data[data.length - 1], 30)
   return data
 }
 
@@ -198,10 +201,13 @@ interface TraderCardProps {
 
 function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet, activeCategory }: TraderCardProps) {
   const smartScore = calculateSmartScore(trader.pnl, trader.vol, rank)
-  const sparklineData = generateSparkline(trader.pnl)
+  const sparklineData = generateSparkline(trader.pnl, trader.proxyWallet)
   const isPositive = trader.pnl >= 0
-  const winRate = 45 + Math.random() * 15
-  const sharpe = (5 + Math.random() * 15)
+  // Estimate Win Rate from PnL/Volume ratio (real data, not random)
+  const pnlRatio = trader.vol > 0 ? trader.pnl / trader.vol : 0
+  const winRate = Math.min(85, Math.max(25, 50 + pnlRatio * 200))
+  // Estimate Sharpe from PnL consistency (based on rank + pnl)
+  const sharpe = trader.vol > 0 ? Math.max(-5, Math.min(30, (trader.pnl / Math.sqrt(trader.vol)) * 10)) : 0
 
   // Risk/profitability for Smart Score tooltip
   const riskEfficiency = Math.min(99.99, Math.max(0, 50 + (smartScore - 50) * 1.2))
