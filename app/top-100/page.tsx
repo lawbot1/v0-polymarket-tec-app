@@ -35,7 +35,10 @@ function estimateWinRate(pnl: number, vol: number): number {
 }
 
 function estimateSharpe(pnl: number, vol: number): number {
-  return vol > 0 ? Math.max(-5, Math.min(30, (pnl / Math.sqrt(vol)) * 10)) : 0
+  if (vol <= 0) return 0
+  // Normalize: ratio of PnL to Volume, scaled to typical Sharpe range (0-10)
+  const ratio = pnl / vol
+  return Math.max(-3, Math.min(10, ratio * 50))
 }
 
 // ---- Copy button ----
@@ -239,16 +242,7 @@ export default function VantakeTop100Page() {
       <div className="max-w-6xl mx-auto">
         {/* Title */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Image
-              src="/vantake-logo-white.png"
-              alt=""
-              width={36}
-              height={36}
-              className="h-9 w-9 object-contain"
-            />
-            <h1 className="text-3xl font-bold text-foreground font-mono text-balance">Vantake Top 100</h1>
-          </div>
+          <h1 className="text-3xl font-bold text-foreground font-mono text-balance mb-2">Vantake Top 100</h1>
           <p className="text-muted-foreground text-sm">
             The best human traders on Polymarket, ranked by the Vantake team.
           </p>
