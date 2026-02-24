@@ -25,6 +25,7 @@ import {
   ChevronDown,
   Sparkles,
   RefreshCw,
+  Users,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -97,28 +98,11 @@ function getTradeCategory(signal: SignalEntry): string {
   return SLUG_TO_CATEGORY[rawSlug] || rawSlug.charAt(0).toUpperCase() + rawSlug.slice(1)
 }
 
-// ---- Confidence badge ----
-function ConfidenceBadge({ confidence }: { confidence: 'High' | 'Medium' | 'Low' }) {
-  const styles = {
-    High: 'bg-[#22c55e]/20 text-[#22c55e] border-[#22c55e]/30',
-    Medium: 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30',
-    Low: 'bg-muted text-muted-foreground border-border',
-  }
-  return (
-    <span className={cn('inline-flex items-center gap-1 border px-2 py-0.5 text-xs font-medium rounded', styles[confidence])}>
-      {confidence === 'High' && <Sparkles className="h-3 w-3" />}
-      {confidence}
-    </span>
-  )
-}
-
-// ---- Signal card (matching wallet-tracker FeedEntry style) ----
+// ---- Signal card (matches wallet-tracker Feed style) ----
 function SignalCard({ signal }: { signal: SignalEntry }) {
-  // Outcome: use trade.outcome if available
   const outcomeText = signal.outcome || (signal.side === 'BUY' ? 'Yes' : 'No')
   const outcomeLower = outcomeText.toLowerCase()
 
-  // Badge color: Yes = green, No = red, other = yellow
   const badgeColor = outcomeLower === 'yes'
     ? 'bg-[#22c55e]/20 text-[#22c55e]'
     : outcomeLower === 'no'
@@ -127,7 +111,6 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
 
   const ts = signal.timestamp < 1e12 ? signal.timestamp * 1000 : signal.timestamp
 
-  // Truncate long names
   const rawName = signal.traderName || signal.proxyWallet || ''
   const displayName = rawName.length > 18 && rawName.startsWith('0x')
     ? formatAddress(rawName)
@@ -137,7 +120,7 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
 
   return (
     <div className="sharp-panel p-4 hover:border-primary/30 transition-colors">
-      {/* Top: trader + time + confidence */}
+      {/* Trader + time */}
       <div className="flex items-center justify-between mb-3">
         <Link href={`/trader/${signal.proxyWallet}`} className="flex items-center gap-2 group min-w-0">
           {signal.traderProfileImage ? (
@@ -204,18 +187,6 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
           <span className="text-foreground font-medium">{category}</span>
         </div>
       </div>
-
-      {/* Bottom: rank + confidence */}
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
-        <div className="flex items-center gap-2">
-          {signal.traderRank && signal.traderRank <= 100 && (
-            <Badge variant="secondary" className="text-[10px]">
-              Rank #{signal.traderRank}
-            </Badge>
-          )}
-          <ConfidenceBadge confidence={signal.confidence} />
-        </div>
-      </div>
     </div>
   )
 }
@@ -228,7 +199,7 @@ export default function InsiderSignalsPage() {
   const [sortBy, setSortBy] = useState<SortOption>('Recent')
   const [minSize, setMinSize] = useState('')
   const [whalesOnly, setWhalesOnly] = useState(false)
-  const [confidenceFilter, setConfidenceFilter] = useState<'All' | 'High' | 'Medium' | 'Low'>('All')
+
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All')
 
   const fetchSignals = async () => {
@@ -299,10 +270,7 @@ export default function InsiderSignalsPage() {
       result = result.filter((s) => getTradeCategory(s) === categoryFilter)
     }
 
-    // Filter by confidence
-    if (confidenceFilter !== 'All') {
-      result = result.filter((s) => s.confidence === confidenceFilter)
-    }
+
 
     // Filter by min size
     if (minSize) {
@@ -321,14 +289,13 @@ export default function InsiderSignalsPage() {
     if (sortBy === 'Size') {
       result.sort((a, b) => (b.size * b.price) - (a.size * a.price))
     } else if (sortBy === 'Confidence') {
-      const confidenceOrder = { High: 0, Medium: 1, Low: 2 }
-      result.sort((a, b) => confidenceOrder[a.confidence] - confidenceOrder[b.confidence])
+      result.sort((a, b) => b.size * b.price - a.size * a.price)
     }
 
     return result
-  }, [signals, categoryFilter, confidenceFilter, minSize, whalesOnly, sortBy])
+  }, [signals, categoryFilter, minSize, whalesOnly, sortBy])
 
-  const highConfidenceCount = signals.filter((s) => s.confidence === 'High').length
+
   const whaleCount = signals.filter((s) => s.isWhale).length
   const totalVolume = signals.reduce((acc, s) => acc + s.size * s.price, 0)
 
@@ -355,19 +322,14 @@ export default function InsiderSignalsPage() {
           </div>
           <div className="sharp-panel p-4">
             <div className="flex items-center gap-2 text-primary">
-              <img
-                src="/icon-checkmark.png"
-                alt="High Confidence"
-                className="h-12 w-12 object-contain"
-                style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
-              />
+              <Users className="h-5 w-5" />
               {isLoading ? (
                 <Skeleton className="h-8 w-12" />
               ) : (
-                <span className="text-2xl font-bold">{highConfidenceCount}</span>
+                <span className="text-2xl font-bold">{topTraders.length}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">High Confidence</div>
+            <div className="text-xs text-muted-foreground mt-1">Top Traders</div>
           </div>
           <div className="sharp-panel p-4">
             <div className="flex items-center gap-2 text-yellow-500">
@@ -448,27 +410,6 @@ export default function InsiderSignalsPage() {
                     className={cn(sortBy === option && 'bg-primary/10 text-primary')}
                   >
                     {option}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Confidence */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 bg-transparent border-border">
-                  Confidence: {confidenceFilter}
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-card border-border">
-                {(['All', 'High', 'Medium', 'Low'] as const).map((level) => (
-                  <DropdownMenuItem
-                    key={level}
-                    onClick={() => setConfidenceFilter(level)}
-                    className={cn(confidenceFilter === level && 'bg-primary/10 text-primary')}
-                  >
-                    {level}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
