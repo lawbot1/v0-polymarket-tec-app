@@ -379,15 +379,23 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
   }
   // Custom PNG icon
   if (category.customIcon) {
-    return (
-      <Image
-        src={category.customIcon}
-        alt=""
-        width={imgSize}
-        height={imgSize}
-        className="opacity-90 flex-shrink-0 -my-1"
-      />
-    )
+  const isElite = category.id === 'elite-profit'
+  const pngSize = isElite ? imgSize * 2 : imgSize
+  return (
+  <span
+    className="inline-flex items-center justify-center flex-shrink-0"
+    style={{ width: imgSize, height: imgSize, overflow: 'visible' }}
+  >
+    <Image
+      src={category.customIcon}
+      alt=""
+      width={pngSize}
+      height={pngSize}
+      className="opacity-90"
+      style={isElite ? { transform: 'scale(2)', transformOrigin: 'center' } : undefined}
+    />
+  </span>
+  )
   }
   // Fallback: Lucide icon
   const Icon = category.icon

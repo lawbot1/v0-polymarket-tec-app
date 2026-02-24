@@ -59,27 +59,20 @@ function isLightColor(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 > 140
 }
 
-export function WalletAvatar({ wallet, name, size = 40, className }: WalletAvatarProps) {
+export function WalletAvatar({ wallet, size = 40, className }: WalletAvatarProps) {
   const { c1, c2, c3, angle } = useMemo(() => getGradientColors(wallet), [wallet])
-  const initials = (name || wallet.slice(2, 4)).toUpperCase().slice(0, 2)
-  // Pick text color based on the dominant (middle) gradient color
-  const textColor = isLightColor(c2) ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)'
 
   return (
     <div
       className={cn(
-        'rounded-full flex-shrink-0 flex items-center justify-center font-bold select-none ring-1 ring-white/10',
+        'rounded-full flex-shrink-0 select-none ring-1 ring-white/10',
         className,
       )}
       style={{
         width: size,
         height: size,
         background: `linear-gradient(${angle}deg, ${c1}, ${c2}, ${c3})`,
-        fontSize: size * 0.3,
-        color: textColor,
       }}
-    >
-      {initials}
-    </div>
+    />
   )
 }
