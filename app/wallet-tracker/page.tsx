@@ -193,12 +193,42 @@ export default function WalletTrackerPage() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      if (savedWallets && savedWallets.length > 0) {
-        const loadedWallets: TrackedWallet[] = savedWallets.map((w) => ({
+      // Also load followed traders that aren't already in tracked_wallets
+      const { data: followedTraders } = await supabase
+        .from('followed_traders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      // Merge: tracked_wallets first, then followed_traders that aren't already tracked
+      const trackedAddresses = new Set((savedWallets || []).map(w => w.wallet_address.toLowerCase()))
+      const allWallets = [
+        ...(savedWallets || []).map(w => ({
           id: w.id,
           address: w.wallet_address,
           label: w.label || formatAddress(w.wallet_address),
           alertsEnabled: w.alerts_enabled,
+          isLoading: true,
+          source: 'tracked' as const,
+        })),
+        ...(followedTraders || [])
+          .filter(f => !trackedAddresses.has(f.trader_address.toLowerCase()))
+          .map(f => ({
+            id: f.id,
+            address: f.trader_address,
+            label: f.trader_name || formatAddress(f.trader_address),
+            alertsEnabled: false,
+            isLoading: true,
+            source: 'followed' as const,
+          })),
+      ]
+
+      if (allWallets.length > 0) {
+        const loadedWallets: TrackedWallet[] = allWallets.map(w => ({
+          id: w.id,
+          address: w.address,
+          label: w.label,
+          alertsEnabled: w.alertsEnabled,
           isLoading: true,
         }))
         setWallets(loadedWallets)
@@ -294,10 +324,28 @@ export default function WalletTrackerPage() {
   const handleDelete = async (index: number) => {
     const wallet = wallets[index]
 
-    await supabase
-      .from('tracked_wallets')
-      .delete()
-      .eq('id', wallet.id)
+    // Remove from both tables (one will be a no-op if not present)
+    await Promise.all([
+      supabase
+        .from('tracked_wallets')
+        .delete()
+        .eq('id', wallet.id),
+      supabase
+        .from('followed_traders')
+        .delete()
+        .eq('id', wallet.id),
+      // Also clean up by address in case the id doesn't match across tables
+      user ? supabase
+        .from('tracked_wallets')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('wallet_address', wallet.address) : Promise.resolve(),
+      user ? supabase
+        .from('followed_traders')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('trader_address', wallet.address) : Promise.resolve(),
+    ])
 
     setWallets(wallets.filter((_, i) => i !== index))
   }

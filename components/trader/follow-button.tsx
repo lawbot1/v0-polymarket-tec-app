@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -15,10 +15,6 @@ interface FollowButtonProps {
   className?: string
   compact?: boolean
   showLogo?: boolean
-  /** Pre-fetched status from parent to avoid per-card network calls */
-  initialFollowed?: boolean
-  initialTracked?: boolean
-  userId?: string | null
 }
 
 export function FollowButton({
@@ -28,20 +24,53 @@ export function FollowButton({
   className,
   compact = false,
   showLogo: _showLogo = false,
-  initialFollowed = false,
-  initialTracked = false,
-  userId = null,
 }: FollowButtonProps) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [isFollowed, setIsFollowed] = useState(initialFollowed)
-  const [isTracked, setIsTracked] = useState(initialTracked)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isFollowed, setIsFollowed] = useState(false)
+  const [isTracked, setIsTracked] = useState(false)
   const [loadingFollow, setLoadingFollow] = useState(false)
   const [loadingTrack, setLoadingTrack] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+
+  // Fetch user session + check existing follow/track status on mount
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setInitialLoading(false)
+        return
+      }
+      setCurrentUserId(user.id)
+
+      // Check if already followed
+      const { data: followData } = await supabase
+        .from('followed_traders')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('trader_address', traderAddress)
+        .maybeSingle()
+
+      if (followData) setIsFollowed(true)
+
+      // Check if already tracked
+      const { data: trackData } = await supabase
+        .from('tracked_wallets')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('wallet_address', traderAddress)
+        .maybeSingle()
+
+      if (trackData) setIsTracked(true)
+      setInitialLoading(false)
+    }
+    init()
+  }, [traderAddress])
 
   const handleFollow = async () => {
-    if (!userId) {
+    if (!currentUserId) {
       router.push('/auth/login')
       return
     }
@@ -51,24 +80,24 @@ export function FollowButton({
       await supabase
         .from('followed_traders')
         .delete()
-        .eq('user_id', userId)
+        .eq('user_id', currentUserId)
         .eq('trader_address', traderAddress)
       setIsFollowed(false)
     } else {
       await supabase
         .from('followed_traders')
-        .insert({
-          user_id: userId,
+        .upsert({
+          user_id: currentUserId,
           trader_address: traderAddress,
           trader_name: traderName || null,
-        })
+        }, { onConflict: 'user_id,trader_address' })
       setIsFollowed(true)
     }
     setLoadingFollow(false)
   }
 
   const handleTrack = async () => {
-    if (!userId) {
+    if (!currentUserId) {
       router.push('/auth/login')
       return
     }
@@ -78,18 +107,18 @@ export function FollowButton({
       await supabase
         .from('tracked_wallets')
         .delete()
-        .eq('user_id', userId)
+        .eq('user_id', currentUserId)
         .eq('wallet_address', traderAddress)
       setIsTracked(false)
     } else {
       await supabase
         .from('tracked_wallets')
-        .insert({
-          user_id: userId,
+        .upsert({
+          user_id: currentUserId,
           wallet_address: traderAddress,
           label: traderName || null,
           alerts_enabled: true,
-        })
+        }, { onConflict: 'user_id,wallet_address' })
       setIsTracked(true)
     }
     setLoadingTrack(false)
