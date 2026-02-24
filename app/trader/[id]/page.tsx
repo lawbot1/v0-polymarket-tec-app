@@ -379,16 +379,7 @@ export default function TraderPage({ params }: TraderPageProps) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <FollowButton traderAddress={id} traderName={profile?.userName} variant="both" />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={fetchTraderData}
-                disabled={isLoading}
-                className="border-border bg-transparent h-9 w-9"
-              >
-                <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
-              </Button>
+              <FollowButton traderAddress={id} traderName={profile?.userName} variant="follow" />
             </div>
           </div>
         </div>
