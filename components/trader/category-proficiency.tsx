@@ -15,15 +15,15 @@ import {
 const MARKET_CATEGORIES = [
   { key: 'Crypto', emoji: '\u20BF' },
   { key: 'Pop Culture', emoji: '\uD83C\uDFAC' },
+  { key: 'World', emoji: '\uD83C\uDF0D' },
+  { key: 'Trump', emoji: '\uD83C\uDDFA\uD83C\uDDF8' },
+  { key: 'Tech', emoji: '\uD83D\uDCBB' },
+  { key: 'Sports', emoji: '\u26BD' },
+  { key: 'Politics', emoji: '\uD83C\uDFDB\uFE0F' },
   { key: 'Earnings', emoji: '\uD83D\uDCC8' },
   { key: 'Economy', emoji: '\uD83D\uDCCA' },
   { key: 'Geopolitics', emoji: '\uD83C\uDF10' },
-  { key: 'Sports', emoji: '\u26BD' },
-  { key: 'Politics', emoji: '\uD83C\uDFDB\uFE0F' },
   { key: 'Elections', emoji: '\uD83D\uDDF3\uFE0F' },
-  { key: 'Trump', emoji: '\uD83C\uDDFA\uD83C\uDDF8' },
-  { key: 'Tech', emoji: '\uD83D\uDCBB' },
-  { key: 'World', emoji: '\uD83C\uDF0D' },
 ] as const
 
 interface CategoryStats {
@@ -72,7 +72,6 @@ export function CategoryProficiency({ positions, trades, profile, slugToCategory
   const categoryStats = useMemo<CategoryStats[]>(() => {
     if (!profile) return []
 
-    // Group positions by category
     const catPositions = new Map<string, typeof positions>()
     const catTrades = new Map<string, typeof trades>()
 
@@ -94,18 +93,13 @@ export function CategoryProficiency({ positions, trades, profile, slugToCategory
       const pos = catPositions.get(mc.key) || []
       const tds = catTrades.get(mc.key) || []
 
-      // PnL
       const pnl = pos.reduce((s, p) => s + (p.cashPnl || 0), 0)
-
-      // Volume
       const volume = tds.reduce((s, t) => s + t.size * t.price, 0)
 
-      // Win rate
       const wins = pos.filter(p => (p.cashPnl || 0) > 0).length
       const resolved = pos.filter(p => p.cashPnl !== undefined && p.cashPnl !== 0).length
       const winRate = resolved > 0 ? (wins / resolved) * 100 : 0
 
-      // Daily returns for sharpe/sortino
       const returnsByDate = new Map<string, number>()
       tds.forEach(t => {
         const date = new Date(typeof t.timestamp === 'number' ? t.timestamp * 1000 : t.timestamp).toISOString().slice(0, 10)
@@ -123,13 +117,11 @@ export function CategoryProficiency({ positions, trades, profile, slugToCategory
       const sharpe = std > 0 ? avg / std : 0
       const sortino = dside > 0 ? avg / dside : 0
 
-      // Risk efficiency & profitability
       const riskEfficiency = Math.min(99.99, Math.max(0, 50 + sharpe * 15))
       const profitabilityScore = volume > 0
         ? Math.min(99.99, Math.max(0, 50 + (pnl / volume) * 500))
         : 0
 
-      // Smart Score for category
       let score = 0
       if (pos.length > 0 || tds.length > 0) {
         score = 50
@@ -159,7 +151,7 @@ export function CategoryProficiency({ positions, trades, profile, slugToCategory
     }).sort((a, b) => b.smartScore - a.smartScore)
   }, [positions, trades, profile, slugToCategory])
 
-  // Radar data -- all categories
+  // Radar data -- keep original order (not sorted)
   const radarData = useMemo(() => {
     return MARKET_CATEGORIES.map(mc => {
       const stat = categoryStats.find(c => c.name === mc.key)
@@ -176,6 +168,8 @@ export function CategoryProficiency({ positions, trades, profile, slugToCategory
     return `$${v.toFixed(0)}`
   }
 
+  if (categoryStats.length === 0) return null
+
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
       {/* LEFT: Radar Chart */}
@@ -184,39 +178,50 @@ export function CategoryProficiency({ positions, trades, profile, slugToCategory
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-4">
           Smart scores across market categories
         </p>
-        <div className="h-[320px]">
+        <div className="h-[340px]">
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+            <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
               <PolarGrid
-                stroke="rgba(255,255,255,0.08)"
+                stroke="rgba(255,255,255,0.06)"
                 radialLines={true}
+                gridType="polygon"
               />
               <PolarAngleAxis
                 dataKey="category"
-                tick={({ x, y, payload }) => (
-                  <text
-                    x={x}
-                    y={y}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fill="rgba(255,255,255,0.5)"
-                    fontSize={10}
-                  >
-                    {payload.value}
-                  </text>
-                )}
+                tick={({ x, y, payload, cx: cX, cy: cY }) => {
+                  // Push labels outward from center
+                  const dx = x - (cX ?? 0)
+                  const dy = y - (cY ?? 0)
+                  const dist = Math.sqrt(dx * dx + dy * dy)
+                  const push = 16
+                  const nx = x + (dx / dist) * push
+                  const ny = y + (dy / dist) * push
+                  return (
+                    <text
+                      x={nx}
+                      y={ny}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fill="rgba(255,255,255,0.45)"
+                      fontSize={10}
+                      fontWeight={500}
+                    >
+                      {payload.value}
+                    </text>
+                  )
+                }}
               />
               <Radar
                 name="Score"
                 dataKey="score"
-                stroke="#22c55e"
-                fill="#22c55e"
-                fillOpacity={0.15}
-                strokeWidth={2}
+                stroke="rgba(163, 230, 53, 0.9)"
+                fill="rgba(163, 230, 53, 0.2)"
+                fillOpacity={1}
+                strokeWidth={1.5}
                 dot={{
-                  r: 3,
-                  fill: '#22c55e',
-                  stroke: '#22c55e',
+                  r: 4,
+                  fill: 'rgba(163, 230, 53, 0.9)',
+                  stroke: 'rgba(163, 230, 53, 1)',
                   strokeWidth: 1,
                 }}
               />
@@ -242,39 +247,42 @@ export function CategoryProficiency({ positions, trades, profile, slugToCategory
                 key={cat.name}
                 className={cn(
                   'border rounded-lg transition-all',
-                  isExpanded ? 'border-[#22c55e]/30' : 'border-border',
-                  !hasActivity && 'opacity-40'
+                  isExpanded ? 'border-[#a3e635]/30' : 'border-border',
+                  !hasActivity && 'opacity-40 pointer-events-none'
                 )}
               >
                 {/* Header row */}
                 <button
-                  onClick={() => setExpandedCat(isExpanded ? null : cat.name)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors"
+                  onClick={() => hasActivity && setExpandedCat(isExpanded ? null : cat.name)}
+                  disabled={!hasActivity}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors disabled:cursor-default"
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="text-base leading-none">{cat.emoji}</span>
                     <span className="text-sm font-medium text-foreground">{cat.name}</span>
                   </div>
-                  <ChevronDown
-                    className={cn(
-                      'h-4 w-4 text-muted-foreground transition-transform',
-                      isExpanded && 'rotate-180'
-                    )}
-                  />
+                  {hasActivity && (
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 text-muted-foreground transition-transform',
+                        isExpanded && 'rotate-180'
+                      )}
+                    />
+                  )}
                 </button>
 
                 {/* Smart Score bar -- always visible */}
                 <div className="px-4 pb-3">
-                  <div className="rounded-md overflow-hidden bg-[#22c55e]/10 relative">
+                  <div className="rounded-md overflow-hidden bg-[#a3e635]/10 relative">
                     <div
-                      className="h-9 bg-[#22c55e]/20 transition-all duration-500"
+                      className="h-10 bg-[#a3e635]/15 transition-all duration-500"
                       style={{ width: `${barWidth}%` }}
                     />
                     <div className="absolute inset-0 flex items-center px-3">
                       <div>
-                        <div className="text-[9px] text-[#22c55e]/70 leading-none mb-0.5">Smart Score</div>
+                        <div className="text-[9px] text-[#a3e635]/60 leading-none mb-0.5 font-medium">Smart Score</div>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-sm font-bold text-[#22c55e] tabular-nums">{cat.smartScore.toFixed(2)}</span>
+                          <span className="text-base font-bold text-[#a3e635] tabular-nums leading-none">{cat.smartScore.toFixed(2)}</span>
                           <span className="text-[9px] text-muted-foreground/50">/100</span>
                         </div>
                       </div>
@@ -289,15 +297,15 @@ export function CategoryProficiency({ positions, trades, profile, slugToCategory
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Risk Efficiency</span>
-                        <span className="text-xs font-mono font-semibold text-foreground">{cat.riskEfficiency.toFixed(2)}</span>
+                        <span className="text-xs font-mono font-semibold text-foreground tabular-nums">{cat.riskEfficiency.toFixed(2)}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Profitability</span>
-                        <span className="text-xs font-mono font-semibold text-foreground">{cat.profitability.toFixed(2)}</span>
+                        <span className="text-xs font-mono font-semibold text-foreground tabular-nums">{cat.profitability.toFixed(2)}</span>
                       </div>
                     </div>
 
-                    <p className="text-[9px] text-muted-foreground/60 italic">
+                    <p className="text-[9px] text-muted-foreground/50 italic">
                       Scores are adjusted for recency, profit, and experience
                     </p>
 
@@ -305,28 +313,28 @@ export function CategoryProficiency({ positions, trades, profile, slugToCategory
                     <div className="h-px bg-border/50" />
 
                     {/* Stats grid */}
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-2.5">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">{'P&L'}</span>
-                        <span className={cn('text-xs font-mono font-semibold', cat.pnl >= 0 ? 'text-[#22c55e]' : 'text-destructive')}>
+                        <span className={cn('text-xs font-mono font-semibold tabular-nums', cat.pnl >= 0 ? 'text-[#a3e635]' : 'text-destructive')}>
                           {formatVal(cat.pnl)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Sharpe</span>
-                        <span className="text-xs font-mono font-semibold text-foreground">{cat.sharpe.toFixed(2)}</span>
+                        <span className="text-xs font-mono font-semibold text-foreground tabular-nums">{cat.sharpe.toFixed(2)}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Win Rate</span>
-                        <span className="text-xs font-mono font-semibold text-foreground">{cat.winRate.toFixed(1)}%</span>
+                        <span className="text-xs font-mono font-semibold text-foreground tabular-nums">{cat.winRate.toFixed(1)}%</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Sortino</span>
-                        <span className="text-xs font-mono font-semibold text-foreground">{cat.sortino.toFixed(2)}</span>
+                        <span className="text-xs font-mono font-semibold text-foreground tabular-nums">{cat.sortino.toFixed(2)}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Volume</span>
-                        <span className="text-xs font-mono font-semibold text-foreground">{formatVal(cat.volume)}</span>
+                        <span className="text-xs font-mono font-semibold text-foreground tabular-nums">{formatVal(cat.volume)}</span>
                       </div>
                     </div>
                   </div>
