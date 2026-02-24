@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { getLeaderboard, type LeaderboardTrader } from '@/lib/polymarket-api'
+
+const DATA_API_BASE = 'https://data-api.polymarket.com'
 
 // Curated list of 100 verified human traders (no bots)
-const CURATED_WALLETS = new Set([
+const CURATED_WALLETS = [
   '0x17db3fcd93ba12d38382a0cade24b200185c5f6d',
   '0xf2f6af4f27ec2dcf4072095ab804016e14cd5817',
   '0x06ecb7e739f5455922ce57e83284f132c7f0f845',
@@ -103,46 +104,58 @@ const CURATED_WALLETS = new Set([
   '0x24ded84d901a743cfee095f8082b0f9f647183cb',
   '0x71ca04d689bc38c5e4dcda8a4d743f279c5a3501',
   '0xd5ccdf772f795547e299de57f47966e24de8dea4',
-])
+]
+
+// Fetch a single trader's profile from the leaderboard API
+async function fetchTraderProfile(wallet: string): Promise<Record<string, unknown> | null> {
+  try {
+    const url = `${DATA_API_BASE}/v1/leaderboard?user=${wallet}&timePeriod=ALL`
+    const res = await fetch(url, { next: { revalidate: 300 } })
+    if (!res.ok) return null
+    const data = await res.json()
+    // The API returns an array; find the matching entry
+    if (Array.isArray(data) && data.length > 0) {
+      return data[0]
+    }
+    return null
+  } catch {
+    return null
+  }
+}
 
 export async function GET() {
   try {
-    // Fetch a large chunk of the ALL-time leaderboard sorted by PNL
-    // We fetch multiple pages to maximize coverage of curated wallets
-    const batches = await Promise.all([
-      getLeaderboard({ category: 'OVERALL', timePeriod: 'ALL', orderBy: 'PNL', limit: 500, offset: 0 }),
-      getLeaderboard({ category: 'OVERALL', timePeriod: 'ALL', orderBy: 'VOL', limit: 500, offset: 0 }),
-    ])
+    // Fetch all 100 wallets in parallel, batched in groups of 20 to avoid rate limits
+    const batchSize = 20
+    const allResults: (Record<string, unknown> | null)[] = []
 
-    // Merge and deduplicate by proxyWallet
-    const walletMap = new Map<string, LeaderboardTrader>()
-    for (const batch of batches) {
-      if (Array.isArray(batch)) {
-        for (const t of batch) {
-          const key = t.proxyWallet.toLowerCase()
-          // Prefer the entry with higher PNL
-          const existing = walletMap.get(key)
-          if (!existing || t.pnl > existing.pnl) {
-            walletMap.set(key, t)
-          }
-        }
-      }
+    for (let i = 0; i < CURATED_WALLETS.length; i += batchSize) {
+      const batch = CURATED_WALLETS.slice(i, i + batchSize)
+      const results = await Promise.all(batch.map(fetchTraderProfile))
+      allResults.push(...results)
     }
 
-    // Filter to only curated wallets
-    const curated: LeaderboardTrader[] = []
-    for (const wallet of CURATED_WALLETS) {
-      const trader = walletMap.get(wallet.toLowerCase())
-      if (trader) {
-        curated.push(trader)
-      }
-    }
+    // Filter out nulls and build the ranked list
+    const traders = allResults
+      .filter((t): t is Record<string, unknown> => t !== null)
+      .map((t) => ({
+        rank: '0',
+        proxyWallet: String(t.proxyWallet || ''),
+        userName: String(t.userName || ''),
+        vol: Number(t.vol || 0),
+        pnl: Number(t.pnl || 0),
+        profileImage: String(t.profileImage || ''),
+        xUsername: String(t.xUsername || ''),
+        verifiedBadge: Boolean(t.verifiedBadge || false),
+        numTrades: Number(t.numTrades || 0),
+        marketsTraded: Number(t.marketsTraded || 0),
+      }))
 
     // Sort by PNL descending and assign rank
-    curated.sort((a, b) => b.pnl - a.pnl)
-    const ranked = curated.map((t, i) => ({ ...t, rank: String(i + 1) }))
+    traders.sort((a, b) => b.pnl - a.pnl)
+    traders.forEach((t, i) => { t.rank = String(i + 1) })
 
-    return NextResponse.json(ranked, {
+    return NextResponse.json(traders, {
       headers: {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
       },

@@ -362,17 +362,17 @@ export function getTraderCategories(stats: TraderStats): TraderCategory[] {
 
 interface CategoryBadgeProps {
   category: TraderCategory
-  size?: 'sm' | 'md'
+  size?: 'xs' | 'sm' | 'md'
   className?: string
 }
 
-function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm' | 'md' }) {
-  const imgSize = size === 'sm' ? 20 : 24
+function CategoryIcon({ category, size }: { category: TraderCategory; size: 'xs' | 'sm' | 'md' }) {
+  const imgSize = size === 'xs' ? 14 : size === 'sm' ? 20 : 24
 
   // Emoji -- market categories
   if (category.emoji) {
     return (
-      <span className={cn('leading-none flex-shrink-0', size === 'sm' ? 'text-lg' : 'text-xl')}>
+      <span className={cn('leading-none flex-shrink-0', size === 'xs' ? 'text-sm' : size === 'sm' ? 'text-lg' : 'text-xl')}>
         {category.emoji}
       </span>
     )

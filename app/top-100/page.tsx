@@ -336,16 +336,16 @@ export default function VantakeTop100Page() {
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
+                                <div className="flex items-center gap-1 flex-nowrap overflow-hidden">
                                   <span className="font-medium text-foreground group-hover:text-primary transition-colors truncate max-w-[180px]">
                                     {displayName}
                                   </span>
                                   {trader.xUsername && <XIcon username={trader.xUsername} />}
-                                  <CopyButton text={trader.proxyWallet} />
-                                  <CategoriesRow categories={trader.categories} maxVisible={3} size="sm" />
+                                  <CategoriesRow categories={trader.categories} maxVisible={3} size="xs" />
                                 </div>
-                                <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                                <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono mt-0.5">
                                   {formatAddress(trader.proxyWallet)}
+                                  <CopyButton text={trader.proxyWallet} />
                                 </div>
                               </div>
                             </Link>
