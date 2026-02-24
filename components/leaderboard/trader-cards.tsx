@@ -184,7 +184,7 @@ function formatLargeNumber(num: number): string {
 
 // Format PnL with space separator
 function formatPnlLarge(pnl: number): string {
-  const sign = pnl >= 0 ? '+' : ''
+  const sign = pnl >= 0 ? '+' : '-'
   const formatted = Math.abs(pnl).toLocaleString('en-US', { maximumFractionDigits: 0 }).replace(/,/g, ' ')
   return `${sign}$${formatted}`
 }

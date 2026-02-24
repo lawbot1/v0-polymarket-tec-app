@@ -127,7 +127,7 @@ function TraderCard({
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">PnL</div>
           {wallet.isLoading ? <Skeleton className="h-7 w-24 mt-1" /> : (
             <div className={cn('text-xl font-bold tabular-nums mt-0.5', pnl >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>
-              {pnl >= 0 ? '+' : ''}{formatPnl(pnl)}
+              {formatPnl(pnl)}
             </div>
           )}
         </div>
@@ -167,14 +167,18 @@ function TraderCard({
 function FeedEntry({ item }: { item: FeedItem }) {
   const { trade, traderName, traderAddress, traderImage } = item
 
-  // Determine outcome: use trade.outcome if available, otherwise infer from side + outcomeIndex
+  // Determine outcome: use trade.outcome if available, otherwise infer from side
   const outcomeText = trade.outcome
     ? trade.outcome
     : (trade.side === 'BUY' ? 'Yes' : 'No')
-  const isYes = outcomeText.toLowerCase() === 'yes'
+  const outcomeLower = outcomeText.toLowerCase()
 
-  // Determine action: BUY Yes = bullish, SELL Yes = bearish, BUY No = bearish, SELL No = bullish
-  const isBullish = (trade.side === 'BUY' && isYes) || (trade.side === 'SELL' && !isYes)
+  // Badge color: Yes = green, No = red, anything else = yellow
+  const badgeColor = outcomeLower === 'yes'
+    ? 'bg-[#22c55e]/20 text-[#22c55e]'
+    : outcomeLower === 'no'
+      ? 'bg-red-500/20 text-red-500'
+      : 'bg-yellow-500/20 text-yellow-500'
 
   const ts = trade.timestamp < 1e12 ? trade.timestamp * 1000 : trade.timestamp
 
@@ -205,7 +209,7 @@ function FeedEntry({ item }: { item: FeedItem }) {
         </Link>
         <span className={cn(
           'flex-shrink-0 inline-flex px-2.5 py-0.5 rounded text-xs font-semibold',
-          isBullish ? 'bg-[#22c55e]/20 text-[#22c55e]' : 'bg-red-500/20 text-red-500'
+          badgeColor
         )}>
           {outcomeText}
         </span>
