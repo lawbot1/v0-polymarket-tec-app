@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     // 1. Get all users with telegram notifications enabled and a chat_id
     const { data: enabledUsers, error: usersError } = await supabase
       .from('notification_settings')
-      .select('user_id, telegram_chat_id, large_trade_alerts, whale_alerts, new_market_alerts')
+      .select('user_id, telegram_chat_id, large_trade_alerts, market_signals')
       .eq('telegram_notifications_enabled', true)
       .not('telegram_chat_id', 'is', null)
 
@@ -73,10 +73,8 @@ export async function GET(req: NextRequest) {
               const tradeValue = (trade.size || 0) * (trade.price || 0)
               if (tradeValue < 10) continue
 
-              // Check if this is a whale trade (>$5000) and user wants whale alerts
-              const isWhale = tradeValue >= 5000
-              if (isWhale && !user.whale_alerts) continue
-              if (!isWhale && !user.large_trade_alerts) continue
+              // Filter by user preference: large_trade_alerts covers all trade notifications
+              if (!user.large_trade_alerts) continue
 
               // Send notification
               const message = formatTradeNotification({
