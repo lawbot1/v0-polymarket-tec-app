@@ -1,0 +1,341 @@
+'use client'
+
+import React, { useState, useMemo } from 'react'
+import { cn } from '@/lib/utils'
+import { ChevronDown } from 'lucide-react'
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  ResponsiveContainer,
+} from 'recharts'
+
+// ---- Polymarket market categories with emojis ----
+const MARKET_CATEGORIES = [
+  { key: 'Crypto', emoji: '\u20BF' },
+  { key: 'Pop Culture', emoji: '\uD83C\uDFAC' },
+  { key: 'Earnings', emoji: '\uD83D\uDCC8' },
+  { key: 'Economy', emoji: '\uD83D\uDCCA' },
+  { key: 'Geopolitics', emoji: '\uD83C\uDF10' },
+  { key: 'Sports', emoji: '\u26BD' },
+  { key: 'Politics', emoji: '\uD83C\uDFDB\uFE0F' },
+  { key: 'Elections', emoji: '\uD83D\uDDF3\uFE0F' },
+  { key: 'Trump', emoji: '\uD83C\uDDFA\uD83C\uDDF8' },
+  { key: 'Tech', emoji: '\uD83D\uDCBB' },
+  { key: 'World', emoji: '\uD83C\uDF0D' },
+] as const
+
+interface CategoryStats {
+  name: string
+  emoji: string
+  smartScore: number
+  riskEfficiency: number
+  profitability: number
+  pnl: number
+  winRate: number
+  volume: number
+  sharpe: number
+  sortino: number
+  trades: number
+}
+
+interface CategoryProficiencyProps {
+  positions: Array<{
+    eventSlug?: string
+    cashPnl?: number
+    currentValue?: number
+    size?: number
+    avgPrice?: number
+    curPrice?: number
+    outcome?: string
+  }>
+  trades: Array<{
+    timestamp: string | number
+    side: string
+    size: number
+    price: number
+    eventSlug?: string
+    conditionId?: string
+  }>
+  profile: {
+    pnl: number
+    vol: number
+  } | null
+  slugToCategory: Record<string, string>
+}
+
+export function CategoryProficiency({ positions, trades, profile, slugToCategory }: CategoryProficiencyProps) {
+  const [expandedCat, setExpandedCat] = useState<string | null>(null)
+
+  // Compute per-category stats from positions and trades
+  const categoryStats = useMemo<CategoryStats[]>(() => {
+    if (!profile) return []
+
+    // Group positions by category
+    const catPositions = new Map<string, typeof positions>()
+    const catTrades = new Map<string, typeof trades>()
+
+    positions.forEach(p => {
+      const slug = p.eventSlug?.split('-')[0]?.toLowerCase() || 'other'
+      const cat = slugToCategory[slug] || slug.charAt(0).toUpperCase() + slug.slice(1)
+      if (!catPositions.has(cat)) catPositions.set(cat, [])
+      catPositions.get(cat)!.push(p)
+    })
+
+    trades.forEach(t => {
+      const slug = t.eventSlug?.split('-')[0] || t.conditionId?.slice(0, 6) || 'other'
+      const cat = slugToCategory[slug.toLowerCase()] || slug.charAt(0).toUpperCase() + slug.slice(1)
+      if (!catTrades.has(cat)) catTrades.set(cat, [])
+      catTrades.get(cat)!.push(t)
+    })
+
+    return MARKET_CATEGORIES.map(mc => {
+      const pos = catPositions.get(mc.key) || []
+      const tds = catTrades.get(mc.key) || []
+
+      // PnL
+      const pnl = pos.reduce((s, p) => s + (p.cashPnl || 0), 0)
+
+      // Volume
+      const volume = tds.reduce((s, t) => s + t.size * t.price, 0)
+
+      // Win rate
+      const wins = pos.filter(p => (p.cashPnl || 0) > 0).length
+      const resolved = pos.filter(p => p.cashPnl !== undefined && p.cashPnl !== 0).length
+      const winRate = resolved > 0 ? (wins / resolved) * 100 : 0
+
+      // Daily returns for sharpe/sortino
+      const returnsByDate = new Map<string, number>()
+      tds.forEach(t => {
+        const date = new Date(typeof t.timestamp === 'number' ? t.timestamp * 1000 : t.timestamp).toISOString().slice(0, 10)
+        const ret = t.side === 'SELL' ? t.size * t.price : -t.size * t.price
+        returnsByDate.set(date, (returnsByDate.get(date) || 0) + ret)
+      })
+      const dailyRets = Array.from(returnsByDate.values())
+      const avg = dailyRets.length > 0 ? dailyRets.reduce((s, r) => s + r, 0) / dailyRets.length : 0
+      const std = dailyRets.length > 1
+        ? Math.sqrt(dailyRets.reduce((s, r) => s + Math.pow(r - avg, 2), 0) / (dailyRets.length - 1))
+        : 1
+      const dside = dailyRets.length > 1
+        ? Math.sqrt(dailyRets.filter(r => r < 0).reduce((s, r) => s + r * r, 0) / Math.max(dailyRets.filter(r => r < 0).length, 1))
+        : 1
+      const sharpe = std > 0 ? avg / std : 0
+      const sortino = dside > 0 ? avg / dside : 0
+
+      // Risk efficiency & profitability
+      const riskEfficiency = Math.min(99.99, Math.max(0, 50 + sharpe * 15))
+      const profitabilityScore = volume > 0
+        ? Math.min(99.99, Math.max(0, 50 + (pnl / volume) * 500))
+        : 0
+
+      // Smart Score for category
+      let score = 0
+      if (pos.length > 0 || tds.length > 0) {
+        score = 50
+        if (pnl > 0 && volume > 0) {
+          score += Math.min(30, (pnl / volume) * 300)
+        } else if (pnl < 0 && volume > 0) {
+          score -= Math.min(20, Math.abs(pnl / volume) * 200)
+        }
+        score += (winRate / 100) * 20
+        score += Math.min(10, pos.length * 0.5)
+        score = Math.max(0, Math.min(100, score))
+      }
+
+      return {
+        name: mc.key,
+        emoji: mc.emoji,
+        smartScore: score,
+        riskEfficiency,
+        profitability: profitabilityScore,
+        pnl,
+        winRate,
+        volume,
+        sharpe,
+        sortino,
+        trades: tds.length,
+      }
+    }).sort((a, b) => b.smartScore - a.smartScore)
+  }, [positions, trades, profile, slugToCategory])
+
+  // Radar data -- all categories
+  const radarData = useMemo(() => {
+    return MARKET_CATEGORIES.map(mc => {
+      const stat = categoryStats.find(c => c.name === mc.key)
+      return {
+        category: mc.key,
+        score: stat?.smartScore || 0,
+      }
+    })
+  }, [categoryStats])
+
+  const formatVal = (v: number) => {
+    if (Math.abs(v) >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+    if (Math.abs(v) >= 1_000) return `$${(v / 1_000).toFixed(1)}K`
+    return `$${v.toFixed(0)}`
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      {/* LEFT: Radar Chart */}
+      <div className="sharp-panel p-5">
+        <h3 className="text-sm font-semibold text-foreground mb-1">Category Proficiency</h3>
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-4">
+          Smart scores across market categories
+        </p>
+        <div className="h-[320px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+              <PolarGrid
+                stroke="rgba(255,255,255,0.08)"
+                radialLines={true}
+              />
+              <PolarAngleAxis
+                dataKey="category"
+                tick={({ x, y, payload }) => (
+                  <text
+                    x={x}
+                    y={y}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill="rgba(255,255,255,0.5)"
+                    fontSize={10}
+                  >
+                    {payload.value}
+                  </text>
+                )}
+              />
+              <Radar
+                name="Score"
+                dataKey="score"
+                stroke="#22c55e"
+                fill="#22c55e"
+                fillOpacity={0.15}
+                strokeWidth={2}
+                dot={{
+                  r: 3,
+                  fill: '#22c55e',
+                  stroke: '#22c55e',
+                  strokeWidth: 1,
+                }}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* RIGHT: Category Details Accordion */}
+      <div className="sharp-panel p-5">
+        <h3 className="text-sm font-semibold text-foreground mb-1">Category Details</h3>
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-4">
+          Performance metrics by category
+        </p>
+        <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+          {categoryStats.map((cat) => {
+            const isExpanded = expandedCat === cat.name
+            const barWidth = Math.max(2, cat.smartScore)
+            const hasActivity = cat.trades > 0 || cat.pnl !== 0
+
+            return (
+              <div
+                key={cat.name}
+                className={cn(
+                  'border rounded-lg transition-all',
+                  isExpanded ? 'border-[#22c55e]/30' : 'border-border',
+                  !hasActivity && 'opacity-40'
+                )}
+              >
+                {/* Header row */}
+                <button
+                  onClick={() => setExpandedCat(isExpanded ? null : cat.name)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base leading-none">{cat.emoji}</span>
+                    <span className="text-sm font-medium text-foreground">{cat.name}</span>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 text-muted-foreground transition-transform',
+                      isExpanded && 'rotate-180'
+                    )}
+                  />
+                </button>
+
+                {/* Smart Score bar -- always visible */}
+                <div className="px-4 pb-3">
+                  <div className="rounded-md overflow-hidden bg-[#22c55e]/10 relative">
+                    <div
+                      className="h-9 bg-[#22c55e]/20 transition-all duration-500"
+                      style={{ width: `${barWidth}%` }}
+                    />
+                    <div className="absolute inset-0 flex items-center px-3">
+                      <div>
+                        <div className="text-[9px] text-[#22c55e]/70 leading-none mb-0.5">Smart Score</div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-sm font-bold text-[#22c55e] tabular-nums">{cat.smartScore.toFixed(2)}</span>
+                          <span className="text-[9px] text-muted-foreground/50">/100</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded details */}
+                {isExpanded && hasActivity && (
+                  <div className="px-4 pb-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                    {/* Risk Efficiency & Profitability */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Risk Efficiency</span>
+                        <span className="text-xs font-mono font-semibold text-foreground">{cat.riskEfficiency.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Profitability</span>
+                        <span className="text-xs font-mono font-semibold text-foreground">{cat.profitability.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[9px] text-muted-foreground/60 italic">
+                      Scores are adjusted for recency, profit, and experience
+                    </p>
+
+                    {/* Divider */}
+                    <div className="h-px bg-border/50" />
+
+                    {/* Stats grid */}
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">{'P&L'}</span>
+                        <span className={cn('text-xs font-mono font-semibold', cat.pnl >= 0 ? 'text-[#22c55e]' : 'text-destructive')}>
+                          {formatVal(cat.pnl)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Sharpe</span>
+                        <span className="text-xs font-mono font-semibold text-foreground">{cat.sharpe.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Win Rate</span>
+                        <span className="text-xs font-mono font-semibold text-foreground">{cat.winRate.toFixed(1)}%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Sortino</span>
+                        <span className="text-xs font-mono font-semibold text-foreground">{cat.sortino.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Volume</span>
+                        <span className="text-xs font-mono font-semibold text-foreground">{formatVal(cat.volume)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}

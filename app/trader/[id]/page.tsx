@@ -22,6 +22,7 @@ import { Copy, ExternalLink, RefreshCw, ArrowLeft, Trophy, Target, TrendingUp, S
 import { FollowButton } from '@/components/trader/follow-button'
 import { SmartScoreBadge } from '@/components/trader/smart-score-badge'
 import { getTraderCategories, CategoriesRow } from '@/components/trader/category-badges'
+import { CategoryProficiency } from '@/components/trader/category-proficiency'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -553,6 +554,16 @@ export default function TraderPage({ params }: TraderPageProps) {
             </div>
           </div>
         </div>
+
+        {/* ===== CATEGORY PROFICIENCY ===== */}
+        {!isLoading && (
+          <CategoryProficiency
+            positions={positions}
+            trades={trades}
+            profile={profile ? { pnl: profile.pnl || 0, vol: profile.vol || 0 } : null}
+            slugToCategory={SLUG_TO_CATEGORY}
+          />
+        )}
 
         {/* ===== POSITIONS & HISTORY TABS ===== */}
         <div className="sharp-panel">
