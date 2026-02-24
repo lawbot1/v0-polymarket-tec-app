@@ -186,42 +186,54 @@ export default function TraderPage({ params }: TraderPageProps) {
 
   // Best category -- map raw event slugs to Polymarket category names
   const SLUG_TO_CATEGORY: Record<string, string> = {
-    // Sports
+    // Sports & Esports
     epl: 'Sports', nba: 'Sports', nfl: 'Sports', mlb: 'Sports', nhl: 'Sports',
     ufc: 'Sports', soccer: 'Sports', tennis: 'Sports', f1: 'Sports', mls: 'Sports',
     golf: 'Sports', boxing: 'Sports', cricket: 'Sports', sport: 'Sports', liga: 'Sports',
     ncaa: 'Sports', wnba: 'Sports', rugby: 'Sports', ligue: 'Sports', serie: 'Sports',
-    bundesliga: 'Sports', laliga: 'Sports', champions: 'Sports',
+    bundesliga: 'Sports', laliga: 'Sports', champions: 'Sports', atp: 'Sports',
+    wta: 'Sports', fifa: 'Sports', olympics: 'Sports', nascar: 'Sports',
+    lol: 'Sports', csgo: 'Sports', dota: 'Sports', valorant: 'Sports', esports: 'Sports',
+    league: 'Sports', overwatch: 'Sports', ipl: 'Sports', pga: 'Sports',
     // Crypto
     bitcoin: 'Crypto', btc: 'Crypto', ethereum: 'Crypto', eth: 'Crypto',
     solana: 'Crypto', sol: 'Crypto', crypto: 'Crypto', defi: 'Crypto',
     token: 'Crypto', xrp: 'Crypto', doge: 'Crypto', memecoin: 'Crypto',
+    nft: 'Crypto', web3: 'Crypto', stablecoin: 'Crypto', altcoin: 'Crypto',
     // Politics
     trump: 'Politics', biden: 'Politics', election: 'Elections', vote: 'Elections',
     president: 'Politics', congress: 'Politics', senate: 'Politics', governor: 'Politics',
     democrat: 'Politics', republican: 'Politics', gop: 'Politics', primary: 'Elections',
     political: 'Politics', politics: 'Politics', harris: 'Politics', desantis: 'Politics',
+    vance: 'Politics', newsom: 'Politics', midterm: 'Elections', ballot: 'Elections',
     // Tech
     ai: 'Tech', apple: 'Tech', google: 'Tech', openai: 'Tech', spacex: 'Tech',
     tesla: 'Tech', meta: 'Tech', microsoft: 'Tech', nvidia: 'Tech', tech: 'Tech',
-    twitter: 'Tech', tiktok: 'Tech',
+    twitter: 'Tech', tiktok: 'Tech', amazon: 'Tech', chatgpt: 'Tech', gpt: 'Tech',
+    robot: 'Tech', android: 'Tech', iphone: 'Tech', chip: 'Tech', semiconductor: 'Tech',
     // Economy / Finance
     fed: 'Economy', inflation: 'Economy', gdp: 'Economy', rate: 'Economy',
     stock: 'Economy', market: 'Economy', sp500: 'Economy', nasdaq: 'Economy',
     earnings: 'Earnings', revenue: 'Earnings', ipo: 'Earnings',
+    dow: 'Economy', treasury: 'Economy', bond: 'Economy', recession: 'Economy',
+    jobs: 'Economy', unemployment: 'Economy', cpi: 'Economy', forex: 'Economy',
     // Geopolitics
     war: 'Geopolitics', ukraine: 'Geopolitics', russia: 'Geopolitics', china: 'Geopolitics',
     nato: 'Geopolitics', iran: 'Geopolitics', israel: 'Geopolitics', gaza: 'Geopolitics',
     taiwan: 'Geopolitics', korea: 'Geopolitics', sanctions: 'Geopolitics',
+    india: 'Geopolitics', syria: 'Geopolitics', eu: 'Geopolitics', brexit: 'Geopolitics',
     // Pop Culture
     oscar: 'Pop Culture', emmy: 'Pop Culture', grammy: 'Pop Culture',
     movie: 'Pop Culture', film: 'Pop Culture', celebrity: 'Pop Culture',
     music: 'Pop Culture', superbowl: 'Pop Culture', culture: 'Pop Culture',
+    kanye: 'Pop Culture', taylor: 'Pop Culture', drake: 'Pop Culture', netflix: 'Pop Culture',
+    disney: 'Pop Culture', youtube: 'Pop Culture', twitch: 'Pop Culture', tiktok: 'Pop Culture',
     // World
     weather: 'World', covid: 'World', climate: 'World', earthquake: 'World',
-    who: 'World', un: 'World', world: 'World',
-    // Will / General prediction
-    will: 'World',
+    who: 'World', un: 'World', world: 'World', pandemic: 'World', hurricane: 'World',
+    // General prediction
+    will: 'World', when: 'World', how: 'World', what: 'World',
+    other: 'World',
   }
 
   const bestCategory = useMemo(() => {
