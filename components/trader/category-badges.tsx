@@ -379,8 +379,7 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
   }
   // Custom PNG icon
   if (category.customIcon) {
-  const isElite = category.id === 'elite-profit'
-  const pngSize = isElite ? imgSize * 2 : imgSize
+  const shouldScale = category.id !== 'diamond-hands'
   return (
   <span
     className="inline-flex items-center justify-center flex-shrink-0"
@@ -389,10 +388,10 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
     <Image
       src={category.customIcon}
       alt=""
-      width={pngSize}
-      height={pngSize}
+      width={imgSize}
+      height={imgSize}
       className="opacity-90"
-      style={isElite ? { transform: 'scale(1.6)', transformOrigin: 'center' } : undefined}
+      style={shouldScale ? { transform: 'scale(1.6)', transformOrigin: 'center' } : undefined}
     />
   </span>
   )
