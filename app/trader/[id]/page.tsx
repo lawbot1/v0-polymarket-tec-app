@@ -183,17 +183,57 @@ export default function TraderPage({ params }: TraderPageProps) {
   const riskEfficiency = Math.min(99.99, Math.max(0, 50 + sharpeRatio * 15))
   const profitability = Math.min(99.99, Math.max(0, 50 + (profile?.pnl || 0) / Math.max(profile?.vol || 1, 1) * 500))
 
-  // Best category
+  // Best category -- map raw event slugs to Polymarket category names
+  const SLUG_TO_CATEGORY: Record<string, string> = {
+    // Sports
+    epl: 'Sports', nba: 'Sports', nfl: 'Sports', mlb: 'Sports', nhl: 'Sports',
+    ufc: 'Sports', soccer: 'Sports', tennis: 'Sports', f1: 'Sports', mls: 'Sports',
+    golf: 'Sports', boxing: 'Sports', cricket: 'Sports', sport: 'Sports', liga: 'Sports',
+    ncaa: 'Sports', wnba: 'Sports', rugby: 'Sports', ligue: 'Sports', serie: 'Sports',
+    bundesliga: 'Sports', laliga: 'Sports', champions: 'Sports',
+    // Crypto
+    bitcoin: 'Crypto', btc: 'Crypto', ethereum: 'Crypto', eth: 'Crypto',
+    solana: 'Crypto', sol: 'Crypto', crypto: 'Crypto', defi: 'Crypto',
+    token: 'Crypto', xrp: 'Crypto', doge: 'Crypto', memecoin: 'Crypto',
+    // Politics
+    trump: 'Politics', biden: 'Politics', election: 'Elections', vote: 'Elections',
+    president: 'Politics', congress: 'Politics', senate: 'Politics', governor: 'Politics',
+    democrat: 'Politics', republican: 'Politics', gop: 'Politics', primary: 'Elections',
+    political: 'Politics', politics: 'Politics', harris: 'Politics', desantis: 'Politics',
+    // Tech
+    ai: 'Tech', apple: 'Tech', google: 'Tech', openai: 'Tech', spacex: 'Tech',
+    tesla: 'Tech', meta: 'Tech', microsoft: 'Tech', nvidia: 'Tech', tech: 'Tech',
+    twitter: 'Tech', tiktok: 'Tech',
+    // Economy / Finance
+    fed: 'Economy', inflation: 'Economy', gdp: 'Economy', rate: 'Economy',
+    stock: 'Economy', market: 'Economy', sp500: 'Economy', nasdaq: 'Economy',
+    earnings: 'Earnings', revenue: 'Earnings', ipo: 'Earnings',
+    // Geopolitics
+    war: 'Geopolitics', ukraine: 'Geopolitics', russia: 'Geopolitics', china: 'Geopolitics',
+    nato: 'Geopolitics', iran: 'Geopolitics', israel: 'Geopolitics', gaza: 'Geopolitics',
+    taiwan: 'Geopolitics', korea: 'Geopolitics', sanctions: 'Geopolitics',
+    // Pop Culture
+    oscar: 'Pop Culture', emmy: 'Pop Culture', grammy: 'Pop Culture',
+    movie: 'Pop Culture', film: 'Pop Culture', celebrity: 'Pop Culture',
+    music: 'Pop Culture', superbowl: 'Pop Culture', culture: 'Pop Culture',
+    // World
+    weather: 'World', covid: 'World', climate: 'World', earthquake: 'World',
+    who: 'World', un: 'World', world: 'World',
+    // Will / General prediction
+    will: 'World',
+  }
+
   const bestCategory = useMemo(() => {
     const catPnl = new Map<string, number>()
     positions.forEach(p => {
-      const cat = p.eventSlug?.split('-')[0] || 'other'
-      catPnl.set(cat, (catPnl.get(cat) || 0) + (p.cashPnl || 0))
+      const rawSlug = p.eventSlug?.split('-')[0]?.toLowerCase() || 'other'
+      const categoryName = SLUG_TO_CATEGORY[rawSlug] || rawSlug.charAt(0).toUpperCase() + rawSlug.slice(1)
+      catPnl.set(categoryName, (catPnl.get(categoryName) || 0) + (p.cashPnl || 0))
     })
     let best = 'N/A'
     let bestVal = -Infinity
     catPnl.forEach((val, cat) => { if (val > bestVal) { bestVal = val; best = cat } })
-    return best.charAt(0).toUpperCase() + best.slice(1)
+    return best
   }, [positions])
 
   const smartScore = calcSmartScore(profile, winRate, positions)
