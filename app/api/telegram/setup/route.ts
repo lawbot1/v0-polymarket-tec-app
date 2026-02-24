@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { setTelegramWebhook, deleteTelegramWebhook } from '@/lib/telegram'
 
-// Call this once after deploy to register the webhook with Telegram
+// One-time setup: call after deploy to register the webhook with Telegram
 // GET /api/telegram/setup?action=set&url=https://your-domain.com/api/telegram/webhook
 // GET /api/telegram/setup?action=delete
 export async function GET(req: NextRequest) {
