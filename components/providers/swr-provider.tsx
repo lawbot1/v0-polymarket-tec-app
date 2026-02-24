@@ -16,9 +16,12 @@ export function SWRProvider({ children }: { children: ReactNode }) {
         fetcher,
         revalidateOnFocus: false,
         revalidateIfStale: false,
-        dedupingInterval: 60000, // 1 minute deduplication
-        keepPreviousData: true, // Keep showing old data while fetching new
+        revalidateOnReconnect: false,
+        dedupingInterval: 120000, // 2 minute deduplication -- prevents refetch on tab switch
+        keepPreviousData: true, // Keep showing old data while fetching new (instant display)
         errorRetryCount: 2,
+        errorRetryInterval: 3000,
+        focusThrottleInterval: 120000, // Throttle focus revalidation to 2 min
       }}
     >
       {children}

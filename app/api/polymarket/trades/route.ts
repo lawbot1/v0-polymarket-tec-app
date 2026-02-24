@@ -23,7 +23,11 @@ export async function GET(request: NextRequest) {
       filterAmount: filterAmount ? parseFloat(filterAmount) : undefined,
     })
 
-    return NextResponse.json(trades)
+    return NextResponse.json(trades, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+      },
+    })
   } catch (error) {
     console.error('Trades API error:', error)
     return NextResponse.json(

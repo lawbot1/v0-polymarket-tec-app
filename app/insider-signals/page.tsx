@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import useSWR from 'swr'
 import Link from 'next/link'
 import Image from 'next/image'
 import { AppShell } from '@/components/layout/app-shell'
@@ -226,75 +227,56 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
 }
 
 // ---- Main page ----
+// SWR fetcher that loads leaderboard + trades in one shot, returns { traders, signals }
+async function signalsFetcher() {
+  const leaderboardRes = await fetch('/api/polymarket/leaderboard?window=day&limit=50')
+  let traders: LeaderboardTrader[] = []
+  if (leaderboardRes.ok) traders = await leaderboardRes.json()
+
+  const allSignals: SignalEntry[] = []
+  const tradePromises = traders.slice(0, 10).map(async (trader) => {
+    try {
+      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=5`)
+      if (tradesRes.ok) {
+        const trades: UserTrade[] = await tradesRes.json()
+        return trades.map(trade => {
+          const tradeValue = trade.size * trade.price
+          const confidence: 'High' | 'Medium' | 'Low' =
+            trader.rank && trader.rank <= 10 && tradeValue >= 1000 ? 'High' :
+            trader.rank && trader.rank <= 50 && tradeValue >= 500 ? 'Medium' : 'Low'
+          return {
+            ...trade,
+            traderPnl: trader.pnl || 0,
+            traderRank: trader.rank,
+            traderProfileImage: trader.profileImage,
+            traderName: trader.userName,
+            confidence,
+            isWhale: tradeValue >= 5000,
+          }
+        })
+      }
+      return []
+    } catch { return [] }
+  })
+
+  const tradeResults = await Promise.all(tradePromises)
+  tradeResults.forEach(trades => allSignals.push(...trades))
+  allSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
+
+  return { traders, signals: allSignals }
+}
+
 export default function InsiderSignalsPage() {
-  const [signals, setSignals] = useState<SignalEntry[]>([])
-  const [topTraders, setTopTraders] = useState<LeaderboardTrader[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { data, isLoading, mutate } = useSWR('insider-signals', signalsFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 120000, // Cache for 2 minutes
+  })
+  const signals = data?.signals || []
+  const topTraders = data?.traders || []
+
   const [sortBy, setSortBy] = useState<SortOption>('Recent')
   const [minSize, setMinSize] = useState('')
   const [whalesOnly, setWhalesOnly] = useState(false)
-
-
-
-  const fetchSignals = async () => {
-    setIsLoading(true)
-    try {
-      // Fetch top traders
-      const leaderboardRes = await fetch('/api/polymarket/leaderboard?window=day&limit=50')
-      let traders: LeaderboardTrader[] = []
-      if (leaderboardRes.ok) {
-        traders = await leaderboardRes.json()
-        setTopTraders(traders)
-      }
-
-      // Fetch recent trades from top 10 traders in parallel
-      const allSignals: SignalEntry[] = []
-      const tradePromises = traders.slice(0, 10).map(async (trader) => {
-        try {
-          const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=5`)
-          if (tradesRes.ok) {
-            const trades: UserTrade[] = await tradesRes.json()
-            return trades.map(trade => {
-              const tradeValue = trade.size * trade.price
-              const confidence: 'High' | 'Medium' | 'Low' =
-                trader.rank && trader.rank <= 10 && tradeValue >= 1000 ? 'High' :
-                trader.rank && trader.rank <= 50 && tradeValue >= 500 ? 'Medium' : 'Low'
-
-              return {
-                ...trade,
-                traderPnl: trader.pnl || 0,
-                traderRank: trader.rank,
-                traderProfileImage: trader.profileImage,
-                traderName: trader.userName,
-                confidence,
-                isWhale: tradeValue >= 5000,
-              }
-            })
-          }
-          return []
-        } catch {
-          return []
-        }
-      })
-
-      const tradeResults = await Promise.all(tradePromises)
-      tradeResults.forEach(trades => {
-        allSignals.push(...trades)
-      })
-
-      // Sort by timestamp (newest first)
-      allSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
-      setSignals(allSignals)
-    } catch (err) {
-      console.error('Error fetching signals:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchSignals()
-  }, [])
 
   const filteredSignals = useMemo(() => {
     let result = [...signals]
@@ -455,7 +437,7 @@ export default function InsiderSignalsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchSignals}
+              onClick={() => mutate()}
               disabled={isLoading}
               className="gap-2 bg-transparent border-border ml-auto"
             >
