@@ -71,8 +71,8 @@ const SLUG_TO_CATEGORY: Record<string, string> = {
   tesla: 'Tech', meta: 'Tech', microsoft: 'Tech', nvidia: 'Tech', tech: 'Tech',
   twitter: 'Tech', tiktok: 'Tech', amazon: 'Tech', chatgpt: 'Tech', gpt: 'Tech',
   robot: 'Tech', android: 'Tech', iphone: 'Tech', chip: 'Tech', semiconductor: 'Tech',
-  fed: 'Economy', inflation: 'Economy', gdp: 'Economy', rate: 'Economy',
-  stock: 'Economy', market: 'Economy', sp500: 'Economy', nasdaq: 'Economy',
+  fed: 'Economy', inflation: 'Economy', gdp: 'Economy', interest: 'Economy',
+  stock: 'Economy', sp500: 'Economy', nasdaq: 'Economy',
   earnings: 'Earnings', revenue: 'Earnings', ipo: 'Earnings',
   dow: 'Economy', treasury: 'Economy', bond: 'Economy', recession: 'Economy',
   jobs: 'Economy', unemployment: 'Economy', cpi: 'Economy', forex: 'Economy',
@@ -87,7 +87,6 @@ const SLUG_TO_CATEGORY: Record<string, string> = {
   disney: 'Culture', youtube: 'Culture', twitch: 'Culture',
   weather: 'World', covid: 'World', climate: 'World', earthquake: 'World',
   who: 'World', un: 'World', world: 'World', pandemic: 'World', hurricane: 'World',
-  will: 'World', when: 'World', how: 'World', what: 'World', other: 'World',
 }
 
 const CATEGORIES = ['All', 'Sports', 'Crypto', 'Politics', 'Elections', 'Tech', 'Economy', 'Earnings', 'Geopolitics', 'Culture', 'World'] as const
@@ -95,23 +94,42 @@ type CategoryFilter = (typeof CATEGORIES)[number]
 
 function getTradeCategory(signal: SignalEntry): string {
   // Check all words in slug AND title for category matches
-  const words = [
-    ...(signal.eventSlug || '').toLowerCase().split(/[-_\s]+/),
-    ...(signal.title || '').toLowerCase().split(/[\s,.'":!?]+/),
-  ]
-  // Priority order: more specific categories first
-  const priorityOrder = ['Earnings', 'Elections', 'Geopolitics', 'Economy', 'Tech', 'Crypto', 'Sports', 'Culture', 'Politics', 'World']
-  const matchedCategories = new Set<string>()
+  const text = `${signal.eventSlug || ''} ${signal.title || ''}`.toLowerCase()
+  const words = text.split(/[-_\s,.'":!?()]+/).filter(Boolean)
+
+  // Weighted category matching: count how many keywords match each category
+  const categoryWeight: Record<string, number> = {}
   for (const word of words) {
-    if (word && SLUG_TO_CATEGORY[word]) {
-      matchedCategories.add(SLUG_TO_CATEGORY[word])
+    const cat = SLUG_TO_CATEGORY[word]
+    if (cat) {
+      categoryWeight[cat] = (categoryWeight[cat] || 0) + 1
     }
   }
-  // Return highest priority match
-  for (const cat of priorityOrder) {
-    if (matchedCategories.has(cat)) return cat
+
+  // Remove generic "World" matches from filler words (will, when, how, what, other)
+  // if any real category was also found
+  const realCategories = Object.keys(categoryWeight).filter(c => c !== 'World')
+  if (realCategories.length > 0) {
+    delete categoryWeight['World']
   }
-  return 'World'
+
+  // Pick category with highest weight; on tie, use specificity priority
+  const priorityOrder = ['Elections', 'Politics', 'Geopolitics', 'Earnings', 'Sports', 'Crypto', 'Tech', 'Economy', 'Culture', 'World']
+
+  let best = 'World'
+  let bestWeight = 0
+  let bestPriority = priorityOrder.length
+
+  for (const [cat, weight] of Object.entries(categoryWeight)) {
+    const pri = priorityOrder.indexOf(cat)
+    if (weight > bestWeight || (weight === bestWeight && pri < bestPriority)) {
+      best = cat
+      bestWeight = weight
+      bestPriority = pri
+    }
+  }
+
+  return best
 }
 
 // ---- Signal card (matches wallet-tracker Feed style) ----
