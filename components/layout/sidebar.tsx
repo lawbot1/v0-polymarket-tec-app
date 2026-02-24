@@ -82,17 +82,19 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       {/* Logo with mobile close button */}
       <div className="flex h-16 items-center justify-between border-b border-border px-2 overflow-visible pt-2 relative z-10">
         <Link href="/" onClick={onNavigate} className="flex items-center justify-center flex-1 overflow-visible">
-          <Image
-            src="/vantake-logo-full.png"
-            alt="Vantake"
-            width={640}
-            height={160}
-            className={cn(
-              'object-cover brightness-0 invert',
-              collapsed ? 'h-10 w-10 scale-100 object-contain' : 'h-40 w-auto scale-100'
-            )}
-            priority
-          />
+          <div className={cn('overflow-visible', collapsed ? '' : 'scale-[2] origin-center')}>
+            <Image
+              src="/vantake-logo-full.png"
+              alt="Vantake"
+              width={320}
+              height={80}
+              className={cn(
+                'object-cover brightness-0 invert',
+                collapsed ? 'h-10 w-10 object-contain' : 'h-14 w-auto'
+              )}
+              priority
+            />
+          </div>
         </Link>
         {/* Mobile close button */}
         <button
