@@ -19,7 +19,9 @@ export async function GET() {
     }
 
     const data = await res.json()
-    return NextResponse.json(data)
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
+    })
   } catch (error) {
     console.error('Tags API error:', error)
     return NextResponse.json(

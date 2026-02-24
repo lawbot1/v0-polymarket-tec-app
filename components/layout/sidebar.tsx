@@ -31,6 +31,9 @@ async function prefetchData(href: string) {
       case '/insider-signals':
         fetch('/api/polymarket/leaderboard?timeframe=day&sortBy=pnl&limit=30')
         break
+      case '/top-100':
+        fetch('/api/polymarket/top100')
+        break
       case '/wallet-tracker':
         // No prefetch needed - user-specific
         break

@@ -27,7 +27,11 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json()
-    return NextResponse.json(data)
+    return NextResponse.json(data, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+      },
+    })
   } catch (error) {
     console.error('Events API error:', error)
     return NextResponse.json(

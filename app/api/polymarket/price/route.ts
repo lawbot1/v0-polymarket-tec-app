@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json()
-    return NextResponse.json(data)
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30' },
+    })
   } catch (error) {
     console.error('Price API error:', error)
     return NextResponse.json(

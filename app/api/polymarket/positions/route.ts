@@ -26,7 +26,11 @@ export async function GET(request: NextRequest) {
       sortDirection: sortDirection || 'DESC',
     })
 
-    return NextResponse.json(positions)
+    return NextResponse.json(positions, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+      },
+    })
   } catch (error) {
     console.error('Positions API error:', error)
     return NextResponse.json(
