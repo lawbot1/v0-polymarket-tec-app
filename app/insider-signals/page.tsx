@@ -234,7 +234,7 @@ export default function InsiderSignalsPage() {
   const [minSize, setMinSize] = useState('')
   const [whalesOnly, setWhalesOnly] = useState(false)
 
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All')
+
 
   const fetchSignals = async () => {
     setIsLoading(true)
@@ -299,10 +299,7 @@ export default function InsiderSignalsPage() {
   const filteredSignals = useMemo(() => {
     let result = [...signals]
 
-    // Filter by category
-    if (categoryFilter !== 'All') {
-      result = result.filter((s) => getTradeCategory(s) === categoryFilter)
-    }
+
 
 
 
@@ -327,7 +324,7 @@ export default function InsiderSignalsPage() {
     }
 
     return result
-  }, [signals, categoryFilter, minSize, whalesOnly, sortBy])
+  }, [signals, minSize, whalesOnly, sortBy])
 
 
   const whaleCount = signals.filter((s) => s.isWhale).length
@@ -406,27 +403,6 @@ export default function InsiderSignalsPage() {
               <Filter className="h-4 w-4" />
               <span className="text-sm font-medium">Filters</span>
             </div>
-
-            {/* Category */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 bg-transparent border-border">
-                  Category: {categoryFilter}
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-card border-border max-h-64 overflow-y-auto">
-                {CATEGORIES.map((cat) => (
-                  <DropdownMenuItem
-                    key={cat}
-                    onClick={() => setCategoryFilter(cat)}
-                    className={cn(categoryFilter === cat && 'bg-primary/10 text-primary')}
-                  >
-                    {cat}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
 
             {/* Sort */}
             <DropdownMenu>
