@@ -246,7 +246,7 @@ export default function WalletTrackerPage() {
   const fetchWalletData = async (address: string, index: number, currentWallets?: TrackedWallet[]) => {
     try {
       const [profileRes, tradesRes] = await Promise.all([
-        fetch(`/api/polymarket/leaderboard?user=${address}&limit=1`),
+        fetch(`/api/polymarket/leaderboard?user=${address}&limit=1&timePeriod=ALL`),
         fetch(`/api/polymarket/trades?user=${address}&limit=10`),
       ])
 

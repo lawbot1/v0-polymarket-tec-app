@@ -147,7 +147,7 @@ export default function MyDashboardPage() {
     setIsLoading(true)
     try {
       const [profileRes, positionsRes, tradesRes] = await Promise.all([
-        fetch(`/api/polymarket/leaderboard?user=${address}&limit=1`),
+        fetch(`/api/polymarket/leaderboard?user=${address}&limit=1&timePeriod=ALL`),
         fetch(`/api/polymarket/positions?user=${address}&limit=100&sortBy=CASHPNL&sortDirection=DESC`),
         fetch(`/api/polymarket/trades?user=${address}&limit=500`),
       ])

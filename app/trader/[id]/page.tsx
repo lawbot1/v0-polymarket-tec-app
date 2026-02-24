@@ -121,7 +121,7 @@ export default function TraderPage({ params }: TraderPageProps) {
     setError(null)
     try {
       const [leaderboardRes, positionsRes, tradesRes] = await Promise.all([
-        fetch(`/api/polymarket/leaderboard?user=${id}&limit=1`),
+        fetch(`/api/polymarket/leaderboard?user=${id}&limit=1&timePeriod=ALL`),
         fetch(`/api/polymarket/positions?user=${id}&limit=100&sortBy=CASHPNL&sortDirection=DESC`),
         fetch(`/api/polymarket/trades?user=${id}&limit=500`),
       ])
