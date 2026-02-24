@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { AppShell } from '@/components/layout/app-shell'
-import { Search, Copy } from 'lucide-react'
+import { Search, Copy, Trophy } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -32,7 +32,6 @@ function calculateSmartScore(pnl: number, volume: number, rank: number): number 
   return Math.round(Math.max(0, Math.min(100, pnlScore + volumeScore + rankScore)) * 10) / 10
 }
 
-// ---- Win Rate & Sharpe estimation from real data ----
 function estimateWinRate(pnl: number, vol: number): number {
   const ratio = vol > 0 ? pnl / vol : 0
   return Math.min(85, Math.max(25, 50 + ratio * 200))
@@ -45,11 +44,11 @@ function estimateSharpe(pnl: number, vol: number): number {
 }
 
 // ---- Copy button ----
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, className }: { text: string; className?: string }) {
   const [copied, setCopied] = useState(false)
   return (
     <button
-      className="text-muted-foreground hover:text-foreground transition-colors"
+      className={cn('text-muted-foreground hover:text-foreground transition-colors flex-shrink-0', className)}
       title={`Copy: ${text}`}
       onClick={(e) => {
         e.preventDefault()
@@ -69,10 +68,10 @@ function CopyButton({ text }: { text: string }) {
 }
 
 // ---- X (Twitter) icon ----
-function XIcon({ username }: { username: string }) {
+function XIcon({ username, className }: { username: string; className?: string }) {
   return (
     <button
-      className="text-muted-foreground hover:text-foreground flex-shrink-0 transition-colors"
+      className={cn('text-muted-foreground hover:text-foreground flex-shrink-0 transition-colors', className)}
       onClick={(e) => {
         e.preventDefault()
         e.stopPropagation()
@@ -95,103 +94,130 @@ interface Top100Trader extends LeaderboardTrader {
   categories: ReturnType<typeof getTraderCategories>
 }
 
+// ---- Single podium card ----
+function PodiumCard({
+  trader,
+  rank,
+  avatarSize,
+  pedestalHeight,
+  cardWidth,
+}: {
+  trader: Top100Trader
+  rank: number
+  avatarSize: number
+  pedestalHeight: number
+  cardWidth: number
+}) {
+  const name = trader.userName || formatAddress(trader.proxyWallet)
+  const displayName = name.length > 16 && name.startsWith('0x') ? formatAddress(name) : name
+
+  const rankColors = {
+    1: { bg: 'bg-yellow-400', text: 'text-black', border: 'border-yellow-400/60', glow: 'shadow-yellow-400/20' },
+    2: { bg: 'bg-gray-400', text: 'text-black', border: 'border-gray-400/60', glow: 'shadow-gray-400/10' },
+    3: { bg: 'bg-amber-600', text: 'text-white', border: 'border-amber-600/60', glow: 'shadow-amber-600/10' },
+  }
+  const colors = rankColors[rank as 1 | 2 | 3]
+
+  return (
+    <Link
+      href={`/trader/${trader.proxyWallet}`}
+      className="flex flex-col items-center group relative"
+      style={{ width: cardWidth }}
+    >
+      {/* Avatar floating above pedestal */}
+      <div className="relative z-10 mb-[-24px]">
+        {/* Rank badge */}
+        <div
+          className={cn(
+            'absolute -top-1 -left-1 z-20 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold shadow-lg',
+            colors.bg, colors.text
+          )}
+        >
+          #{rank}
+        </div>
+        <div
+          className={cn('rounded-full overflow-hidden border-2 shadow-lg', colors.border, colors.glow)}
+          style={{ width: avatarSize, height: avatarSize }}
+        >
+          {trader.profileImage ? (
+            <Image
+              src={trader.profileImage}
+              alt={displayName}
+              width={avatarSize}
+              height={avatarSize}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <WalletAvatar wallet={trader.proxyWallet} size={avatarSize} />
+          )}
+        </div>
+      </div>
+
+      {/* 3D Pedestal box */}
+      <div
+        className="w-full relative"
+        style={{ height: pedestalHeight }}
+      >
+        {/* Top face (perspective illusion) */}
+        <div className="absolute top-0 left-0 right-0 h-3 bg-[#2a3a2e] rounded-t-lg border-t border-x border-[#3a5040]/80" />
+
+        {/* Front face */}
+        <div className="absolute top-3 left-0 right-0 bottom-0 bg-gradient-to-b from-[#1f2d23] to-[#171f1a] border-x border-b border-[#2a3a2e]/80 flex flex-col items-center justify-start pt-8 px-3">
+          {/* Trophy + Name + X + Copy */}
+          <div className="flex items-center gap-1.5 mb-3 max-w-full">
+            <Trophy className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+            <span className={cn(
+              'font-bold text-foreground group-hover:text-primary transition-colors truncate',
+              rank === 1 ? 'text-lg' : 'text-sm'
+            )}>
+              {displayName}
+            </span>
+            {trader.xUsername && <XIcon username={trader.xUsername} />}
+            <CopyButton text={trader.proxyWallet} />
+          </div>
+
+          {/* Stats */}
+          <div className="flex flex-col items-center gap-1 text-center w-full">
+            <div className="text-xs text-muted-foreground">
+              {'Smart Score: '}
+              <span className="text-foreground font-bold">{trader.smartScore.toFixed(1)}</span>
+            </div>
+            <div className="text-sm font-bold text-[#22c55e]">
+              {'PNL: '}{formatPnl(trader.pnl)}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {'Win Rate: '}
+              <span className="text-[#22c55e] font-semibold">{trader.winRate.toFixed(1)}%</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {'Sharpe: '}
+              <span className="text-foreground font-semibold">{trader.sharpe.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Left edge shadow (3D effect) */}
+        <div className="absolute top-3 left-0 w-1 bottom-0 bg-[#141c16]" />
+        {/* Right edge highlight */}
+        <div className="absolute top-3 right-0 w-[1px] bottom-0 bg-[#3a5040]/40" />
+      </div>
+    </Link>
+  )
+}
+
 // ---- Podium for top 3 ----
 function Podium({ traders }: { traders: Top100Trader[] }) {
   if (traders.length < 3) return null
   const [first, second, third] = traders
 
-  const podiumConfig = [
-    { trader: second, rank: 2, pedestalH: 'h-48', avatarSize: 64, nameSize: 'text-sm' },
-    { trader: first, rank: 1, pedestalH: 'h-60', avatarSize: 80, nameSize: 'text-base' },
-    { trader: third, rank: 3, pedestalH: 'h-40', avatarSize: 56, nameSize: 'text-sm' },
-  ]
-
   return (
-    <div className="flex items-end justify-center gap-3 sm:gap-4 mb-12 pt-20">
-      {podiumConfig.map(({ trader, rank, pedestalH, avatarSize, nameSize }) => {
-        const name = trader.userName || formatAddress(trader.proxyWallet)
-        const displayName = name.length > 16 && name.startsWith('0x') ? formatAddress(name) : name
-
-        return (
-          <Link
-            key={rank}
-            href={`/trader/${trader.proxyWallet}`}
-            className="flex flex-col items-center group"
-            style={{ width: rank === 1 ? '260px' : '200px' }}
-          >
-            {/* Avatar + rank badge */}
-            <div className="relative mb-3">
-              <div
-                className={cn(
-                  'rounded-full overflow-hidden border-2',
-                  rank === 1 ? 'border-yellow-400' : rank === 2 ? 'border-gray-400' : 'border-amber-600'
-                )}
-                style={{ width: avatarSize, height: avatarSize }}
-              >
-                {trader.profileImage ? (
-                  <Image
-                    src={trader.profileImage}
-                    alt={displayName}
-                    width={avatarSize}
-                    height={avatarSize}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <WalletAvatar wallet={trader.proxyWallet} size={avatarSize} />
-                )}
-              </div>
-              <div
-                className={cn(
-                  'absolute -top-2 -left-1 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold',
-                  rank === 1
-                    ? 'bg-yellow-400 text-black'
-                    : rank === 2
-                      ? 'bg-gray-400 text-black'
-                      : 'bg-amber-600 text-white'
-                )}
-              >
-                #{rank}
-              </div>
-            </div>
-
-            {/* Pedestal */}
-            <div
-              className={cn(
-                'w-full rounded-t-xl bg-card border border-border border-b-0 flex flex-col items-center justify-start pt-4 px-3',
-                pedestalH
-              )}
-            >
-              {/* Name + icons */}
-              <div className="flex items-center gap-1.5 mb-2 max-w-full">
-                <span className={cn('font-semibold text-foreground truncate group-hover:text-primary transition-colors', nameSize)}>
-                  {displayName}
-                </span>
-                {trader.xUsername && <XIcon username={trader.xUsername} />}
-                <CopyButton text={trader.proxyWallet} />
-              </div>
-
-              {/* Category badges */}
-              <div className="mb-2 max-w-full overflow-hidden">
-                <CategoriesRow categories={trader.categories} maxVisible={2} size="sm" />
-              </div>
-
-              <div className="text-[11px] text-muted-foreground mb-1">
-                {'Smart Score: '}
-                <span className="text-foreground font-semibold">{trader.smartScore.toFixed(1)}</span>
-              </div>
-              <div className="text-sm font-bold text-[#22c55e] mb-1">
-                {'PNL: '}{formatPnl(trader.pnl)}
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                {'Win Rate: '}<span className="text-foreground">{trader.winRate.toFixed(1)}%</span>
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                {'Sharpe: '}<span className="text-foreground">{trader.sharpe.toFixed(2)}</span>
-              </div>
-            </div>
-          </Link>
-        )
-      })}
+    <div className="flex items-end justify-center gap-3 sm:gap-5 mb-14 pt-24 px-4">
+      {/* #2 - Left */}
+      <PodiumCard trader={second} rank={2} avatarSize={72} pedestalHeight={200} cardWidth={220} />
+      {/* #1 - Center (tallest) */}
+      <PodiumCard trader={first} rank={1} avatarSize={96} pedestalHeight={260} cardWidth={270} />
+      {/* #3 - Right */}
+      <PodiumCard trader={third} rank={3} avatarSize={64} pedestalHeight={180} cardWidth={200} />
     </div>
   )
 }
@@ -200,11 +226,11 @@ function Podium({ traders }: { traders: Top100Trader[] }) {
 function LoadingSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-center gap-4 pt-20 mb-12">
-        {[200, 260, 200].map((w, i) => (
+      <div className="flex items-end justify-center gap-5 pt-24 mb-14">
+        {[220, 270, 200].map((w, i) => (
           <div key={i} className="flex flex-col items-center" style={{ width: w }}>
-            <Skeleton className="rounded-full mb-3" style={{ width: i === 1 ? 80 : 64, height: i === 1 ? 80 : 64 }} />
-            <Skeleton className={cn('w-full rounded-t-xl', i === 1 ? 'h-60' : i === 0 ? 'h-48' : 'h-40')} />
+            <Skeleton className="rounded-full mb-3" style={{ width: i === 1 ? 96 : 72, height: i === 1 ? 96 : 72 }} />
+            <Skeleton className="w-full rounded-t-lg" style={{ height: i === 1 ? 260 : i === 0 ? 200 : 180 }} />
           </div>
         ))}
       </div>
@@ -219,7 +245,6 @@ function LoadingSkeleton() {
 export default function VantakeTop100Page() {
   const [search, setSearch] = useState('')
 
-  // Fetch curated top 100 from our API
   const { data: rawTraders, isLoading } = useSWR<LeaderboardTrader[]>(
     '/api/polymarket/top100',
     fetcher,
@@ -247,7 +272,6 @@ export default function VantakeTop100Page() {
     })
   }, [rawTraders])
 
-  // Filter by search
   const filtered = useMemo(() => {
     if (!search.trim()) return traders
     const q = search.toLowerCase()
@@ -263,7 +287,7 @@ export default function VantakeTop100Page() {
 
   return (
     <AppShell title="Vantake Top 100" subtitle="Best Traders on Polymarket">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground font-mono text-balance mb-2">Vantake Top 100</h1>
@@ -280,13 +304,13 @@ export default function VantakeTop100Page() {
           </div>
         ) : (
           <>
-            {/* Podium -- top 3 */}
+            {/* Podium */}
             {!search.trim() && <Podium traders={topThree} />}
 
             {/* Leaderboard header + search */}
             <div className="flex items-center gap-4 mb-4">
               <h2 className="text-lg font-bold text-foreground font-mono">Leaderboard</h2>
-              <div className="relative max-w-xs flex-1">
+              <div className="relative max-w-sm flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Search by name or wallet..."
@@ -300,16 +324,16 @@ export default function VantakeTop100Page() {
             {/* Table */}
             <div className="sharp-panel overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm" style={{ minWidth: 900 }}>
                   <thead>
                     <tr className="border-b border-border bg-secondary/20">
-                      <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-16">Rank</th>
-                      <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Trader</th>
-                      <th className="px-4 py-3 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Smart Score</th>
-                      <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden md:table-cell">Volume</th>
-                      <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden lg:table-cell">Winrate</th>
-                      <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden lg:table-cell">Sharpe Ratio</th>
-                      <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">PNL</th>
+                      <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-16">Rank</th>
+                      <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground" style={{ minWidth: 300 }}>Trader</th>
+                      <th className="px-5 py-3 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-28">Smart Score</th>
+                      <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-28">Volume</th>
+                      <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-24">Winrate</th>
+                      <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-28">Sharpe Ratio</th>
+                      <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-28">PNL</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -320,8 +344,8 @@ export default function VantakeTop100Page() {
 
                       return (
                         <tr key={trader.proxyWallet} className="border-b border-border/50 hover:bg-secondary/10 transition-colors group">
-                          <td className="px-4 py-4 text-muted-foreground font-mono text-xs">{rank}</td>
-                          <td className="px-4 py-4">
+                          <td className="px-5 py-4 text-muted-foreground font-mono text-xs">{rank}</td>
+                          <td className="px-5 py-4">
                             <Link href={`/trader/${trader.proxyWallet}`} className="flex items-center gap-3 min-w-0">
                               <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0">
                                 {trader.profileImage ? (
@@ -336,36 +360,42 @@ export default function VantakeTop100Page() {
                                   <WalletAvatar wallet={trader.proxyWallet} size={40} />
                                 )}
                               </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1 flex-nowrap overflow-hidden">
-                                  <span className="font-medium text-foreground group-hover:text-primary transition-colors truncate max-w-[180px]">
+                              <div className="min-w-0 flex-1">
+                                {/* Line 1: Name + X + badges */}
+                                <div className="flex items-center gap-2 flex-nowrap">
+                                  <span className="font-medium text-foreground group-hover:text-primary transition-colors truncate">
                                     {displayName}
                                   </span>
                                   {trader.xUsername && <XIcon username={trader.xUsername} />}
-                                  <CategoriesRow categories={trader.categories} maxVisible={3} size="xs" />
+                                  <div className="flex-shrink-0">
+                                    <CategoriesRow categories={trader.categories} maxVisible={3} size="xs" />
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono mt-0.5">
-                                  {formatAddress(trader.proxyWallet)}
+                                {/* Line 2: Wallet + copy */}
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[11px] text-muted-foreground font-mono">
+                                    {formatAddress(trader.proxyWallet)}
+                                  </span>
                                   <CopyButton text={trader.proxyWallet} />
                                 </div>
                               </div>
                             </Link>
                           </td>
-                          <td className="px-4 py-4 text-center">
+                          <td className="px-5 py-4 text-center">
                             <span className="inline-flex items-center justify-center bg-[#22c55e]/15 text-[#22c55e] rounded-md px-2.5 py-1 text-xs font-bold tabular-nums">
                               {trader.smartScore.toFixed(1)}
                             </span>
                           </td>
-                          <td className="px-4 py-4 text-right font-mono text-muted-foreground hidden md:table-cell">
+                          <td className="px-5 py-4 text-right font-mono text-muted-foreground tabular-nums">
                             {formatVolume(trader.vol)}
                           </td>
-                          <td className="px-4 py-4 text-right text-[#22c55e] font-medium hidden lg:table-cell">
+                          <td className="px-5 py-4 text-right text-[#22c55e] font-medium tabular-nums">
                             {trader.winRate.toFixed(1)}%
                           </td>
-                          <td className="px-4 py-4 text-right font-mono text-muted-foreground hidden lg:table-cell">
+                          <td className="px-5 py-4 text-right font-mono text-muted-foreground tabular-nums">
                             {trader.sharpe.toFixed(2)}
                           </td>
-                          <td className={cn('px-4 py-4 text-right font-bold tabular-nums', trader.pnl >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>
+                          <td className={cn('px-5 py-4 text-right font-bold tabular-nums', trader.pnl >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>
                             {formatPnl(trader.pnl)}
                           </td>
                         </tr>
