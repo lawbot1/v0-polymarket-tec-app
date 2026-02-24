@@ -353,7 +353,12 @@ export default function InsiderSignalsPage() {
           </div>
           <div className="sharp-panel p-4">
             <div className="flex items-center gap-2 text-primary">
-              <Users className="h-5 w-5" />
+              <img
+                src="/icons/top-traders.png"
+                alt="Top Traders"
+                className="h-12 w-12 object-contain"
+                style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
+              />
               {isLoading ? (
                 <Skeleton className="h-8 w-12" />
               ) : (
