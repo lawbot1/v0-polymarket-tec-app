@@ -4,8 +4,10 @@ import { sendTelegramMessage } from '@/lib/telegram'
 
 // Telegram sends updates as POST requests
 export async function POST(req: NextRequest) {
+  console.log('[v0] Telegram webhook POST received')
   try {
     const body = await req.json()
+    console.log('[v0] Telegram webhook body:', JSON.stringify(body).slice(0, 200))
     const message = body?.message
     if (!message?.text || !message?.chat?.id) {
       return NextResponse.json({ ok: true })
