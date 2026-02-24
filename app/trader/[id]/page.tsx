@@ -493,8 +493,7 @@ export default function TraderPage({ params }: TraderPageProps) {
             <h3 className="text-sm font-semibold text-foreground mb-4">Portfolio Metrics</h3>
 
             {/* Smart Score - with hoverable tooltip */}
-            <div className="sharp-panel p-4 mb-4">
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Smart Score</div>
+            <div className="mb-4">
               {isLoading ? <Skeleton className="h-10 w-32" /> : (
                 <>
                   <SmartScoreBadge
