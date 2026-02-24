@@ -24,12 +24,28 @@ import {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-// ---- Smart Score (same as leaderboard) ----
-function calculateSmartScore(pnl: number, volume: number, rank: number): number {
-  const pnlScore = Math.min(pnl / 10000, 40)
-  const volumeScore = Math.min(volume / 100000, 30)
-  const rankScore = Math.max(30 - rank, 0)
-  return Math.round(Math.max(0, Math.min(100, pnlScore + volumeScore + rankScore)) * 10) / 10
+// ---- Smart Score -- based purely on individual trader metrics ----
+function calculateSmartScore(pnl: number, volume: number, numTrades: number, marketsTraded: number): number {
+  // PNL efficiency: how much profit per dollar traded (0-35 pts)
+  const pnlEfficiency = volume > 0 ? pnl / volume : 0
+  const pnlScore = Math.min(35, Math.max(0, pnlEfficiency * 250))
+
+  // Volume scale: logarithmic scale for absolute volume (0-25 pts)
+  const volLog = volume > 0 ? Math.log10(volume) : 0
+  const volScore = Math.min(25, Math.max(0, (volLog - 3) * 5)) // 1K=$0, 10K=5, 100K=10, 1M=15, 10M=20, 100M=25
+
+  // Activity: number of trades + markets diversity (0-20 pts)
+  const tradesScore = Math.min(10, numTrades > 0 ? Math.log10(numTrades) * 4 : 0)
+  const marketsScore = Math.min(10, marketsTraded > 0 ? Math.log10(marketsTraded) * 5 : 0)
+  const activityScore = tradesScore + marketsScore
+
+  // Profitability bonus: absolute PNL (0-20 pts)
+  const absPnl = Math.max(0, pnl)
+  const profitLog = absPnl > 0 ? Math.log10(absPnl) : 0
+  const profitScore = Math.min(20, Math.max(0, (profitLog - 2) * 5)) // $100=0, $1K=5, $10K=10, $100K=15, $1M=20
+
+  const raw = pnlScore + volScore + activityScore + profitScore
+  return Math.round(Math.max(0, Math.min(100, raw)) * 10) / 10
 }
 
 function estimateWinRate(pnl: number, vol: number): number {
@@ -91,6 +107,8 @@ interface Top100Trader extends LeaderboardTrader {
   smartScore: number
   winRate: number
   sharpe: number
+  numTrades: number
+  marketsTraded: number
   categories: ReturnType<typeof getTraderCategories>
 }
 
@@ -129,7 +147,7 @@ function PodiumCard({
         {/* Rank badge */}
         <div
           className={cn(
-            'absolute -top-1 -left-1 z-20 flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold shadow-lg',
+            'absolute -top-2 -left-2 z-20 flex items-center justify-center h-9 w-9 rounded-full text-sm font-bold shadow-lg',
             colors.bg, colors.text
           )}
         >
@@ -159,37 +177,37 @@ function PodiumCard({
         style={{ height: pedestalHeight }}
       >
         {/* Top face (perspective illusion) */}
-        <div className="absolute top-0 left-0 right-0 h-3 bg-[#2a3a2e] rounded-t-lg border-t border-x border-[#3a5040]/80" />
+        <div className="absolute top-0 left-0 right-0 h-4 bg-[#2a3a2e] rounded-t-lg border-t border-x border-[#3a5040]/80" />
 
         {/* Front face */}
-        <div className="absolute top-3 left-0 right-0 bottom-0 bg-gradient-to-b from-[#1f2d23] to-[#171f1a] border-x border-b border-[#2a3a2e]/80 flex flex-col items-center justify-start pt-8 px-3">
+        <div className="absolute top-4 left-0 right-0 bottom-0 bg-gradient-to-b from-[#1f2d23] to-[#171f1a] border-x border-b border-[#2a3a2e]/80 flex flex-col items-center justify-start pt-10 px-5">
           {/* Trophy + Name + X + Copy */}
-          <div className="flex items-center gap-1.5 mb-3 max-w-full">
-            <Trophy className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+          <div className="flex items-center gap-2 mb-4 max-w-full">
+            <Trophy className="h-5 w-5 text-yellow-500 flex-shrink-0" />
             <span className={cn(
               'font-bold text-foreground group-hover:text-primary transition-colors truncate',
-              rank === 1 ? 'text-lg' : 'text-sm'
+              rank === 1 ? 'text-xl' : 'text-base'
             )}>
               {displayName}
             </span>
-            {trader.xUsername && <XIcon username={trader.xUsername} />}
+            {trader.xUsername && <XIcon username={trader.xUsername} className="h-4 w-4" />}
             <CopyButton text={trader.proxyWallet} />
           </div>
 
           {/* Stats */}
-          <div className="flex flex-col items-center gap-1 text-center w-full">
-            <div className="text-xs text-muted-foreground">
+          <div className="flex flex-col items-center gap-2 text-center w-full">
+            <div className="text-sm text-muted-foreground">
               {'Smart Score: '}
               <span className="text-foreground font-bold">{trader.smartScore.toFixed(1)}</span>
             </div>
-            <div className="text-sm font-bold text-[#22c55e]">
+            <div className={cn('font-bold text-[#22c55e]', rank === 1 ? 'text-lg' : 'text-base')}>
               {'PNL: '}{formatPnl(trader.pnl)}
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-sm text-muted-foreground">
               {'Win Rate: '}
               <span className="text-[#22c55e] font-semibold">{trader.winRate.toFixed(1)}%</span>
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-sm text-muted-foreground">
               {'Sharpe: '}
               <span className="text-foreground font-semibold">{trader.sharpe.toFixed(2)}</span>
             </div>
@@ -197,9 +215,9 @@ function PodiumCard({
         </div>
 
         {/* Left edge shadow (3D effect) */}
-        <div className="absolute top-3 left-0 w-1 bottom-0 bg-[#141c16]" />
+        <div className="absolute top-4 left-0 w-1.5 bottom-0 bg-[#141c16]" />
         {/* Right edge highlight */}
-        <div className="absolute top-3 right-0 w-[1px] bottom-0 bg-[#3a5040]/40" />
+        <div className="absolute top-4 right-0 w-[2px] bottom-0 bg-[#3a5040]/40" />
       </div>
     </Link>
   )
@@ -211,13 +229,13 @@ function Podium({ traders }: { traders: Top100Trader[] }) {
   const [first, second, third] = traders
 
   return (
-    <div className="flex items-end justify-center gap-3 sm:gap-5 mb-14 pt-24 px-4">
+    <div className="flex items-end justify-center gap-4 sm:gap-6 mb-16 pt-32 px-4">
       {/* #2 - Left */}
-      <PodiumCard trader={second} rank={2} avatarSize={72} pedestalHeight={200} cardWidth={220} />
+      <PodiumCard trader={second} rank={2} avatarSize={108} pedestalHeight={300} cardWidth={330} />
       {/* #1 - Center (tallest) */}
-      <PodiumCard trader={first} rank={1} avatarSize={96} pedestalHeight={260} cardWidth={270} />
+      <PodiumCard trader={first} rank={1} avatarSize={144} pedestalHeight={390} cardWidth={400} />
       {/* #3 - Right */}
-      <PodiumCard trader={third} rank={3} avatarSize={64} pedestalHeight={180} cardWidth={200} />
+      <PodiumCard trader={third} rank={3} avatarSize={96} pedestalHeight={270} cardWidth={300} />
     </div>
   )
 }
@@ -226,11 +244,11 @@ function Podium({ traders }: { traders: Top100Trader[] }) {
 function LoadingSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-center gap-5 pt-24 mb-14">
-        {[220, 270, 200].map((w, i) => (
+      <div className="flex items-end justify-center gap-6 pt-32 mb-16">
+        {[330, 400, 300].map((w, i) => (
           <div key={i} className="flex flex-col items-center" style={{ width: w }}>
-            <Skeleton className="rounded-full mb-3" style={{ width: i === 1 ? 96 : 72, height: i === 1 ? 96 : 72 }} />
-            <Skeleton className="w-full rounded-t-lg" style={{ height: i === 1 ? 260 : i === 0 ? 200 : 180 }} />
+            <Skeleton className="rounded-full mb-3" style={{ width: i === 1 ? 144 : 108, height: i === 1 ? 144 : 108 }} />
+            <Skeleton className="w-full rounded-t-lg" style={{ height: i === 1 ? 390 : i === 0 ? 300 : 270 }} />
           </div>
         ))}
       </div>
@@ -255,7 +273,9 @@ export default function VantakeTop100Page() {
     if (!rawTraders || !Array.isArray(rawTraders)) return []
     return rawTraders.map((t, i) => {
       const rank = i + 1
-      const smartScore = calculateSmartScore(t.pnl, t.vol, rank)
+      const nt = (t as Record<string, unknown>).numTrades as number || 0
+      const mt = (t as Record<string, unknown>).marketsTraded as number || 0
+      const smartScore = calculateSmartScore(t.pnl, t.vol, nt, mt)
       const winRate = estimateWinRate(t.pnl, t.vol)
       const sharpe = estimateSharpe(t.pnl, t.vol)
 
@@ -268,7 +288,7 @@ export default function VantakeTop100Page() {
       }
       const categories = getTraderCategories(stats)
 
-      return { ...t, rank: String(rank), smartScore, winRate, sharpe, categories }
+      return { ...t, rank: String(rank), smartScore, winRate, sharpe, numTrades: nt, marketsTraded: mt, categories }
     })
   }, [rawTraders])
 
@@ -287,7 +307,7 @@ export default function VantakeTop100Page() {
 
   return (
     <AppShell title="Vantake Top 100" subtitle="Best Traders on Polymarket">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1400px] mx-auto">
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground font-mono text-balance mb-2">Vantake Top 100</h1>
@@ -324,11 +344,11 @@ export default function VantakeTop100Page() {
             {/* Table */}
             <div className="sharp-panel overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm" style={{ minWidth: 900 }}>
+                <table className="w-full text-sm" style={{ minWidth: 1100 }}>
                   <thead>
                     <tr className="border-b border-border bg-secondary/20">
                       <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-16">Rank</th>
-                      <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground" style={{ minWidth: 300 }}>Trader</th>
+                      <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground" style={{ minWidth: 400 }}>Trader</th>
                       <th className="px-5 py-3 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-28">Smart Score</th>
                       <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-28">Volume</th>
                       <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-24">Winrate</th>
@@ -344,26 +364,26 @@ export default function VantakeTop100Page() {
 
                       return (
                         <tr key={trader.proxyWallet} className="border-b border-border/50 hover:bg-secondary/10 transition-colors group">
-                          <td className="px-5 py-4 text-muted-foreground font-mono text-xs">{rank}</td>
+                          <td className="px-5 py-5 text-muted-foreground font-mono text-sm font-medium">{rank}</td>
                           <td className="px-5 py-4">
-                            <Link href={`/trader/${trader.proxyWallet}`} className="flex items-center gap-3 min-w-0">
-                              <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0">
+                            <Link href={`/trader/${trader.proxyWallet}`} className="flex items-center gap-4 min-w-0">
+                              <div className="h-12 w-12 rounded-full overflow-hidden flex-shrink-0">
                                 {trader.profileImage ? (
                                   <Image
                                     src={trader.profileImage}
                                     alt={displayName}
-                                    width={40}
-                                    height={40}
+                                    width={48}
+                                    height={48}
                                     className="h-full w-full object-cover"
                                   />
                                 ) : (
-                                  <WalletAvatar wallet={trader.proxyWallet} size={40} />
+                                  <WalletAvatar wallet={trader.proxyWallet} size={48} />
                                 )}
                               </div>
                               <div className="min-w-0 flex-1">
                                 {/* Line 1: Name + X + badges */}
-                                <div className="flex items-center gap-2 flex-nowrap">
-                                  <span className="font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                                <div className="flex items-center gap-2.5 flex-nowrap">
+                                  <span className="font-semibold text-[15px] text-foreground group-hover:text-primary transition-colors truncate">
                                     {displayName}
                                   </span>
                                   {trader.xUsername && <XIcon username={trader.xUsername} />}
@@ -372,8 +392,8 @@ export default function VantakeTop100Page() {
                                   </div>
                                 </div>
                                 {/* Line 2: Wallet + copy */}
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <span className="text-[11px] text-muted-foreground font-mono">
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <span className="text-xs text-muted-foreground font-mono">
                                     {formatAddress(trader.proxyWallet)}
                                   </span>
                                   <CopyButton text={trader.proxyWallet} />
