@@ -325,8 +325,10 @@ export default function MarketDetailPage({ params }: MarketPageProps) {
                       className={cn(
                         'inline-flex rounded px-2 py-0.5 text-xs font-medium',
                         trade.side === 'YES'
-                          ? 'bg-primary/20 text-primary'
-                          : 'bg-destructive/20 text-destructive'
+                          ? 'bg-[#22c55e]/20 text-[#22c55e]'
+                          : trade.side === 'NO'
+                            ? 'bg-destructive/20 text-destructive'
+                            : 'bg-yellow-500/20 text-yellow-500'
                       )}
                     >
                       {trade.side}

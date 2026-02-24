@@ -592,8 +592,8 @@ export default function MyDashboardPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className={cn('inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', pos.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : 'border-destructive/50 text-destructive')}>
-                              {pos.outcome}
+<span className={cn('inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', pos.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : pos.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
+{pos.outcome}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right text-sm font-mono text-foreground">{pos.size?.toFixed(2)}</td>
@@ -658,8 +658,8 @@ export default function MyDashboardPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className={cn('inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', trade.side === 'BUY' ? 'border-[#22c55e]/50 text-[#22c55e]' : 'border-destructive/50 text-destructive')}>
-                              {trade.side}
+<span className={cn('inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', trade.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : trade.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
+{trade.outcome || trade.side}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right text-sm font-mono text-foreground">{trade.size?.toFixed(2)}</td>
