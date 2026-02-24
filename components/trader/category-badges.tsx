@@ -392,7 +392,7 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
       width={pngSize}
       height={pngSize}
       className="opacity-90"
-      style={isElite ? { transform: 'scale(2)', transformOrigin: 'center' } : undefined}
+      style={isElite ? { transform: 'scale(1.6)', transformOrigin: 'center' } : undefined}
     />
   </span>
   )
