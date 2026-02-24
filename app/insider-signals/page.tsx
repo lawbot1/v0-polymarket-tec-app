@@ -94,8 +94,24 @@ const CATEGORIES = ['All', 'Sports', 'Crypto', 'Politics', 'Elections', 'Tech', 
 type CategoryFilter = (typeof CATEGORIES)[number]
 
 function getTradeCategory(signal: SignalEntry): string {
-  const rawSlug = signal.eventSlug?.split('-')[0]?.toLowerCase() || 'other'
-  return SLUG_TO_CATEGORY[rawSlug] || rawSlug.charAt(0).toUpperCase() + rawSlug.slice(1)
+  // Check all words in slug AND title for category matches
+  const words = [
+    ...(signal.eventSlug || '').toLowerCase().split(/[-_\s]+/),
+    ...(signal.title || '').toLowerCase().split(/[\s,.'":!?]+/),
+  ]
+  // Priority order: more specific categories first
+  const priorityOrder = ['Earnings', 'Elections', 'Geopolitics', 'Economy', 'Tech', 'Crypto', 'Sports', 'Culture', 'Politics', 'World']
+  const matchedCategories = new Set<string>()
+  for (const word of words) {
+    if (word && SLUG_TO_CATEGORY[word]) {
+      matchedCategories.add(SLUG_TO_CATEGORY[word])
+    }
+  }
+  // Return highest priority match
+  for (const cat of priorityOrder) {
+    if (matchedCategories.has(cat)) return cat
+  }
+  return 'World'
 }
 
 // ---- Signal card (matches wallet-tracker Feed style) ----
