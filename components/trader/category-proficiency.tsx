@@ -64,8 +64,9 @@ function CustomRadar({ data }: { data: { category: string; score: number }[] }) 
   const size = 340
   const cx = size / 2
   const cy = size / 2
-  const maxRadius = size * 0.35 // outer edge
+  const maxRadius = size * 0.42 // outer edge -- almost touching labels
   const minRadius = 8 // minimum so zero scores still show a tiny bump
+  const labelPad = 14 // gap between max vertex and label
   const n = data.length
 
   // Compute vertex positions for each data point
@@ -75,8 +76,8 @@ function CustomRadar({ data }: { data: { category: string; score: number }[] }) 
     return {
       x: cx + r * Math.cos(angle),
       y: cy + r * Math.sin(angle),
-      labelX: cx + (maxRadius + 24) * Math.cos(angle),
-      labelY: cy + (maxRadius + 24) * Math.sin(angle),
+      labelX: cx + (maxRadius + labelPad) * Math.cos(angle),
+      labelY: cy + (maxRadius + labelPad) * Math.sin(angle),
       label: d.category,
       score: d.score,
     }
