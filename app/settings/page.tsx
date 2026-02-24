@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { Check, Loader2, Bell, Zap, Users, BarChart3, Send, ExternalLink, Copy, AlertTriangle } from 'lucide-react'
+import { Check, Loader2, Bell, Zap, Users, BarChart3, Send, ExternalLink, Copy } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -36,14 +36,13 @@ export default function SettingsPage() {
     weekly_report: true,
   })
 
-  // Telegram bot settings (stored in profiles.telegram_chat_id + notification_settings)
+  // Telegram bot settings
   const [telegramChatId, setTelegramChatId] = useState('')
   const [telegramEnabled, setTelegramEnabled] = useState(false)
-  const [telegramLinking, setTelegramLinking] = useState(false)
   const [telegramLinked, setTelegramLinked] = useState(false)
-
-  // Generate a unique linking code for the user
   const [linkingCode, setLinkingCode] = useState('')
+  const [linkingCodeExpires, setLinkingCodeExpires] = useState('')
+  const [generatingCode, setGeneratingCode] = useState(false)
 
   useEffect(() => {
     const loadData = async () => {
@@ -53,9 +52,6 @@ export default function SettingsPage() {
         return
       }
       setUserId(user.id)
-
-      // Generate a linking code from user ID (first 8 chars)
-      setLinkingCode(user.id.replace(/-/g, '').slice(0, 8).toUpperCase())
 
       // Load profile
       const { data: profile } = await supabase
@@ -103,6 +99,20 @@ export default function SettingsPage() {
         }
       }
 
+      // Load telegram connection status from API
+      try {
+        const tgRes = await fetch('/api/telegram/link')
+        if (tgRes.ok) {
+          const tgData = await tgRes.json()
+          setTelegramLinked(tgData.connected)
+          setTelegramEnabled(tgData.enabled)
+          if (tgData.activeCode) {
+            setLinkingCode(tgData.activeCode)
+            setLinkingCodeExpires(tgData.codeExpiresAt)
+          }
+        }
+      } catch {}
+
       setLoading(false)
     }
     loadData()
@@ -129,6 +139,7 @@ export default function SettingsPage() {
       .upsert({
         id: userId,
         ...notifications,
+        telegram_notifications_enabled: telegramEnabled,
         updated_at: new Date().toISOString(),
       })
 
@@ -137,8 +148,33 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  const handleGenerateCode = async () => {
+    setGeneratingCode(true)
+    try {
+      const res = await fetch('/api/telegram/link', { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        setLinkingCode(data.code)
+        setLinkingCodeExpires(data.expiresAt)
+      }
+    } catch {}
+    setGeneratingCode(false)
+  }
+
   const copyLinkingCode = () => {
     navigator.clipboard.writeText(linkingCode)
+  }
+
+  const handleUnlinkTelegram = async () => {
+    try {
+      const res = await fetch('/api/telegram/link', { method: 'DELETE' })
+      if (res.ok) {
+        setTelegramLinked(false)
+        setTelegramChatId('')
+        setTelegramEnabled(false)
+        setLinkingCode('')
+      }
+    } catch {}
   }
 
   if (loading) {
@@ -254,24 +290,42 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex gap-2">
                     <span className="text-primary font-mono font-bold">2.</span>
-                    <span>{'Send the command: /start'}</span>
+                    <span>{'Press Start or send /start'}</span>
                   </div>
                   <div className="flex gap-2">
                     <span className="text-primary font-mono font-bold">3.</span>
-                    <div>
-                      <span>Send your linking code:</span>
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <code className="bg-background px-3 py-1.5 rounded font-mono text-foreground text-sm tracking-widest border border-border">
-                          {linkingCode}
-                        </code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={copyLinkingCode}
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
+                    <div className="flex-1">
+                      <span>Generate a code and send it to the bot:</span>
+                      <div className="mt-2">
+                        {linkingCode ? (
+                          <div className="flex items-center gap-2">
+                            <code className="bg-background px-3 py-1.5 rounded font-mono text-foreground text-sm tracking-widest border border-border">
+                              {linkingCode}
+                            </code>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={copyLinkingCode}>
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            {linkingCodeExpires && (
+                              <span className="text-[10px] text-muted-foreground">
+                                Expires in 30 min
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-[#26A5E4]/30 text-[#26A5E4] hover:bg-[#26A5E4]/10"
+                            onClick={handleGenerateCode}
+                            disabled={generatingCode}
+                          >
+                            {generatingCode ? (
+                              <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Generating...</>
+                            ) : (
+                              'Generate Linking Code'
+                            )}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -280,13 +334,6 @@ export default function SettingsPage() {
                     <span>The bot will confirm the link and you will start receiving notifications</span>
                   </div>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-                <p className="text-xs text-yellow-500">
-                  The Telegram bot is coming soon. You can set up your preferences now and connect when it launches.
-                </p>
               </div>
             </div>
           ) : (
@@ -340,11 +387,19 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-border">
+              <div className="pt-2 border-t border-border flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
                   {'Connected to Telegram Chat ID: '}
                   <code className="font-mono text-foreground">{telegramChatId}</code>
                 </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs"
+                  onClick={handleUnlinkTelegram}
+                >
+                  Unlink
+                </Button>
               </div>
             </div>
           )}
