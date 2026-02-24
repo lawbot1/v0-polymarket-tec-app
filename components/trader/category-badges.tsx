@@ -385,6 +385,7 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
     'diamond-hands': 1.2,
   }
   const scale = scaleMap[category.id] ?? 1.6
+  const scaledSize = Math.round(imgSize * scale)
   return (
   <span
     className="inline-flex items-center justify-center flex-shrink-0"
@@ -393,10 +394,9 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
     <Image
       src={category.customIcon}
       alt=""
-      width={imgSize}
-      height={imgSize}
+      width={scaledSize}
+      height={scaledSize}
       className="opacity-90"
-      style={{ transform: `scale(${scale})`, transformOrigin: 'center', width: 'auto', height: 'auto' }}
     />
   </span>
   )
