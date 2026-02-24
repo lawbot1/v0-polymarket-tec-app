@@ -377,9 +377,14 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
       </span>
     )
   }
-  // Custom PNG icon
+  // Custom PNG icon -- per-category scale
   if (category.customIcon) {
-  const shouldScale = category.id !== 'diamond-hands'
+  const scaleMap: Record<string, number> = {
+    'shark': 1.36,
+    'whale': 1.92,
+    'diamond-hands': 1.2,
+  }
+  const scale = scaleMap[category.id] ?? 1.6
   return (
   <span
     className="inline-flex items-center justify-center flex-shrink-0"
@@ -391,7 +396,7 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
       width={imgSize}
       height={imgSize}
       className="opacity-90"
-      style={shouldScale ? { transform: 'scale(1.6)', transformOrigin: 'center' } : undefined}
+      style={{ transform: `scale(${scale})`, transformOrigin: 'center' }}
     />
   </span>
   )
