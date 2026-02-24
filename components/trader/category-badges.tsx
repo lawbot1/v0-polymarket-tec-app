@@ -396,7 +396,7 @@ function CategoryIcon({ category, size }: { category: TraderCategory; size: 'sm'
       width={imgSize}
       height={imgSize}
       className="opacity-90"
-      style={{ transform: `scale(${scale})`, transformOrigin: 'center' }}
+      style={{ transform: `scale(${scale})`, transformOrigin: 'center', width: 'auto', height: 'auto' }}
     />
   </span>
   )

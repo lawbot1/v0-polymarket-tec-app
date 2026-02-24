@@ -115,24 +115,36 @@ export default function MarketDetailPage({ params }: MarketPageProps) {
 
   const category = market.category || market.tags?.[0]?.label || 'Other'
 
-  // Mock price history data (since price history requires token IDs)
-  const priceHistory = Array.from({ length: 30 }, (_, i) => {
-    const basePrice = yesPrice
-    const variance = (Math.random() - 0.5) * 0.2
-    return {
-      date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      price: Math.max(0.01, Math.min(0.99, basePrice + variance * (1 - i / 30))),
-    }
-  })
+  // Fetch real price history from CLOB API via token IDs
+  const tokenIds = parseClobTokenIds(market)
+  const yesTokenId = tokenIds[0] || null
 
-  // Mock recent trades based on market data
-  const recentTrades = Array.from({ length: 8 }, (_, i) => ({
-    id: `trade-${i}`,
-    wallet: `0x${Math.random().toString(16).slice(2, 8)}...${Math.random().toString(16).slice(2, 6)}`,
-    side: Math.random() > 0.5 ? 'YES' : 'NO',
-    size: Math.round(Math.random() * (volume / 100) + 1000),
-    price: Math.round((0.2 + Math.random() * 0.6) * 100) / 100,
-    timestamp: new Date(Date.now() - i * Math.random() * 3600000).toISOString(),
+  const { data: priceHistoryRaw } = useSWR(
+    yesTokenId ? `/api/polymarket/prices-history?token_id=${yesTokenId}&interval=all&fidelity=60` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  )
+
+  const priceHistory = (priceHistoryRaw?.history || []).map((p: { t: number; p: string }) => ({
+    date: new Date(p.t * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    price: parseFloat(p.p),
+  }))
+
+  // Fetch real recent trades for this market
+  const conditionId = market.conditionId
+  const { data: recentTradesRaw } = useSWR(
+    conditionId ? `/api/polymarket/trades?market=${conditionId}&limit=8` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  )
+
+  const recentTrades = (recentTradesRaw || []).map((t: { transactionHash?: string; proxyWallet: string; side: string; size: number; price: number; timestamp: number }, i: number) => ({
+    id: t.transactionHash || `trade-${i}`,
+    wallet: formatAddress(t.proxyWallet),
+    side: t.side === 'BUY' ? 'YES' : 'NO',
+    size: t.size,
+    price: t.price,
+    timestamp: typeof t.timestamp === 'number' ? new Date(t.timestamp < 1e12 ? t.timestamp * 1000 : t.timestamp).toISOString() : '',
   }))
 
   return (
