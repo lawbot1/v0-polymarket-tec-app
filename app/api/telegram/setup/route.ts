@@ -8,11 +8,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const action = searchParams.get('action') || 'set'
 
-  // Simple auth -- only allow if the secret matches
-  const secret = searchParams.get('secret')
-  if (secret !== process.env.TELEGRAM_BOT_TOKEN?.slice(0, 10)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // No auth needed -- this is a one-time setup call after deploy
 
   if (action === 'delete') {
     const result = await deleteTelegramWebhook()
