@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Accept': 'application/json',
       },
-      next: { revalidate: 10 }
+      cache: 'no-store'
     })
 
     if (!res.ok) {

@@ -13,7 +13,7 @@ export async function GET(
       headers: {
         'Accept': 'application/json',
       },
-      next: { revalidate: 60 }
+      cache: 'no-store'
     })
 
     if (!res.ok) {

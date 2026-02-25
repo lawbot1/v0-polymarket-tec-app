@@ -242,7 +242,7 @@ export async function getMarkets(params?: {
 
 export async function getMarket(idOrSlug: string): Promise<PolymarketMarket> {
   const res = await fetch(`${GAMMA_API_BASE}/markets/${idOrSlug}`, {
-    next: { revalidate: 60 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -286,7 +286,7 @@ export async function getEvents(params?: {
 
 export async function getEvent(idOrSlug: string): Promise<PolymarketEvent> {
   const res = await fetch(`${GAMMA_API_BASE}/events/${idOrSlug}`, {
-    next: { revalidate: 60 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -301,7 +301,7 @@ export async function searchMarkets(query: string): Promise<{
   events: PolymarketEvent[]
 }> {
   const res = await fetch(`${GAMMA_API_BASE}/search?query=${encodeURIComponent(query)}`, {
-    next: { revalidate: 60 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -313,7 +313,7 @@ export async function searchMarkets(query: string): Promise<{
 
 export async function getTags(): Promise<Array<{ id: string; label: string; slug: string }>> {
   const res = await fetch(`${GAMMA_API_BASE}/tags`, {
-    next: { revalidate: 3600 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -349,7 +349,7 @@ export async function getLeaderboard(params?: {
   const url = `${DATA_API_BASE}/v1/leaderboard${searchParams.toString() ? `?${searchParams}` : ''}`
   
   const res = await fetch(url, {
-    next: { revalidate: 60 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -389,7 +389,7 @@ export async function getUserPositions(params: {
   const url = `${DATA_API_BASE}/positions?${searchParams}`
   
   const res = await fetch(url, {
-    next: { revalidate: 30 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -425,7 +425,7 @@ export async function getUserTrades(params?: {
   const url = `${DATA_API_BASE}/trades${searchParams.toString() ? `?${searchParams}` : ''}`
   
   const res = await fetch(url, {
-    next: { revalidate: 30 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -449,7 +449,7 @@ export async function getUserActivity(params: {
   const url = `${DATA_API_BASE}/activity?${searchParams}`
   
   const res = await fetch(url, {
-    next: { revalidate: 30 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -461,7 +461,7 @@ export async function getUserActivity(params: {
 
 export async function getMarketHolders(conditionId: string): Promise<MarketHolder[]> {
   const res = await fetch(`${DATA_API_BASE}/holders?market=${conditionId}`, {
-    next: { revalidate: 60 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -473,7 +473,7 @@ export async function getMarketHolders(conditionId: string): Promise<MarketHolde
 
 export async function getUserPortfolioValue(user: string): Promise<{ value: number }> {
   const res = await fetch(`${DATA_API_BASE}/value?user=${user}`, {
-    next: { revalidate: 30 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -497,7 +497,7 @@ export async function getUserClosedPositions(params: {
   const url = `${DATA_API_BASE}/closed-positions?${searchParams}`
   
   const res = await fetch(url, {
-    next: { revalidate: 60 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -513,7 +513,7 @@ export async function getUserClosedPositions(params: {
 
 export async function getProfile(addressOrUsername: string): Promise<UserProfile | null> {
   const res = await fetch(`${GAMMA_API_BASE}/profiles/${addressOrUsername}`, {
-    next: { revalidate: 300 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -530,7 +530,7 @@ export async function getProfile(addressOrUsername: string): Promise<UserProfile
 
 export async function getPrice(tokenId: string, side: 'BUY' | 'SELL'): Promise<{ price: string }> {
   const res = await fetch(`${CLOB_API_BASE}/price?token_id=${tokenId}&side=${side}`, {
-    next: { revalidate: 10 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -542,7 +542,7 @@ export async function getPrice(tokenId: string, side: 'BUY' | 'SELL'): Promise<{
 
 export async function getMidpoint(tokenId: string): Promise<{ mid: string }> {
   const res = await fetch(`${CLOB_API_BASE}/midpoint?token_id=${tokenId}`, {
-    next: { revalidate: 10 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -554,7 +554,7 @@ export async function getMidpoint(tokenId: string): Promise<{ mid: string }> {
 
 export async function getOrderBook(tokenId: string): Promise<OrderBook> {
   const res = await fetch(`${CLOB_API_BASE}/book?token_id=${tokenId}`, {
-    next: { revalidate: 10 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -579,7 +579,7 @@ export async function getPriceHistory(tokenId: string, params?: {
   if (params?.endTs) searchParams.set('endTs', String(params.endTs))
 
   const res = await fetch(`${CLOB_API_BASE}/prices-history?${searchParams}`, {
-    next: { revalidate: 60 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -591,7 +591,7 @@ export async function getPriceHistory(tokenId: string, params?: {
 
 export async function getSpread(tokenId: string): Promise<{ bid: string; ask: string; spread: string }> {
   const res = await fetch(`${CLOB_API_BASE}/spread?token_id=${tokenId}`, {
-    next: { revalidate: 10 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
