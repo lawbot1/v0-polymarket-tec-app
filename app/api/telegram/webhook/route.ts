@@ -98,14 +98,38 @@ export async function POST(req: NextRequest) {
     if (/^[A-Z0-9]{8}$/.test(codeMatch)) {
       const supabase = createAdminClient()
 
-      // Look up the permanent code in profiles
+      // First try: look up the permanent code in profiles
+      let matchedUserId: string | null = null
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, telegram_linking_code')
         .eq('telegram_linking_code', codeMatch)
         .single()
 
-      if (!profile) {
+      if (profile) {
+        matchedUserId = profile.id
+      } else {
+        // Fallback: try old telegram_linking_codes table
+        const { data: linkCode } = await supabase
+          .from('telegram_linking_codes')
+          .select('*')
+          .eq('code', codeMatch)
+          .eq('used', false)
+          .gte('expires_at', new Date().toISOString())
+          .single()
+
+        if (linkCode) {
+          matchedUserId = linkCode.user_id
+          // Mark code as used
+          await supabase
+            .from('telegram_linking_codes')
+            .update({ used: true })
+            .eq('id', linkCode.id)
+        }
+      }
+
+      if (!matchedUserId) {
         await sendTelegramMessage(chatId, [
           `<b>Invalid code.</b>`,
           ``,
@@ -118,13 +142,13 @@ export async function POST(req: NextRequest) {
       await supabase
         .from('profiles')
         .update({ telegram_chat_id: chatId })
-        .eq('id', profile.id)
+        .eq('id', matchedUserId)
 
       // Upsert notification_settings with chat_id
       await supabase
         .from('notification_settings')
         .upsert({
-          user_id: profile.id,
+          user_id: matchedUserId,
           telegram_chat_id: chatId,
           telegram_notifications_enabled: true,
         }, { onConflict: 'user_id' })
