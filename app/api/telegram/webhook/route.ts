@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     const message = body?.message
     if (!message?.text || !message?.chat?.id) {
       return NextResponse.json({ ok: true })
-    }
+    } 
 
     const chatId = String(message.chat.id)
     const text = message.text.trim()
