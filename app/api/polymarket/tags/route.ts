@@ -8,7 +8,7 @@ export async function GET() {
       headers: {
         'Accept': 'application/json',
       },
-      next: { revalidate: 3600 } // Cache for 1 hour
+      cache: 'no-store'
     })
 
     if (!res.ok) {
