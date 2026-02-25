@@ -230,7 +230,7 @@ export async function getMarkets(params?: {
   const url = `${GAMMA_API_BASE}/markets${searchParams.toString() ? `?${searchParams}` : ''}`
   
   const res = await fetch(url, {
-    next: { revalidate: 60 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
@@ -274,7 +274,7 @@ export async function getEvents(params?: {
   const url = `${GAMMA_API_BASE}/events${searchParams.toString() ? `?${searchParams}` : ''}`
   
   const res = await fetch(url, {
-    next: { revalidate: 60 }
+    cache: 'no-store'
   })
   
   if (!res.ok) {
