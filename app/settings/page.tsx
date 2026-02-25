@@ -28,7 +28,7 @@ export default function SettingsPage() {
     polymarket_wallet: '',
   })
 
-  // Real DB columns from notification_settings
+  // DB columns: large_trade_alerts, portfolio_updates, market_signals, daily_digest
   const [notifications, setNotifications] = useState({
     large_trade_alerts: true,
     portfolio_updates: false,
@@ -67,7 +67,6 @@ export default function SettingsPage() {
           telegram_handle: profile.telegram_handle || '',
           polymarket_wallet: profile.polymarket_wallet || '',
         })
-        // Check if telegram is linked
         if (profile.telegram_chat_id) {
           setTelegramChatId(profile.telegram_chat_id)
           setTelegramLinked(true)
@@ -89,7 +88,6 @@ export default function SettingsPage() {
           market_signals: notifSettings.market_signals ?? true,
           daily_digest: notifSettings.daily_digest ?? true,
         })
-        // Also check telegram fields if they exist on notification_settings
         if (notifSettings.telegram_notifications_enabled !== undefined) {
           setTelegramEnabled(notifSettings.telegram_notifications_enabled)
         }
@@ -122,7 +120,6 @@ export default function SettingsPage() {
     if (!userId) return
     setSaving(true)
 
-    // Update profile
     await supabase
       .from('profiles')
       .update({
@@ -133,7 +130,6 @@ export default function SettingsPage() {
       })
       .eq('id', userId)
 
-    // Upsert notification settings
     await supabase
       .from('notification_settings')
       .upsert({
@@ -208,13 +204,12 @@ export default function SettingsPage() {
     <AppShell title="Settings">
       <div className="max-w-3xl space-y-6">
 
-        {/* ──── Profile Settings ──── */}
+        {/* Profile Settings */}
         <div className="sharp-panel p-6">
           <div className="mb-6">
             <h2 className="font-medium text-foreground">Profile Settings</h2>
             <p className="text-sm text-muted-foreground">Update your display name and contact info</p>
           </div>
-
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="displayName" className="text-foreground">Display Name</Label>
@@ -226,7 +221,6 @@ export default function SettingsPage() {
                 className="bg-secondary border-border"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="email" className="text-foreground">Email Address</Label>
               <Input
@@ -238,7 +232,6 @@ export default function SettingsPage() {
               />
               <p className="text-xs text-muted-foreground">Email is managed through your account</p>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="wallet" className="text-foreground">Polymarket Wallet</Label>
               <Input
@@ -250,7 +243,6 @@ export default function SettingsPage() {
               />
               <p className="text-xs text-muted-foreground">Your Polymarket wallet address for dashboard stats</p>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="telegram" className="text-foreground">Telegram Username</Label>
               <Input
@@ -264,7 +256,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* ──── Telegram Bot Notifications ──── */}
+        {/* Telegram Bot Notifications */}
         <div className="sharp-panel p-6">
           <div className="mb-6 flex items-start justify-between">
             <div>
@@ -285,14 +277,13 @@ export default function SettingsPage() {
 
           {!telegramLinked ? (
             <div className="space-y-4">
-              {/* Step-by-step guide */}
               <div className="bg-secondary/50 rounded-lg p-4 space-y-3">
                 <p className="text-sm font-medium text-foreground">How to connect:</p>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <div className="flex gap-2">
                     <span className="text-primary font-mono font-bold">1.</span>
                     <span>
-                      Open our Telegram bot:{' '}
+                      {'Open our Telegram bot: '}
                       <a
                         href="https://t.me/VantakeBot"
                         target="_blank"
@@ -335,7 +326,7 @@ export default function SettingsPage() {
                             disabled={generatingCode}
                           >
                             {generatingCode ? (
-                              <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Generating...</>
+                              <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> {'Generating...'}</>
                             ) : (
                               'Generate Linking Code'
                             )}
@@ -380,7 +371,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between py-1.5">
                   <div>
                     <div className="text-sm text-foreground">Portfolio Updates</div>
-                    <div className="text-xs text-muted-foreground">Updates on your portfolio positions</div>
+                    <div className="text-xs text-muted-foreground">Updates on your tracked portfolios</div>
                   </div>
                   <Switch
                     checked={telegramEnabled && notifications.portfolio_updates}
@@ -392,7 +383,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between py-1.5">
                   <div>
                     <div className="text-sm text-foreground">Market Signals</div>
-                    <div className="text-xs text-muted-foreground">Signals from top traders on markets</div>
+                    <div className="text-xs text-muted-foreground">Interesting market movements on Polymarket</div>
                   </div>
                   <Switch
                     checked={telegramEnabled && notifications.market_signals}
@@ -420,7 +411,7 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* ──── In-App Notification Settings ──── */}
+        {/* In-App Notification Settings */}
         <div className="sharp-panel p-6">
           <div className="mb-6">
             <h2 className="font-medium text-foreground">In-App Notifications</h2>
@@ -447,7 +438,7 @@ export default function SettingsPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="text-sm text-foreground">Portfolio Updates</div>
-                  <div className="text-xs text-muted-foreground">Updates on your portfolio positions</div>
+                  <div className="text-xs text-muted-foreground">Updates on tracked trader portfolios</div>
                 </div>
               </div>
               <Switch
@@ -461,7 +452,7 @@ export default function SettingsPage() {
                 <Bell className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="text-sm text-foreground">Market Signals</div>
-                  <div className="text-xs text-muted-foreground">Signals from top traders on markets</div>
+                  <div className="text-xs text-muted-foreground">Alerts on interesting market movements</div>
                 </div>
               </div>
               <Switch
@@ -493,9 +484,9 @@ export default function SettingsPage() {
           </Button>
           <Button onClick={handleSave} disabled={saving} className={cn(saved && 'bg-[#22c55e] hover:bg-[#22c55e]/90')}>
             {saving ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{'Saving...'}</>
             ) : saved ? (
-              <><Check className="mr-2 h-4 w-4" />Saved!</>
+              <><Check className="mr-2 h-4 w-4" />{'Saved!'}</>
             ) : (
               'Save Changes'
             )}
