@@ -31,9 +31,9 @@ export default function SettingsPage() {
   // Real DB columns from notification_settings
   const [notifications, setNotifications] = useState({
     large_trade_alerts: true,
-    new_market_alerts: false,
-    whale_alerts: true,
-    weekly_report: true,
+    portfolio_updates: false,
+    market_signals: true,
+    daily_digest: true,
   })
 
   // Telegram bot settings
@@ -85,9 +85,9 @@ export default function SettingsPage() {
       if (notifSettings) {
         setNotifications({
           large_trade_alerts: notifSettings.large_trade_alerts ?? true,
-          new_market_alerts: notifSettings.new_market_alerts ?? false,
-          whale_alerts: notifSettings.whale_alerts ?? true,
-          weekly_report: notifSettings.weekly_report ?? true,
+          portfolio_updates: notifSettings.portfolio_updates ?? false,
+          market_signals: notifSettings.market_signals ?? true,
+          daily_digest: notifSettings.daily_digest ?? true,
         })
         // Also check telegram fields if they exist on notification_settings
         if (notifSettings.telegram_notifications_enabled !== undefined) {
@@ -133,15 +133,14 @@ export default function SettingsPage() {
       })
       .eq('id', userId)
 
-    // Upsert notification settings (use id = userId since PK is user id)
+    // Upsert notification settings
     await supabase
       .from('notification_settings')
       .upsert({
-        id: userId,
+        user_id: userId,
         ...notifications,
         telegram_notifications_enabled: telegramEnabled,
-        updated_at: new Date().toISOString(),
-      })
+      }, { onConflict: 'user_id' })
 
     setSaving(false)
     setSaved(true)
@@ -380,25 +379,25 @@ export default function SettingsPage() {
 
                 <div className="flex items-center justify-between py-1.5">
                   <div>
-                    <div className="text-sm text-foreground">Whale Alerts</div>
-                    <div className="text-xs text-muted-foreground">Large trades from top traders</div>
+                    <div className="text-sm text-foreground">Portfolio Updates</div>
+                    <div className="text-xs text-muted-foreground">Updates on your portfolio positions</div>
                   </div>
                   <Switch
-                    checked={telegramEnabled && notifications.whale_alerts}
+                    checked={telegramEnabled && notifications.portfolio_updates}
                     disabled={!telegramEnabled}
-                    onCheckedChange={(checked) => setNotifications({ ...notifications, whale_alerts: checked })}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, portfolio_updates: checked })}
                   />
                 </div>
 
                 <div className="flex items-center justify-between py-1.5">
                   <div>
-                    <div className="text-sm text-foreground">New Market Alerts</div>
-                    <div className="text-xs text-muted-foreground">Interesting new markets on Polymarket</div>
+                    <div className="text-sm text-foreground">Market Signals</div>
+                    <div className="text-xs text-muted-foreground">Signals from top traders on markets</div>
                   </div>
                   <Switch
-                    checked={telegramEnabled && notifications.new_market_alerts}
+                    checked={telegramEnabled && notifications.market_signals}
                     disabled={!telegramEnabled}
-                    onCheckedChange={(checked) => setNotifications({ ...notifications, new_market_alerts: checked })}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, market_signals: checked })}
                   />
                 </div>
               </div>
@@ -447,13 +446,13 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-foreground">Whale Alerts</div>
-                  <div className="text-xs text-muted-foreground">Movements from top 1% traders</div>
+                  <div className="text-sm text-foreground">Portfolio Updates</div>
+                  <div className="text-xs text-muted-foreground">Updates on your portfolio positions</div>
                 </div>
               </div>
               <Switch
-                checked={notifications.whale_alerts}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, whale_alerts: checked })}
+                checked={notifications.portfolio_updates}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, portfolio_updates: checked })}
               />
             </div>
 
@@ -461,13 +460,13 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3">
                 <Bell className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-foreground">New Market Alerts</div>
-                  <div className="text-xs text-muted-foreground">Alerts when interesting new markets are created</div>
+                  <div className="text-sm text-foreground">Market Signals</div>
+                  <div className="text-xs text-muted-foreground">Signals from top traders on markets</div>
                 </div>
               </div>
               <Switch
-                checked={notifications.new_market_alerts}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, new_market_alerts: checked })}
+                checked={notifications.market_signals}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, market_signals: checked })}
               />
             </div>
 
@@ -475,13 +474,13 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3">
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-foreground">Weekly Report</div>
-                  <div className="text-xs text-muted-foreground">Weekly summary of top performers and your portfolio</div>
+                  <div className="text-sm text-foreground">Daily Digest</div>
+                  <div className="text-xs text-muted-foreground">Daily summary of top performers and your portfolio</div>
                 </div>
               </div>
               <Switch
-                checked={notifications.weekly_report}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, weekly_report: checked })}
+                checked={notifications.daily_digest}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, daily_digest: checked })}
               />
             </div>
           </div>
