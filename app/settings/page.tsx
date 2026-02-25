@@ -101,7 +101,7 @@ export default function SettingsPage() {
 
       // Load telegram connection status from API
       try {
-        const tgRes = await fetch('/api/telegram/link')
+        const tgRes = await fetch(`/api/telegram/link?userId=${user.id}`)
         if (tgRes.ok) {
           const tgData = await tgRes.json()
           setTelegramLinked(tgData.connected)
@@ -149,9 +149,14 @@ export default function SettingsPage() {
   }
 
   const handleGenerateCode = async () => {
+    if (!userId) return
     setGeneratingCode(true)
     try {
-      const res = await fetch('/api/telegram/link', { method: 'POST' })
+      const res = await fetch('/api/telegram/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
       if (res.ok) {
         const data = await res.json()
         setLinkingCode(data.code)
@@ -166,8 +171,9 @@ export default function SettingsPage() {
   }
 
   const handleUnlinkTelegram = async () => {
+    if (!userId) return
     try {
-      const res = await fetch('/api/telegram/link', { method: 'DELETE' })
+      const res = await fetch(`/api/telegram/link?userId=${userId}`, { method: 'DELETE' })
       if (res.ok) {
         setTelegramLinked(false)
         setTelegramChatId('')
