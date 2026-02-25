@@ -149,21 +149,23 @@ export default function SettingsPage() {
   }
 
   const handleGenerateCode = async () => {
-    console.log('[v0] handleGenerateCode called, userId:', userId)
-    if (!userId) {
-      console.log('[v0] No userId, aborting generate code')
-      return
+    let uid = userId
+    if (!uid) {
+      const { data: { user } } = await supabase.auth.getUser()
+      uid = user?.id || null
     }
+    console.log('[v0] handleGenerateCode userId:', uid)
+    if (!uid) return
     setGeneratingCode(true)
     try {
       const res = await fetch('/api/telegram/link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId: uid }),
       })
-      console.log('[v0] Generate code response status:', res.status)
+      console.log('[v0] Generate code response:', res.status)
       const data = await res.json()
-      console.log('[v0] Generate code response data:', data)
+      console.log('[v0] Generate code data:', data)
       if (res.ok) {
         setLinkingCode(data.code)
         setLinkingCodeExpires(data.expiresAt)
