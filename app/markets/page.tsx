@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import Link from 'next/link'
 import Image from 'next/image'
 import useSWR from 'swr'
 import { AppShell } from '@/components/layout/app-shell'
@@ -106,7 +105,7 @@ function EventCard({ event }: { event: PolymarketEvent }) {
   const linkSlug = event.slug || event.id
 
   return (
-    <Link href={`/markets/${linkSlug}`}>
+    <a href={`https://polymarket.com/event/${linkSlug}`} target="_blank" rel="noopener noreferrer">
       <div className="sharp-panel p-4 hover:bg-secondary/30 transition-colors duration-150 cursor-pointer h-full relative group">
         <div className="absolute top-0 right-0 w-0 h-0 group-hover:border-l-[20px] group-hover:border-l-transparent group-hover:border-t-[20px] group-hover:border-t-primary transition-all duration-150" />
 
@@ -194,7 +193,7 @@ function EventCard({ event }: { event: PolymarketEvent }) {
           </div>
         </div>
       </div>
-    </Link>
+    </a>
   )
 }
 
