@@ -2,118 +2,175 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendTelegramMessage } from '@/lib/telegram'
 
-// Telegram sends updates as POST requests
+// Helper: find user by telegram chat_id
+async function findUserByChatId(chatId: string) {
+  const supabase = createAdminClient()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, display_name, telegram_chat_id, telegram_linking_code')
+    .eq('telegram_chat_id', chatId)
+    .single()
+  return profile
+}
+
+// Helper: get tracked traders for a user
+async function getTrackedTraders(userId: string) {
+  const supabase = createAdminClient()
+  const { data: traders } = await supabase
+    .from('followed_traders')
+    .select('trader_name, trader_address')
+    .eq('user_id', userId)
+  return traders || []
+}
+
+// Helper: format trader list for message
+function formatTraderList(traders: { trader_name: string; trader_address: string }[]) {
+  if (traders.length === 0) return 'None yet. Follow traders on app.vantake.trade'
+  return traders
+    .map((t, i) => {
+      const name = t.trader_name.length > 30
+        ? t.trader_name.slice(0, 6) + '...' + t.trader_name.slice(-4)
+        : t.trader_name
+      return `${i + 1}. <code>${name}</code>`
+    })
+    .join('\n')
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const message = body?.message
     if (!message?.text || !message?.chat?.id) {
       return NextResponse.json({ ok: true })
-    } 
+    }
 
     const chatId = String(message.chat.id)
     const text = message.text.trim()
-    const firstName = message.from?.first_name || 'there'
 
-    // Handle /start command
-    if (text === '/start') {
+    // /start or /help
+    if (text === '/start' || text === '/help') {
       await sendTelegramMessage(chatId, [
-        `<b>Welcome to Vantake Bot!</b> 👋`,
+        `<b>Welcome to Vantake Notifications Bot!</b>`,
         ``,
-        `I will send you real-time notifications when traders you track on Vantake make new trades on Polymarket.`,
+        `Get real-time alerts when traders you track make new bets on Polymarket.`,
         ``,
-        `<b>To connect your account:</b>`,
-        `1. Go to <b>Settings</b> on Vantake`,
-        `2. Find your <b>Linking Code</b> in the Telegram section`,
+        `<b>How to get started:</b>`,
+        `1. Go to app.vantake.trade/settings`,
+        `2. Copy your linking code`,
         `3. Send it here: <code>/link YOUR_CODE</code>`,
         ``,
         `<b>Commands:</b>`,
-        `/link CODE - Link your Vantake account`,
-        `/status - Check your connection status`,
-        `/stop - Disable notifications`,
-        `/start - Show this message`,
+        `/link &lt;code&gt; - Link your Vantake account`,
+        `/status - Check your account status`,
+        `/unlink - Unlink your Telegram`,
+        `/help - Show all commands`,
       ].join('\n'))
       return NextResponse.json({ ok: true })
     }
 
-    // Handle /status command
+    // /status
     if (text === '/status') {
-      const supabase = createAdminClient()
-      const { data: settings } = await supabase
-        .from('notification_settings')
-        .select('telegram_chat_id, telegram_notifications_enabled, user_id')
-        .eq('telegram_chat_id', chatId)
-        .single()
+      const profile = await findUserByChatId(chatId)
 
-      if (settings) {
-        // Fetch tracked wallets count
-        const { count } = await supabase
-          .from('tracked_wallets')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', settings.user_id)
+      if (profile) {
+        const traders = await getTrackedTraders(profile.id)
 
-        const status = settings.telegram_notifications_enabled ? '🟢 Active' : '🔴 Disabled'
+        // Check notification_settings
+        const supabase = createAdminClient()
+        const { data: notifSettings } = await supabase
+          .from('notification_settings')
+          .select('telegram_notifications_enabled')
+          .eq('user_id', profile.id)
+          .single()
+
+        const enabled = notifSettings?.telegram_notifications_enabled ?? true
+        const status = enabled ? 'Active' : 'Paused'
+
         await sendTelegramMessage(chatId, [
-          `<b>Connection Status:</b> ${status}`,
-          `<b>Tracked Wallets:</b> ${count || 0}`,
+          `<b>Account Status</b>`,
           ``,
-          settings.telegram_notifications_enabled
-            ? `You will receive notifications when tracked traders make new trades.`
-            : `Notifications are disabled. Enable them in Vantake Settings.`,
+          `Account: <b>${profile.display_name || 'Vantake User'}</b>`,
+          `Status: <b>${status}</b>`,
+          `Notifications: ${enabled ? 'On' : 'Off'}`,
+          ``,
+          `<b>Tracked Traders (${traders.length}):</b>`,
+          formatTraderList(traders),
+          ``,
+          `Manage traders at app.vantake.trade`,
         ].join('\n'))
       } else {
         await sendTelegramMessage(chatId, [
-          `<b>Not connected</b>`,
+          `<b>Not Connected</b>`,
           ``,
-          `Your Telegram is not linked to a Vantake account yet.`,
-          `Go to Settings on Vantake and generate a linking code.`,
+          `Your Telegram is not linked to a Vantake account.`,
+          ``,
+          `To connect:`,
+          `1. Go to app.vantake.trade/settings`,
+          `2. Copy your linking code`,
+          `3. Send: <code>/link YOUR_CODE</code>`,
         ].join('\n'))
       }
       return NextResponse.json({ ok: true })
     }
 
-    // Handle /stop command
-    if (text === '/stop') {
-      const supabase = createAdminClient()
-      const { data: settings } = await supabase
-        .from('notification_settings')
-        .select('user_id')
-        .eq('telegram_chat_id', chatId)
-        .single()
+    // /unlink (replaces /stop)
+    if (text === '/unlink' || text === '/stop') {
+      const profile = await findUserByChatId(chatId)
 
-      if (settings) {
+      if (profile) {
+        const supabase = createAdminClient()
+
+        // Remove chat_id from profiles
+        await supabase
+          .from('profiles')
+          .update({ telegram_chat_id: null })
+          .eq('id', profile.id)
+
+        // Disable notifications
         await supabase
           .from('notification_settings')
-          .update({ telegram_notifications_enabled: false })
-          .eq('telegram_chat_id', chatId)
+          .update({
+            telegram_chat_id: null,
+            telegram_notifications_enabled: false,
+          })
+          .eq('user_id', profile.id)
 
-        await sendTelegramMessage(chatId, `Notifications <b>disabled</b>. You can re-enable them in Vantake Settings.`)
+        await sendTelegramMessage(chatId, [
+          `<b>Account Unlinked</b>`,
+          ``,
+          `Your Telegram has been disconnected from Vantake.`,
+          `You will no longer receive trade notifications.`,
+          ``,
+          `To reconnect, use <code>/link YOUR_CODE</code>`,
+        ].join('\n'))
       } else {
         await sendTelegramMessage(chatId, `Your Telegram is not linked to any Vantake account.`)
       }
       return NextResponse.json({ ok: true })
     }
 
-    // Extract code from /link command or raw text
+    // /link CODE or raw 8-char code
     let rawCode = text
     if (text.toLowerCase().startsWith('/link')) {
-      rawCode = text.slice(5).trim() // remove "/link " prefix
+      rawCode = text.slice(5).trim()
     }
     const codeMatch = rawCode.toUpperCase().replace(/\s/g, '')
     if (/^[A-Z0-9]{8}$/.test(codeMatch)) {
       const supabase = createAdminClient()
 
-      // First try: look up the permanent code in profiles
+      // Look up permanent code in profiles
       let matchedUserId: string | null = null
+      let matchedName: string | null = null
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, telegram_linking_code')
+        .select('id, display_name, telegram_linking_code')
         .eq('telegram_linking_code', codeMatch)
         .single()
 
       if (profile) {
         matchedUserId = profile.id
+        matchedName = profile.display_name
       } else {
         // Fallback: try old telegram_linking_codes table
         const { data: linkCode } = await supabase
@@ -126,19 +183,27 @@ export async function POST(req: NextRequest) {
 
         if (linkCode) {
           matchedUserId = linkCode.user_id
-          // Mark code as used
           await supabase
             .from('telegram_linking_codes')
             .update({ used: true })
             .eq('id', linkCode.id)
+
+          // Get display name
+          const { data: p } = await supabase
+            .from('profiles')
+            .select('display_name')
+            .eq('id', linkCode.user_id)
+            .single()
+          matchedName = p?.display_name || null
         }
       }
 
       if (!matchedUserId) {
         await sendTelegramMessage(chatId, [
-          `<b>Invalid code.</b>`,
+          `<b>Invalid Code</b>`,
           ``,
-          `Please check your linking code in Vantake Settings.`,
+          `This linking code was not found.`,
+          `Check your code at app.vantake.trade/settings`,
         ].join('\n'))
         return NextResponse.json({ ok: true })
       }
@@ -149,7 +214,7 @@ export async function POST(req: NextRequest) {
         .update({ telegram_chat_id: chatId })
         .eq('id', matchedUserId)
 
-      // Upsert notification_settings with chat_id
+      // Upsert notification_settings
       await supabase
         .from('notification_settings')
         .upsert({
@@ -158,35 +223,44 @@ export async function POST(req: NextRequest) {
           telegram_notifications_enabled: true,
         }, { onConflict: 'user_id' })
 
+      // Get tracked traders
+      const traders = await getTrackedTraders(matchedUserId)
+
       await sendTelegramMessage(chatId, [
-        `<b>Account linked successfully!</b> ✅`,
+        `<b>Account Linked Successfully!</b>`,
         ``,
-        `You will now receive notifications when your tracked traders make new trades on Polymarket.`,
+        `Welcome, <b>${matchedName || 'Vantake User'}</b>!`,
+        `You will now receive alerts when your tracked traders make new bets on Polymarket.`,
         ``,
-        `Use /status to check your setup.`,
-        `Use /stop to disable notifications.`,
+        `<b>Tracked Traders (${traders.length}):</b>`,
+        formatTraderList(traders),
+        ``,
+        `<b>Commands:</b>`,
+        `/status - Check your account status`,
+        `/unlink - Disconnect Telegram`,
+        `/help - Show all commands`,
       ].join('\n'))
       return NextResponse.json({ ok: true })
     }
 
     // Unknown message
     await sendTelegramMessage(chatId, [
-      `I didn't understand that, ${firstName}.`,
+      `I didn't understand that.`,
       ``,
-      `Send me a <b>linking code</b> from Vantake Settings, or use:`,
-      `/start - Setup instructions`,
-      `/status - Check connection`,
-      `/stop - Disable notifications`,
+      `<b>Available commands:</b>`,
+      `/link &lt;code&gt; - Link your Vantake account`,
+      `/status - Check your account status`,
+      `/unlink - Unlink your Telegram`,
+      `/help - Show all commands`,
     ].join('\n'))
 
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('[Telegram Webhook] Error:', error)
-    return NextResponse.json({ ok: true }) // Always return 200 to Telegram
+    return NextResponse.json({ ok: true })
   }
 }
 
-// GET endpoint to register/check webhook
 export async function GET() {
   return NextResponse.json({ status: 'Telegram webhook endpoint active' })
 }
