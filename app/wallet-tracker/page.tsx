@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { SmartScoreBadge } from '@/components/trader/smart-score-badge'
 import { WalletAvatar } from '@/components/trader/wallet-avatar'
 import {
-  type LeaderboardTrader,
+  type LeaderboardTrader, 
   type UserTrade,
   formatPnl,
   formatVolume,
