@@ -149,7 +149,11 @@ export default function SettingsPage() {
   }
 
   const handleGenerateCode = async () => {
-    if (!userId) return
+    console.log('[v0] handleGenerateCode called, userId:', userId)
+    if (!userId) {
+      console.log('[v0] No userId, aborting generate code')
+      return
+    }
     setGeneratingCode(true)
     try {
       const res = await fetch('/api/telegram/link', {
@@ -157,12 +161,16 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       })
+      console.log('[v0] Generate code response status:', res.status)
+      const data = await res.json()
+      console.log('[v0] Generate code response data:', data)
       if (res.ok) {
-        const data = await res.json()
         setLinkingCode(data.code)
         setLinkingCodeExpires(data.expiresAt)
       }
-    } catch {}
+    } catch (err) {
+      console.error('[v0] Generate code error:', err)
+    }
     setGeneratingCode(false)
   }
 
