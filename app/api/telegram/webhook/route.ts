@@ -4,10 +4,8 @@ import { sendTelegramMessage } from '@/lib/telegram'
 
 // Telegram sends updates as POST requests
 export async function POST(req: NextRequest) {
-  console.log('[v0] Telegram webhook POST received')
   try {
     const body = await req.json()
-    console.log('[v0] Telegram webhook body:', JSON.stringify(body).slice(0, 200))
     const message = body?.message
     if (!message?.text || !message?.chat?.id) {
       return NextResponse.json({ ok: true })
@@ -26,7 +24,7 @@ export async function POST(req: NextRequest) {
         ``,
         `<b>To connect your account:</b>`,
         `1. Go to <b>Settings</b> on Vantake`,
-        `2. Click "Generate Linking Code" in the Telegram section`,
+        `2. Find your <b>Linking Code</b> in the Telegram section`,
         `3. Send me the code here`,
         ``,
         `<b>Commands:</b>`,
@@ -100,43 +98,36 @@ export async function POST(req: NextRequest) {
     if (/^[A-Z0-9]{8}$/.test(codeMatch)) {
       const supabase = createAdminClient()
 
-      // Look up the code
-      const { data: linkCode } = await supabase
-        .from('telegram_linking_codes')
-        .select('*')
-        .eq('code', codeMatch)
-        .eq('used', false)
-        .gte('expires_at', new Date().toISOString())
+      // Look up the permanent code in profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, telegram_linking_code')
+        .eq('telegram_linking_code', codeMatch)
         .single()
 
-      if (!linkCode) {
+      if (!profile) {
         await sendTelegramMessage(chatId, [
-          `<b>Invalid or expired code.</b>`,
+          `<b>Invalid code.</b>`,
           ``,
-          `Please generate a new code in Vantake Settings.`,
+          `Please check your linking code in Vantake Settings.`,
         ].join('\n'))
         return NextResponse.json({ ok: true })
       }
 
-      // Mark code as used
-      await supabase
-        .from('telegram_linking_codes')
-        .update({ used: true })
-        .eq('id', linkCode.id)
-
-      // Save chat_id in notification_settings and profiles
-      await supabase
-        .from('notification_settings')
-        .update({
-          telegram_chat_id: chatId,
-          telegram_notifications_enabled: true,
-        })
-        .eq('user_id', linkCode.user_id)
-
+      // Save chat_id in profiles
       await supabase
         .from('profiles')
         .update({ telegram_chat_id: chatId })
-        .eq('id', linkCode.user_id)
+        .eq('id', profile.id)
+
+      // Upsert notification_settings with chat_id
+      await supabase
+        .from('notification_settings')
+        .upsert({
+          user_id: profile.id,
+          telegram_chat_id: chatId,
+          telegram_notifications_enabled: true,
+        }, { onConflict: 'user_id' })
 
       await sendTelegramMessage(chatId, [
         `<b>Account linked successfully!</b> ✅`,

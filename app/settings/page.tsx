@@ -41,8 +41,6 @@ export default function SettingsPage() {
   const [telegramEnabled, setTelegramEnabled] = useState(false)
   const [telegramLinked, setTelegramLinked] = useState(false)
   const [linkingCode, setLinkingCode] = useState('')
-  const [linkingCodeExpires, setLinkingCodeExpires] = useState('')
-  const [generatingCode, setGeneratingCode] = useState(false)
 
   useEffect(() => {
     const loadData = async () => {
@@ -67,6 +65,9 @@ export default function SettingsPage() {
           telegram_handle: profile.telegram_handle || '',
           polymarket_wallet: profile.polymarket_wallet || '',
         })
+        if (profile.telegram_linking_code) {
+          setLinkingCode(profile.telegram_linking_code)
+        }
         if (profile.telegram_chat_id) {
           setTelegramChatId(profile.telegram_chat_id)
           setTelegramLinked(true)
@@ -104,9 +105,8 @@ export default function SettingsPage() {
           const tgData = await tgRes.json()
           setTelegramLinked(tgData.connected)
           setTelegramEnabled(tgData.enabled)
-          if (tgData.activeCode) {
-            setLinkingCode(tgData.activeCode)
-            setLinkingCodeExpires(tgData.codeExpiresAt)
+          if (tgData.linkingCode) {
+            setLinkingCode(tgData.linkingCode)
           }
         }
       } catch {}
@@ -141,34 +141,6 @@ export default function SettingsPage() {
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
-  }
-
-  const handleGenerateCode = async () => {
-    let uid = userId
-    if (!uid) {
-      const { data: { user } } = await supabase.auth.getUser()
-      uid = user?.id || null
-    }
-    console.log('[v0] handleGenerateCode userId:', uid)
-    if (!uid) return
-    setGeneratingCode(true)
-    try {
-      const res = await fetch('/api/telegram/link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: uid }),
-      })
-      console.log('[v0] Generate code response:', res.status)
-      const data = await res.json()
-      console.log('[v0] Generate code data:', data)
-      if (res.ok) {
-        setLinkingCode(data.code)
-        setLinkingCodeExpires(data.expiresAt)
-      }
-    } catch (err) {
-      console.error('[v0] Generate code error:', err)
-    }
-    setGeneratingCode(false)
   }
 
   const copyLinkingCode = () => {
@@ -301,7 +273,7 @@ export default function SettingsPage() {
                   <div className="flex gap-2">
                     <span className="text-primary font-mono font-bold">3.</span>
                     <div className="flex-1">
-                      <span>Generate a code and send it to the bot:</span>
+                      <span>Send your linking code to the bot:</span>
                       <div className="mt-2">
                         {linkingCode ? (
                           <div className="flex items-center gap-2">
@@ -311,26 +283,9 @@ export default function SettingsPage() {
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={copyLinkingCode}>
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
-                            {linkingCodeExpires && (
-                              <span className="text-[10px] text-muted-foreground">
-                                Expires in 30 min
-                              </span>
-                            )}
                           </div>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-[#26A5E4]/30 text-[#26A5E4] hover:bg-[#26A5E4]/10"
-                            onClick={handleGenerateCode}
-                            disabled={generatingCode}
-                          >
-                            {generatingCode ? (
-                              <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> {'Generating...'}</>
-                            ) : (
-                              'Generate Linking Code'
-                            )}
-                          </Button>
+                          <span className="text-xs text-muted-foreground">Loading code...</span>
                         )}
                       </div>
                     </div>
