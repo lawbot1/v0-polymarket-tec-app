@@ -25,9 +25,10 @@ export async function POST(req: NextRequest) {
         `<b>To connect your account:</b>`,
         `1. Go to <b>Settings</b> on Vantake`,
         `2. Find your <b>Linking Code</b> in the Telegram section`,
-        `3. Send me the code here`,
+        `3. Send it here: <code>/link YOUR_CODE</code>`,
         ``,
         `<b>Commands:</b>`,
+        `/link CODE - Link your Vantake account`,
         `/status - Check your connection status`,
         `/stop - Disable notifications`,
         `/start - Show this message`,
@@ -93,8 +94,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    // Otherwise, try to match a linking code (8 uppercase alphanumeric chars)
-    const codeMatch = text.toUpperCase().replace(/\s/g, '')
+    // Extract code from /link command or raw text
+    let rawCode = text
+    if (text.toLowerCase().startsWith('/link')) {
+      rawCode = text.slice(5).trim() // remove "/link " prefix
+    }
+    const codeMatch = rawCode.toUpperCase().replace(/\s/g, '')
     if (/^[A-Z0-9]{8}$/.test(codeMatch)) {
       const supabase = createAdminClient()
 
