@@ -79,7 +79,7 @@ export default function SettingsPage() {
       const { data: notifSettings } = await supabase
         .from('notification_settings')
         .select('*')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single()
 
       if (notifSettings) {
