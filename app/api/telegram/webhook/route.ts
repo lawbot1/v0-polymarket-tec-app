@@ -7,7 +7,7 @@ async function findUserByChatId(chatId: string) {
   const supabase = createAdminClient()
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, display_name, telegram_chat_id, telegram_linking_code')
+    .select('id, display_name, telegram_chat_id, telegram_linking_code') 
     .eq('telegram_chat_id', chatId)
     .single()
   return profile
