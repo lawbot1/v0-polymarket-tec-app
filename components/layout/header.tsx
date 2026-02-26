@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Bell, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AuthButton } from '@/components/auth/auth-button'
+import { NotificationBell } from '@/components/layout/notification-bell'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
 
@@ -66,10 +67,9 @@ export function Header({ title, subtitle }: HeaderProps) {
 
         {/* Right Side */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="relative h-9 w-9 hidden sm:flex">
-            <Bell className="h-4 w-4 text-muted-foreground" />
-            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-foreground" />
-          </Button>
+          <div className="hidden sm:flex">
+            <NotificationBell />
+          </div>
 
           <AuthButton />
 
