@@ -388,19 +388,28 @@ export function TraderCards() {
     return () => clearTimeout(timeout)
   }, [search])
 
-  // Build SWR key from all filter params
+  // Pagination state - load 30 at a time, max 90
+  const [visibleCount, setVisibleCount] = useState(30)
+  const MAX_TRADERS = 90
+
+  // Reset visible count when filters change
+  React.useEffect(() => {
+    setVisibleCount(30)
+  }, [category, timeframe, activeFilter, debouncedSearch])
+
+  // Build SWR key from all filter params - always fetch max to enable client-side pagination
   const swrKey = React.useMemo(() => {
     const params = new URLSearchParams({
       category: mapCategoryToApi(category),
       timePeriod: mapTimeframeToApi(timeframe),
       orderBy: activeFilter === 'high-volume' ? 'VOL' : 'PNL',
-      limit: '24',
+      limit: String(MAX_TRADERS),
     })
     if (debouncedSearch) params.set('userName', debouncedSearch)
     return `/api/polymarket/leaderboard?${params}`
   }, [category, timeframe, activeFilter, debouncedSearch])
 
-  const { data: traders = [], error: swrError, isLoading, mutate } = useSWR<LeaderboardTrader[]>(
+  const { data: allTraders = [], error: swrError, isLoading, mutate } = useSWR<LeaderboardTrader[]>(
     swrKey,
     leaderboardFetcher,
     {
@@ -409,6 +418,10 @@ export function TraderCards() {
       keepPreviousData: true,     // show old data while loading new filters
     }
   )
+
+  // Slice traders based on visibleCount for pagination
+  const traders = allTraders.slice(0, visibleCount)
+  const hasMore = allTraders.length > visibleCount && visibleCount < MAX_TRADERS
 
   const error = swrError ? 'Failed to load trader data' : null
 
@@ -610,6 +623,22 @@ export function TraderCards() {
         </div>
       )}
       
+      {/* Load More Button */}
+      {hasMore && !isLoading && (
+        <div className="flex justify-center pt-4">
+          <Button
+            variant="outline"
+            onClick={() => setVisibleCount(prev => Math.min(prev + 30, MAX_TRADERS))}
+            className="gap-2 bg-secondary/30 border-border hover:bg-secondary/50"
+          >
+            Load More
+            <span className="text-muted-foreground text-xs">
+              ({traders.length} / {Math.min(allTraders.length, MAX_TRADERS)})
+            </span>
+          </Button>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="text-center text-xs text-muted-foreground">
         Live data from Polymarket
