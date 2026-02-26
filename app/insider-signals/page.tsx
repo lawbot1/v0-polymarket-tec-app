@@ -27,6 +27,7 @@ import {
   Sparkles,
   RefreshCw,
   Users,
+  ExternalLink,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -181,12 +182,14 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
 
       {/* Market title + outcome badge */}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <Link
-          href={`/markets/${signal.conditionId}`}
+        <a
+          href={signal.eventSlug ? `https://polymarket.com/event/${signal.eventSlug}` : `https://polymarket.com`}
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-sm text-foreground leading-snug hover:underline line-clamp-2"
         >
           {signal.title || 'Unknown Market'}
-        </Link>
+        </a>
         <span className={cn(
           'flex-shrink-0 inline-flex px-2.5 py-0.5 rounded text-xs font-semibold',
           badgeColor
@@ -220,6 +223,17 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">Category</span>
           <span className="text-foreground font-medium">{category}</span>
+        </div>
+        <div className="pt-2 mt-2 border-t border-border">
+          <a
+            href={signal.eventSlug ? `https://polymarket.com/event/${signal.eventSlug}` : `https://polymarket.com`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 text-xs text-primary hover:text-primary/80 transition-colors"
+          >
+            <ExternalLink className="h-3 w-3" />
+            View on Polymarket
+          </a>
         </div>
       </div>
     </div>
