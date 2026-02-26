@@ -42,9 +42,9 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
-        <div className="relative px-4 pt-1.5 pb-2.5 rounded-lg bg-score/10 border border-score/20 flex flex-col items-center h-[62px] cursor-default overflow-visible">
-          <div className="text-xs text-muted-foreground tracking-wider text-center leading-none mb-1">Smart Score</div>
-          <div className="flex items-center gap-0">
+        <div className="relative px-4 py-1.5 rounded-lg bg-score/10 border border-score/20 flex flex-col items-center cursor-default overflow-visible">
+          <div className="text-xs text-muted-foreground tracking-wider text-center leading-none">Smart Score</div>
+          <div className="flex items-center gap-0 -mt-0.5">
             <Image
               src="/vantake-logo-white.png"
               alt="Vantake"
@@ -75,9 +75,9 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      <div className="relative px-3 pt-1 pb-2 rounded-lg bg-score/10 border border-score/20 flex flex-col items-center h-[52px] cursor-default overflow-visible">
-        <div className="text-[11px] text-muted-foreground tracking-wider text-center leading-none mb-0.5">Smart Score</div>
-        <div className="flex items-center gap-0">
+      <div className="relative px-3 py-1.5 rounded-lg bg-score/10 border border-score/20 flex flex-col items-center cursor-default overflow-visible">
+        <div className="text-[11px] text-muted-foreground tracking-wider text-center leading-none">Smart Score</div>
+        <div className="flex items-center gap-0 -mt-0.5">
           <Image
             src="/vantake-logo-white.png"
             alt="Vantake"
