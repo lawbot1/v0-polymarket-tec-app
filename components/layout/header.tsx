@@ -31,17 +31,17 @@ export function Header({ title, subtitle }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background">
-      <div className="flex h-14 items-center justify-between px-4 lg:px-6">
+      <div className="flex h-14 items-center justify-between px-3 sm:px-4 lg:px-6">
         {/* Left Side - Logo + Nav buttons inline */}
         <div className="flex items-center gap-1">
           {/* Logo */}
-          <Link href="/" className="flex items-center flex-shrink-0 mr-4">
+          <Link href="/" className="flex items-center flex-shrink-0 mr-2 lg:mr-4">
             <Image
               src="/vantake-main-logo.png"
               alt="Vantake"
               width={58}
               height={58}
-              className="h-[58px] w-[58px] object-contain"
+              className="h-10 w-10 sm:h-[58px] sm:w-[58px] object-contain"
               priority
             />
           </Link>

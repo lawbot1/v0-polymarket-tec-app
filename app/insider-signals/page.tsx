@@ -330,130 +330,144 @@ export default function InsiderSignalsPage() {
     <AppShell title="Insider Signals" subtitle="Real-time trades from top Polymarket traders">
       <div className="space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div className="sharp-panel p-4">
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
+          <div className="sharp-panel p-3 sm:p-4">
             <div className="flex items-center gap-2 text-primary">
               <img
                 src="/icon-lightning.png"
                 alt="Total Signals"
-                className="h-12 w-12 object-contain"
+                className="h-8 w-8 sm:h-12 sm:w-12 object-contain"
                 style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
               />
               {isLoading ? (
-                <Skeleton className="h-8 w-12" />
+                <Skeleton className="h-6 sm:h-8 w-10 sm:w-12" />
               ) : (
-                <span className="text-2xl font-bold">{signals.length}</span>
+                <span className="text-xl sm:text-2xl font-bold">{signals.length}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Total Signals</div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Total Signals</div>
           </div>
-          <div className="sharp-panel p-4">
+          <div className="sharp-panel p-3 sm:p-4">
             <div className="flex items-center gap-2 text-primary">
               <img
                 src="/icons/top-traders.png"
                 alt="Top Traders"
-                className="h-12 w-12 object-contain"
+                className="h-8 w-8 sm:h-12 sm:w-12 object-contain"
                 style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
               />
               {isLoading ? (
-                <Skeleton className="h-8 w-12" />
+                <Skeleton className="h-6 sm:h-8 w-10 sm:w-12" />
               ) : (
-                <span className="text-2xl font-bold">{topTraders.length}</span>
+                <span className="text-xl sm:text-2xl font-bold">{topTraders.length}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Top Traders</div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Top Traders</div>
           </div>
-          <div className="sharp-panel p-4">
+          <div className="sharp-panel p-3 sm:p-4">
             <div className="flex items-center gap-2 text-yellow-500">
               <img
                 src="/icon-whale.png"
                 alt="Whale Trades"
-                className="h-12 w-12 object-contain"
+                className="h-8 w-8 sm:h-12 sm:w-12 object-contain"
                 style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
               />
               {isLoading ? (
-                <Skeleton className="h-8 w-12" />
+                <Skeleton className="h-6 sm:h-8 w-10 sm:w-12" />
               ) : (
-                <span className="text-2xl font-bold">{whaleCount}</span>
+                <span className="text-xl sm:text-2xl font-bold">{whaleCount}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Whale Trades</div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Whale Trades</div>
           </div>
-          <div className="sharp-panel p-4">
+          <div className="sharp-panel p-3 sm:p-4">
             <div className="flex items-center gap-2 text-foreground">
               <img
                 src="/icon-volume.png"
                 alt="Total Volume"
-                className="h-12 w-12 object-contain"
+                className="h-8 w-8 sm:h-12 sm:w-12 object-contain"
                 style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
               />
               {isLoading ? (
-                <Skeleton className="h-8 w-20" />
+                <Skeleton className="h-6 sm:h-8 w-14 sm:w-20" />
               ) : (
-                <span className="text-2xl font-bold">{formatVolume(totalVolume)}</span>
+                <span className="text-xl sm:text-2xl font-bold">{formatVolume(totalVolume)}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Total Volume</div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Total Volume</div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="sharp-panel p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Filter className="h-4 w-4" />
-              <span className="text-sm font-medium">Filters</span>
+        <div className="sharp-panel p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+            <div className="flex items-center justify-between sm:justify-start gap-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Filter className="h-4 w-4" />
+                <span className="text-sm font-medium">Filters</span>
+              </div>
+              {/* Refresh - mobile position */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => mutate()}
+                disabled={isLoading}
+                className="gap-2 bg-transparent border-border sm:hidden"
+              >
+                <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+              </Button>
             </div>
 
-            {/* Sort */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 bg-transparent border-border">
-                  Sort: {sortBy}
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-card border-border">
-                {sortOptions.map((option) => (
-                  <DropdownMenuItem
-                    key={option}
-                    onClick={() => setSortBy(option)}
-                    className={cn(sortBy === option && 'bg-primary/10 text-primary')}
-                  >
-                    {option}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              {/* Sort */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2 bg-transparent border-border text-xs sm:text-sm">
+                    Sort: {sortBy}
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="bg-card border-border">
+                  {sortOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={option}
+                      onClick={() => setSortBy(option)}
+                      className={cn(sortBy === option && 'bg-primary/10 text-primary')}
+                    >
+                      {option}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-            {/* Min Size */}
-            <Input
-              type="number"
-              placeholder="Min size ($)"
-              value={minSize}
-              onChange={(e) => setMinSize(e.target.value)}
-              className="w-32 bg-secondary border-border text-sm"
-            />
-
-            {/* Whales Only */}
-            <div className="flex items-center gap-2">
-              <Switch
-                id="whales-only"
-                checked={whalesOnly}
-                onCheckedChange={setWhalesOnly}
+              {/* Min Size */}
+              <Input
+                type="number"
+                placeholder="Min $"
+                value={minSize}
+                onChange={(e) => setMinSize(e.target.value)}
+                className="w-20 sm:w-32 bg-secondary border-border text-sm"
               />
-              <Label htmlFor="whales-only" className="text-sm text-muted-foreground">
-                Whales only
-              </Label>
+
+              {/* Whales Only */}
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="whales-only"
+                  checked={whalesOnly}
+                  onCheckedChange={setWhalesOnly}
+                />
+                <Label htmlFor="whales-only" className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
+                  Whales
+                </Label>
+              </div>
             </div>
 
-            {/* Refresh */}
+            {/* Refresh - desktop position */}
             <Button
               variant="outline"
               size="sm"
               onClick={() => mutate()}
               disabled={isLoading}
-              className="gap-2 bg-transparent border-border ml-auto"
+              className="gap-2 bg-transparent border-border hidden sm:flex sm:ml-auto"
             >
               <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
               Refresh

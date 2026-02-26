@@ -442,9 +442,9 @@ export function TraderCards() {
   return (
     <div className="space-y-4">
       {/* Header Row - Title, Category, and Timeframe */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-foreground">Trader Profiles</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Trader Profiles</h1>
           
           {/* Category Dropdown */}
           <DropdownMenu>
@@ -473,13 +473,13 @@ export function TraderCards() {
         </div>
         
         {/* Timeframe Tabs */}
-        <div className="flex items-center border border-border rounded-lg overflow-hidden">
+        <div className="flex items-center border border-border rounded-lg overflow-hidden w-full sm:w-auto">
           {timeframes.map((tf) => (
             <button
               key={tf}
               onClick={() => setTimeframe(tf)}
               className={cn(
-                'px-4 py-2 text-sm font-medium transition-all',
+                'flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-all',
                 timeframe === tf 
                   ? 'bg-foreground text-background' 
                   : 'bg-secondary/30 text-muted-foreground hover:text-foreground hover:bg-secondary/50',

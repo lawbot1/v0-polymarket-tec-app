@@ -229,14 +229,53 @@ function Podium({ traders }: { traders: Top100Trader[] }) {
   const [first, second, third] = traders
 
   return (
-    <div className="flex items-end justify-center gap-4 sm:gap-6 mb-16 pt-32 px-4">
-      {/* #2 - Left */}
-      <PodiumCard trader={second} rank={2} avatarSize={108} pedestalHeight={300} cardWidth={330} />
-      {/* #1 - Center (tallest) */}
-      <PodiumCard trader={first} rank={1} avatarSize={144} pedestalHeight={390} cardWidth={400} />
-      {/* #3 - Right */}
-      <PodiumCard trader={third} rank={3} avatarSize={96} pedestalHeight={270} cardWidth={300} />
-    </div>
+    <>
+      {/* Desktop Podium */}
+      <div className="hidden lg:flex items-end justify-center gap-4 mb-16 pt-32 px-4">
+        <PodiumCard trader={second} rank={2} avatarSize={108} pedestalHeight={300} cardWidth={330} />
+        <PodiumCard trader={first} rank={1} avatarSize={144} pedestalHeight={390} cardWidth={400} />
+        <PodiumCard trader={third} rank={3} avatarSize={96} pedestalHeight={270} cardWidth={300} />
+      </div>
+      {/* Mobile Top 3 Cards */}
+      <div className="lg:hidden space-y-3 mb-8">
+        {[first, second, third].map((trader, i) => {
+          const rank = i + 1
+          const name = trader.userName || formatAddress(trader.proxyWallet)
+          const displayName = name.length > 20 && name.startsWith('0x') ? formatAddress(name) : name
+          return (
+            <Link
+              key={trader.proxyWallet}
+              href={`/trader/${trader.proxyWallet}`}
+              className="sharp-panel p-4 flex items-center gap-4"
+            >
+              <div className={cn(
+                'flex items-center justify-center h-8 w-8 rounded-full text-sm font-bold flex-shrink-0',
+                rank === 1 ? 'bg-yellow-400 text-black' : rank === 2 ? 'bg-gray-400 text-black' : 'bg-amber-600 text-white'
+              )}>
+                #{rank}
+              </div>
+              <div className="h-12 w-12 rounded-full overflow-hidden flex-shrink-0">
+                {trader.profileImage ? (
+                  <Image src={trader.profileImage} alt={displayName} width={48} height={48} className="h-full w-full object-cover" />
+                ) : (
+                  <WalletAvatar wallet={trader.proxyWallet} size={48} />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-foreground truncate">{displayName}</div>
+                <div className="text-xs text-muted-foreground font-mono">{formatAddress(trader.proxyWallet)}</div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className={cn('font-bold', trader.pnl >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>
+                  {formatPnl(trader.pnl)}
+                </div>
+                <div className="text-xs text-muted-foreground">Score: {trader.smartScore.toFixed(1)}</div>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </>
   )
 }
 
@@ -344,7 +383,7 @@ export default function VantakeTop100Page() {
             {/* Table */}
             <div className="sharp-panel overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm" style={{ minWidth: 1100 }}>
+                <table className="w-full text-sm min-w-[800px] lg:min-w-[1100px]">
                   <thead>
                     <tr className="border-b border-border bg-secondary/20">
                       <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-16">Rank</th>

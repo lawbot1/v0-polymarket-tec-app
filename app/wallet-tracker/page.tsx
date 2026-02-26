@@ -431,29 +431,29 @@ export default function WalletTrackerPage() {
       <div className="space-y-6">
         {/* Title */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground font-mono">Watchlist</h1>
-          <p className="text-sm text-muted-foreground mt-1 font-mono">Traders you follow and their recent trades</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-mono">Watchlist</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-mono">Traders you follow and their recent trades</p>
         </div>
 
         {/* Combined stats bar */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div className="sharp-panel p-4">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Tracked Wallets</div>
-            <div className="text-2xl font-bold text-foreground tabular-nums mt-1">{wallets.length}</div>
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
+          <div className="sharp-panel p-3 sm:p-4">
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted-foreground truncate">Tracked</div>
+            <div className="text-xl sm:text-2xl font-bold text-foreground tabular-nums mt-1">{wallets.length}</div>
           </div>
-          <div className="sharp-panel p-4">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Combined PnL</div>
-            <div className={cn('text-2xl font-bold tabular-nums mt-1', totalPnl >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>
+          <div className="sharp-panel p-3 sm:p-4">
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted-foreground truncate">PnL</div>
+            <div className={cn('text-xl sm:text-2xl font-bold tabular-nums mt-1', totalPnl >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>
               {formatPnl(totalPnl)}
             </div>
           </div>
-          <div className="sharp-panel p-4">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Combined Volume</div>
-            <div className="text-2xl font-bold text-foreground tabular-nums mt-1">{formatVolume(totalVolume)}</div>
+          <div className="sharp-panel p-3 sm:p-4">
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted-foreground truncate">Volume</div>
+            <div className="text-xl sm:text-2xl font-bold text-foreground tabular-nums mt-1">{formatVolume(totalVolume)}</div>
           </div>
-          <div className="sharp-panel p-4">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Recent Trades</div>
-            <div className="text-2xl font-bold text-foreground tabular-nums mt-1">{feedItems.length}</div>
+          <div className="sharp-panel p-3 sm:p-4">
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted-foreground truncate">Trades</div>
+            <div className="text-xl sm:text-2xl font-bold text-foreground tabular-nums mt-1">{feedItems.length}</div>
           </div>
         </div>
 
