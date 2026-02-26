@@ -1,87 +1,89 @@
-// Seed the top100 cache by calling the Polymarket API and storing in Supabase
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
   process.exit(1)
 }
 
-const DATA_API_BASE = 'https://data-api.polymarket.com'
+const DATA_API = 'https://data-api.polymarket.com'
 
-const CURATED_WALLETS = [
-  '0x17db3fcd93ba12d38382a0cade24b200185c5f6d',
-  '0xf2f6af4f27ec2dcf4072095ab804016e14cd5817',
-  '0x06ecb7e739f5455922ce57e83284f132c7f0f845',
-  '0x3b4484b6c8cbfdaa383ba337ab3f0d71055e264e',
-  '0x44c1dfe43260c94ed4f1d00de2e1f80fb113ebc1',
-  '0x06dcaa14f57d8a0573f5dc5940565e6de667af59',
-  '0x843a6da3886cf889435cf0920659a00a68db8070',
-  '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
-  '0x9256dc04d6a9af8410c253bb5c52a8ff6eb62e8b',
-  '0x7744bfd749a70020d16a1fcbac1d064761c9999e',
-]
-const CURATED_SET = new Set(CURATED_WALLETS.map((w) => w.toLowerCase()))
+async function tryFetch(url) {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
 
 async function main() {
-  console.log('Fetching bulk leaderboard data...')
+  // Fetch top traders sorted by PNL with pagination (API returns max 50 per page)
+  console.log('Fetching top traders by PNL...')
+  const pnlPage1 = await tryFetch(`${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=50&offset=0`)
+  const pnlPage2 = await tryFetch(`${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=50&offset=50`)
+  const pnlData = [...(pnlPage1 || []), ...(pnlPage2 || [])]
+  console.log('PNL total:', pnlData.length, 'items')
 
-  const bulkUrls = [
-    `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=0`,
-    `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=500`,
-    `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=0`,
-  ]
+  // Also fetch by volume for variety  
+  console.log('Fetching top traders by volume...')
+  const volPage1 = await tryFetch(`${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=50&offset=0`)
+  const volPage2 = await tryFetch(`${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=50&offset=50`)
+  const volData = [...(volPage1 || []), ...(volPage2 || [])]
+  console.log('VOL total:', volData.length, 'items')
 
-  const bulkResults = await Promise.all(
-    bulkUrls.map(async (url) => {
-      try {
-        const res = await fetch(url)
-        if (!res.ok) return []
-        return await res.json()
-      } catch {
-        return []
-      }
-    })
-  )
-
-  const foundMap = new Map()
-  for (const page of bulkResults) {
-    if (!Array.isArray(page)) continue
-    for (const entry of page) {
-      const wallet = String(entry.proxyWallet || '').toLowerCase()
-      if (CURATED_SET.has(wallet) && !foundMap.has(wallet)) {
-        foundMap.set(wallet, entry)
-      }
+  // Merge and deduplicate by wallet
+  const walletMap = new Map()
+  
+  for (const entry of (pnlData || [])) {
+    const wallet = String(entry.proxyWallet || entry.address || '').toLowerCase()
+    if (wallet && !walletMap.has(wallet)) {
+      walletMap.set(wallet, entry)
+    }
+  }
+  
+  // Add volume traders that aren't already in the map
+  for (const entry of (volData || [])) {
+    const wallet = String(entry.proxyWallet || entry.address || '').toLowerCase()
+    if (wallet && !walletMap.has(wallet)) {
+      walletMap.set(wallet, entry)
     }
   }
 
-  console.log(`Found ${foundMap.size} / ${CURATED_WALLETS.length} from bulk`)
+  console.log(`Total unique traders: ${walletMap.size}`)
 
-  const traders = Array.from(foundMap.values())
+  // Sort by PNL descending, take top 100
+  const traders = Array.from(walletMap.values())
     .map((t) => ({
       rank: '0',
-      proxyWallet: String(t.proxyWallet || ''),
-      userName: String(t.userName || ''),
-      vol: Number(t.vol || 0),
-      pnl: Number(t.pnl || 0),
-      profileImage: String(t.profileImage || ''),
+      proxyWallet: String(t.proxyWallet || t.address || ''),
+      userName: String(t.userName || t.username || t.name || ''),
+      vol: Number(t.vol || t.volume || 0),
+      pnl: Number(t.pnl || t.profit || 0),
+      profileImage: String(t.profileImage || t.avatar || ''),
       xUsername: String(t.xUsername || ''),
       verifiedBadge: Boolean(t.verifiedBadge || false),
       numTrades: Number(t.numTrades || 0),
       marketsTraded: Number(t.marketsTraded || 0),
     }))
     .sort((a, b) => b.pnl - a.pnl)
+    .slice(0, 100)
 
   traders.forEach((t, i) => { t.rank = String(i + 1) })
 
   console.log(`Saving ${traders.length} traders to cache...`)
+  if (traders.length > 0) {
+    console.log('Top 3:')
+    traders.slice(0, 3).forEach(t => console.log(`  #${t.rank} ${t.userName || t.proxyWallet.slice(0,10)} - PNL: $${t.pnl.toLocaleString()}`))
+  }
 
   const res = await fetch(`${SUPABASE_URL}/rest/v1/top100_cache?id=eq.1`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      'apikey': SUPABASE_SERVICE_ROLE_KEY,
-      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
       'Prefer': 'return=minimal',
     },
     body: JSON.stringify({
@@ -93,7 +95,7 @@ async function main() {
   if (res.ok) {
     console.log(`Cache seeded with ${traders.length} traders!`)
   } else {
-    console.error('Failed to seed cache:', res.status, await res.text())
+    console.error('Failed:', res.status, await res.text())
   }
 }
 
