@@ -604,31 +604,39 @@ export default function TraderPage({ params }: TraderPageProps) {
                 ) : positions.length === 0 ? (
                   <div className="px-4 py-12 text-center text-muted-foreground text-sm">No open positions</div>
                 ) : (
-                  positions.map((pos) => (
-                    <div key={`${pos.conditionId}-${pos.outcomeIndex}`} className="p-3 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          {pos.icon && <Image src={pos.icon || '/placeholder.svg'} alt="" width={20} height={20} className="h-5 w-5 flex-shrink-0" />}
-                          <p className="text-sm text-foreground line-clamp-2">{pos.title}</p>
-                        </div>
-                        <span className={cn('flex-shrink-0 inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', pos.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : pos.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
-                          {pos.outcome}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex gap-3 text-muted-foreground">
-                          <span>Size: <span className="text-foreground font-mono">{pos.size?.toFixed(2)}</span></span>
-                          <span>Avg: <span className="text-foreground font-mono">{((pos.avgPrice || 0) * 100).toFixed(0)}c</span></span>
-                          <span>Now: <span className="text-foreground font-mono">{((pos.curPrice || 0) * 100).toFixed(0)}c</span></span>
-                        </div>
-                        <div className="text-right">
-                          <span className={cn('font-mono font-medium', (pos.cashPnl || 0) >= 0 ? 'text-[#22c55e]' : 'text-destructive')}>
-                            {formatPnl(pos.cashPnl || 0)}
+                  positions.map((pos) => {
+                    // Calculate unrealized PnL: (currentPrice - avgPrice) * size
+                    const unrealizedPnl = ((pos.curPrice || 0) - (pos.avgPrice || 0)) * (pos.size || 0)
+                    const unrealizedPercent = pos.avgPrice ? ((pos.curPrice - pos.avgPrice) / pos.avgPrice) * 100 : 0
+                    return (
+                      <div key={`${pos.conditionId}-${pos.outcomeIndex}`} className="p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {pos.icon && <Image src={pos.icon || '/placeholder.svg'} alt="" width={20} height={20} className="h-5 w-5 flex-shrink-0" />}
+                            <p className="text-sm text-foreground line-clamp-2">{pos.title}</p>
+                          </div>
+                          <span className={cn('flex-shrink-0 inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', pos.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : pos.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
+                            {pos.outcome}
                           </span>
                         </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex gap-3 text-muted-foreground">
+                            <span>Size: <span className="text-foreground font-mono">{pos.size?.toFixed(0)}</span></span>
+                            <span>Avg: <span className="text-foreground font-mono">{((pos.avgPrice || 0) * 100).toFixed(0)}c</span></span>
+                            <span>Now: <span className="text-foreground font-mono">{((pos.curPrice || 0) * 100).toFixed(0)}c</span></span>
+                          </div>
+                          <div className="text-right flex items-center gap-1">
+                            <span className={cn('font-mono font-medium', unrealizedPnl >= 0 ? 'text-[#22c55e]' : 'text-destructive')}>
+                              {unrealizedPnl >= 0 ? '+' : ''}{formatPnl(unrealizedPnl)}
+                            </span>
+                            <span className={cn('text-[10px] font-mono', unrealizedPercent >= 0 ? 'text-[#22c55e]/70' : 'text-destructive/70')}>
+                              ({unrealizedPercent >= 0 ? '+' : ''}{unrealizedPercent.toFixed(1)}%)
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  }))
                 )}
               </div>
               {/* Desktop: Table layout */}
@@ -661,35 +669,40 @@ export default function TraderPage({ params }: TraderPageProps) {
                         <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground text-sm">No open positions</td>
                       </tr>
                     ) : (
-                      positions.map((pos) => (
-                        <tr key={`${pos.conditionId}-${pos.outcomeIndex}`} className="border-b border-border/50 row-hover">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              {pos.icon && <Image src={pos.icon || '/placeholder.svg'} alt="" width={20} height={20} className="h-5 w-5" />}
-                              <div>
-                                <p className="text-sm text-foreground max-w-[220px] truncate">{pos.title}</p>
-                                <p className="text-[10px] text-muted-foreground uppercase">{pos.outcome}</p>
+                      positions.map((pos) => {
+                        // Calculate unrealized PnL: (currentPrice - avgPrice) * size
+                        const unrealizedPnl = ((pos.curPrice || 0) - (pos.avgPrice || 0)) * (pos.size || 0)
+                        const unrealizedPercent = pos.avgPrice ? ((pos.curPrice - pos.avgPrice) / pos.avgPrice) * 100 : 0
+                        return (
+                          <tr key={`${pos.conditionId}-${pos.outcomeIndex}`} className="border-b border-border/50 row-hover">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                {pos.icon && <Image src={pos.icon || '/placeholder.svg'} alt="" width={20} height={20} className="h-5 w-5" />}
+                                <div>
+                                  <p className="text-sm text-foreground max-w-[220px] truncate">{pos.title}</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase">{pos.outcome}</p>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={cn('inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', pos.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : pos.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
-                              {pos.outcome}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm font-mono text-foreground">{pos.size?.toFixed(2)}</td>
-                          <td className="px-4 py-3 text-right text-sm font-mono text-muted-foreground">{((pos.avgPrice || 0) * 100).toFixed(1)}c</td>
-                          <td className="px-4 py-3 text-right text-sm font-mono text-muted-foreground">{((pos.curPrice || 0) * 100).toFixed(1)}c</td>
-                          <td className="px-4 py-3 text-right">
-                            <span className={cn('text-sm font-mono', (pos.cashPnl || 0) >= 0 ? 'text-[#22c55e]' : 'text-destructive')}>
-                              {formatPnl(pos.cashPnl || 0)}
-                            </span>
-                            <div className="text-[10px] text-muted-foreground font-mono">
-                              {(pos.percentPnl || 0) >= 0 ? '+' : ''}{(pos.percentPnl || 0).toFixed(1)}%
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={cn('inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', pos.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : pos.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
+                                {pos.outcome}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-mono text-foreground">{pos.size?.toFixed(0)}</td>
+                            <td className="px-4 py-3 text-right text-sm font-mono text-muted-foreground">{((pos.avgPrice || 0) * 100).toFixed(1)}c</td>
+                            <td className="px-4 py-3 text-right text-sm font-mono text-muted-foreground">{((pos.curPrice || 0) * 100).toFixed(1)}c</td>
+                            <td className="px-4 py-3 text-right">
+                              <span className={cn('text-sm font-mono', unrealizedPnl >= 0 ? 'text-[#22c55e]' : 'text-destructive')}>
+                                {unrealizedPnl >= 0 ? '+' : ''}{formatPnl(unrealizedPnl)}
+                              </span>
+                              <div className={cn('text-[10px] font-mono', unrealizedPercent >= 0 ? 'text-[#22c55e]/70' : 'text-destructive/70')}>
+                                {unrealizedPercent >= 0 ? '+' : ''}{unrealizedPercent.toFixed(1)}%
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
                     )}
                   </tbody>
                 </table>
