@@ -42,7 +42,7 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
-        <div className="relative px-4 py-1.5 rounded-lg bg-score/10 border border-score/20 flex flex-col items-center cursor-default overflow-visible">
+        <div className="relative px-4 pt-1.5 pb-0.5 rounded-lg bg-score/10 border border-score/20 flex flex-col items-center cursor-default overflow-visible">
           <div className="text-xs text-muted-foreground tracking-wider text-center leading-none">Smart Score</div>
           <div className="flex items-center gap-0 -mt-0.5">
             <Image
@@ -75,7 +75,7 @@ export function SmartScoreBadge({ score, tooltipData, size = 'sm', className }: 
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      <div className="relative px-3 py-1.5 rounded-lg bg-score/10 border border-score/20 flex flex-col items-center cursor-default overflow-visible">
+      <div className="relative px-3 pt-1.5 pb-0.5 rounded-lg bg-score/10 border border-score/20 flex flex-col items-center cursor-default overflow-visible">
         <div className="text-[11px] text-muted-foreground tracking-wider text-center leading-none">Smart Score</div>
         <div className="flex items-center gap-0 -mt-0.5">
           <Image
