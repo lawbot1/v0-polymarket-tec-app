@@ -22,6 +22,7 @@ const navItems = [
   { href: '/insider-signals', label: 'Signals' },
   { href: '/markets', label: 'Markets' },
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/copytrading', label: 'Copytrading', comingSoon: true },
   { href: '/settings', label: 'Settings' },
 ]
 
@@ -49,18 +50,30 @@ export function Header({ title, subtitle }: HeaderProps) {
           {/* Desktop Nav - inline buttons */}
           <nav className="hidden lg:flex items-center gap-1.5">
             {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap',
-                  pathname === item.href
-                    ? 'bg-foreground text-background'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                )}
-              >
-                {item.label}
-              </Link>
+              item.comingSoon ? (
+                <div
+                  key={item.href}
+                  className="relative px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground/50 cursor-not-allowed whitespace-nowrap"
+                >
+                  {item.label}
+                  <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-score/20 text-score border border-score/30 rounded">
+                    Soon
+                  </span>
+                </div>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap',
+                    pathname === item.href
+                      ? 'bg-foreground text-background'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                  )}
+                >
+                  {item.label}
+                </Link>
+              )
             ))}
           </nav>
         </div>
@@ -87,19 +100,31 @@ export function Header({ title, subtitle }: HeaderProps) {
       {mobileOpen && (
         <nav className="lg:hidden border-t border-border bg-background px-4 py-2 flex flex-col gap-1">
           {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                'px-3 py-2.5 text-sm font-medium rounded-lg transition-colors',
-                pathname === item.href
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-              )}
-            >
-              {item.label}
-            </Link>
+            item.comingSoon ? (
+              <div
+                key={item.href}
+                className="relative px-3 py-2.5 text-sm font-medium rounded-lg text-muted-foreground/50 cursor-not-allowed flex items-center justify-between"
+              >
+                {item.label}
+                <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-score/20 text-score border border-score/30 rounded">
+                  Soon
+                </span>
+              </div>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  'px-3 py-2.5 text-sm font-medium rounded-lg transition-colors',
+                  pathname === item.href
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                )}
+              >
+                {item.label}
+              </Link>
+            )
           ))}
         </nav>
       )}
