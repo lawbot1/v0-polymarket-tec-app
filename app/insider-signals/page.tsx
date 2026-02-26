@@ -248,26 +248,34 @@ async function signalsFetcher() {
   if (leaderboardRes.ok) traders = await leaderboardRes.json()
 
   const allSignals: SignalEntry[] = []
-  const tradePromises = traders.slice(0, 10).map(async (trader) => {
+  // Top 30 traders, 10 trades each
+  const tradePromises = traders.slice(0, 30).map(async (trader) => {
     try {
-      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=5`)
+      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=10`)
       if (tradesRes.ok) {
         const trades: UserTrade[] = await tradesRes.json()
-        return trades.map(trade => {
-          const tradeValue = trade.size * trade.price
-          const confidence: 'High' | 'Medium' | 'Low' =
-            trader.rank && trader.rank <= 10 && tradeValue >= 1000 ? 'High' :
-            trader.rank && trader.rank <= 50 && tradeValue >= 500 ? 'Medium' : 'Low'
-          return {
-            ...trade,
-            traderPnl: trader.pnl || 0,
-            traderRank: trader.rank,
-            traderProfileImage: trader.profileImage,
-            traderName: trader.userName,
-            confidence,
-            isWhale: tradeValue >= 5000,
-          }
-        })
+        return trades
+          // Filter out trades < $2000 and trades at 99.9c+ entry (redemptions/certainty plays)
+          .filter(trade => {
+            const tradeValue = trade.size * trade.price
+            const entryPrice = trade.price * 100 // convert to cents
+            return tradeValue >= 2000 && entryPrice < 99.9
+          })
+          .map(trade => {
+            const tradeValue = trade.size * trade.price
+            const confidence: 'High' | 'Medium' | 'Low' =
+              trader.rank && trader.rank <= 10 && tradeValue >= 5000 ? 'High' :
+              trader.rank && trader.rank <= 30 && tradeValue >= 3000 ? 'Medium' : 'Low'
+            return {
+              ...trade,
+              traderPnl: trader.pnl || 0,
+              traderRank: trader.rank,
+              traderProfileImage: trader.profileImage,
+              traderName: trader.userName,
+              confidence,
+              isWhale: tradeValue >= 10000,
+            }
+          })
       }
       return []
     } catch { return [] }
@@ -277,7 +285,7 @@ async function signalsFetcher() {
   tradeResults.forEach(trades => allSignals.push(...trades))
   allSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
 
-  return { traders, signals: allSignals }
+  return { traders: traders.slice(0, 30), signals: allSignals }
 }
 
 export default function InsiderSignalsPage() {
