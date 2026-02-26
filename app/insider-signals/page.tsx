@@ -243,11 +243,9 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
 // ---- Main page ----
 // SWR fetcher that loads leaderboard + trades in one shot, returns { traders, signals }
 async function signalsFetcher() {
-  const leaderboardRes = await fetch('/api/polymarket/leaderboard?timePeriod=DAY&limit=50')
+  const leaderboardRes = await fetch('/api/polymarket/leaderboard?window=day&limit=50')
   let traders: LeaderboardTrader[] = []
   if (leaderboardRes.ok) traders = await leaderboardRes.json()
-  
-  console.log('[v0] Leaderboard response:', leaderboardRes.status, 'traders:', traders.length)
 
   const allSignals: SignalEntry[] = []
   // Top 30 traders, 10 trades each
