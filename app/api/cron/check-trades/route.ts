@@ -11,7 +11,7 @@ function isAuthorized(req: NextRequest): boolean {
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true
   if (!cronSecret && process.env.NODE_ENV === 'development') return true
   return false
-}
+} 
 
 interface PolyTrade {
   proxyWallet: string
