@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     const res = await fetch(url.toString(), {
       headers: { 'Accept': 'application/json' },
-      next: { revalidate: 60 },
+      cache: 'no-store',
     })
 
     if (!res.ok) {

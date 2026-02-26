@@ -39,9 +39,9 @@ export function Header({ title, subtitle }: HeaderProps) {
             <Image
               src="/vantake-main-logo.png"
               alt="Vantake"
-              width={54}
-              height={54}
-              className="h-[54px] w-[54px] object-contain"
+              width={58}
+              height={58}
+              className="h-[58px] w-[58px] object-contain"
               priority
             />
           </Link>
