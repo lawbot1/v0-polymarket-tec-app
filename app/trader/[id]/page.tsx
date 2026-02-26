@@ -1,7 +1,8 @@
 'use client'
 
 import React from 'react'
-import { useEffect, useState, useMemo, use } from 'react'
+import { useState, useMemo, use } from 'react'
+import useSWR from 'swr'
 import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -33,6 +34,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+
+// SWR fetcher
+const fetcher = (url: string) => fetch(url).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch'))
 
 interface TraderPageProps {
   params: Promise<{ id: string }>
@@ -108,38 +112,37 @@ function calcSmartScore(profile: LeaderboardTrader | null, winRate: number, posi
 
 export default function TraderPage({ params }: TraderPageProps) {
   const { id } = use(params)
-  const [profile, setProfile] = useState<LeaderboardTrader | null>(null)
-  const [positions, setPositions] = useState<UserPosition[]>([])
-  const [trades, setTrades] = useState<UserTrade[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [chartTf, setChartTf] = useState<ChartTimeframe>('ALL')
 
-  const fetchTraderData = async () => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const [leaderboardRes, positionsRes, tradesRes] = await Promise.all([
-        fetch(`/api/polymarket/leaderboard?user=${id}&limit=1&timePeriod=ALL`),
-        fetch(`/api/polymarket/positions?user=${id}&limit=100&sortBy=CASHPNL&sortDirection=DESC`),
-        fetch(`/api/polymarket/trades?user=${id}&limit=500`),
-      ])
-      if (leaderboardRes.ok) {
-        const d = await leaderboardRes.json()
-        setProfile(d[0] || null)
-      }
-      if (positionsRes.ok) setPositions(await positionsRes.json())
-      if (tradesRes.ok) setTrades(await tradesRes.json())
-    } catch (err) {
-      console.error('Error fetching trader data:', err)
-      setError('Failed to load trader data')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // Parallel SWR requests with caching
+  const { data: profileData, error: profileError, mutate: mutateProfile } = useSWR<LeaderboardTrader[]>(
+    `/api/polymarket/leaderboard?user=${id}&limit=1&timePeriod=ALL`,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60000 }
+  )
+  
+  const { data: positions = [], error: positionsError, mutate: mutatePositions } = useSWR<UserPosition[]>(
+    `/api/polymarket/positions?user=${id}&limit=100&sortBy=CASHPNL&sortDirection=DESC`,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60000 }
+  )
+  
+  const { data: trades = [], error: tradesError, mutate: mutateTrades } = useSWR<UserTrade[]>(
+    `/api/polymarket/trades?user=${id}&limit=500`,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60000 }
+  )
 
-  useEffect(() => { fetchTraderData() }, [id])
+  const profile = profileData?.[0] || null
+  const isLoading = !profileData && !profileError
+  const error = profileError || positionsError || tradesError ? 'Failed to load trader data' : null
+
+  const fetchTraderData = () => {
+    mutateProfile()
+    mutatePositions()
+    mutateTrades()
+  }
 
   const copyWallet = () => {
     navigator.clipboard.writeText(id)

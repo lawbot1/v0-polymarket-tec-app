@@ -206,7 +206,7 @@ export default function MarketsPage() {
   const apiUrl = useMemo(() => {
     const params = new URLSearchParams({
       endpoint: 'events',
-      limit: '50',
+      limit: '30', // Reduced for faster initial load
       active: 'true',
       closed: 'false',
       order: sortBy,
@@ -226,7 +226,7 @@ export default function MarketsPage() {
     fetcher,
     {
       revalidateOnFocus: false,
-      dedupingInterval: 30000,
+      dedupingInterval: 60000, // Cache for 60s
       keepPreviousData: true,
     }
   )

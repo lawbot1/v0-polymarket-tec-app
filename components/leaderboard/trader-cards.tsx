@@ -193,13 +193,14 @@ interface TraderCardProps {
   trader: LeaderboardTrader
   rank: number
   onClick: () => void
+  onMouseEnter?: () => void
   userId: string | null
   followedSet: Set<string>
   trackedSet: Set<string>
   activeCategory?: string
 }
 
-function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet, activeCategory }: TraderCardProps) {
+function TraderCard({ trader, rank, onClick, onMouseEnter, userId, followedSet, trackedSet, activeCategory }: TraderCardProps) {
   const smartScore = calculateSmartScore(trader.pnl, trader.vol, rank)
   const sparklineData = generateSparkline(trader.pnl, trader.proxyWallet)
   const isPositive = trader.pnl >= 0
@@ -226,6 +227,7 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet, ac
   return (
     <div 
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
       className="relative bg-card border border-border rounded-xl p-5 hover:border-foreground/20 transition-all duration-300 cursor-pointer group"
     >
       {/* Row 1: Avatar + Name (left) | Smart Score badge (right) -- same line */}
@@ -452,6 +454,11 @@ export function TraderCards() {
     router.push(`/trader/${wallet}`)
   }
 
+  // Prefetch trader data on hover for faster navigation
+  const prefetchTrader = (wallet: string) => {
+    router.prefetch(`/trader/${wallet}`)
+  }
+
   return (
     <div className="space-y-4">
       {/* Header Row - Title, Category, and Timeframe */}
@@ -531,6 +538,7 @@ export function TraderCards() {
                 trader={trader}
                 rank={trader.rank || index + 1}
                 onClick={() => handleCardClick(trader.proxyWallet)}
+                onMouseEnter={() => prefetchTrader(trader.proxyWallet)}
                 userId={userId}
                 followedSet={followedSet}
                 trackedSet={trackedSet}
@@ -570,6 +578,7 @@ export function TraderCards() {
                     <tr
                       key={trader.proxyWallet}
                       onClick={() => handleCardClick(trader.proxyWallet)}
+                      onMouseEnter={() => prefetchTrader(trader.proxyWallet)}
                       className="border-b border-border/50 hover:bg-secondary/30 cursor-pointer"
                     >
                       <td className="px-4 py-3 font-mono text-sm text-muted-foreground">
