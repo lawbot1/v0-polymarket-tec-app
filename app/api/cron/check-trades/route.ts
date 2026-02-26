@@ -139,6 +139,7 @@ export async function GET(req: NextRequest) {
                 side: trade.side || 'BUY',
                 size: trade.size || 0,
                 price: trade.price || 0,
+                slug: trade.slug,
               })
 
               const success = await sendTelegramMessage(settings.telegram_chat_id, message)

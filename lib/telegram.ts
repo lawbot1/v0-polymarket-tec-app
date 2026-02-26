@@ -56,22 +56,50 @@ export function formatTradeNotification(trade: {
   side: string
   size: number
   price: number
+  slug?: string
 }) {
   const name = trade.traderName || `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}`
   const value = (trade.size * trade.price).toFixed(2)
-  const outcomeColor = trade.outcome?.toLowerCase() === 'yes' ? '🟢' : trade.outcome?.toLowerCase() === 'no' ? '🔴' : '🟡'
+  const pricePercent = (trade.price * 100).toFixed(0)
+  
+  // Emojis based on action and outcome
+  const isBuy = trade.side?.toUpperCase() === 'BUY'
+  const isYes = trade.outcome?.toLowerCase() === 'yes'
+  
+  // Header emoji: chart up for buy, chart down for sell
+  const actionEmoji = isBuy ? '📈' : '📉'
+  // Outcome emoji
+  const outcomeEmoji = isYes ? '✅' : '❌'
+  // Money emoji based on value
+  const valueEmoji = parseFloat(value) >= 1000 ? '💰' : parseFloat(value) >= 100 ? '💵' : '💲'
+  
+  // Format value with K suffix for large amounts
+  const formattedValue = parseFloat(value) >= 1000 
+    ? `$${(parseFloat(value) / 1000).toFixed(1)}K` 
+    : `$${value}`
 
-  return [
-    `<b>🔔 New Trade Alert</b>`,
+  // Build market link
+  const marketLink = trade.slug 
+    ? `<a href="https://polymarket.com/event/${trade.slug}">${trade.market}</a>`
+    : trade.market
+
+  const lines = [
+    `${actionEmoji} <b>${isBuy ? 'BUY' : 'SELL'}</b> ${outcomeEmoji} <b>${trade.outcome?.toUpperCase()}</b>`,
     ``,
-    `<b>Trader:</b> ${name}`,
-    `<b>Market:</b> ${trade.market}`,
-    `<b>Side:</b> ${trade.side} ${outcomeColor} <b>${trade.outcome}</b>`,
-    `<b>Value:</b> $${value}`,
-    `<b>Price:</b> ${(trade.price * 100).toFixed(1)}¢`,
+    `👤 <b>${name}</b>`,
     ``,
-    `<i>via Vantake</i>`,
-  ].join('\n')
+    `📊 ${marketLink}`,
+    ``,
+    `┌─────────────────────`,
+    `│ ${valueEmoji} Value: <b>${formattedValue}</b>`,
+    `│ 📍 Price: <b>${pricePercent}¢</b>`,
+    `│ 📦 Size: <b>${trade.size.toLocaleString()}</b> shares`,
+    `└─────────────────────`,
+    ``,
+    `<i>Vantake • Real-time alerts</i>`,
+  ]
+
+  return lines.join('\n')
 }
 
 // Generate a random 8-character linking code
