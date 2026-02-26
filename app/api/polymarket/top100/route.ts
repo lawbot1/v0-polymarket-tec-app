@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 const DATA_API_BASE = 'https://data-api.polymarket.com'
 
@@ -108,12 +109,10 @@ const CURATED_WALLETS = [
 
 const CURATED_SET = new Set(CURATED_WALLETS.map((w) => w.toLowerCase()))
 
-// Sleep helper
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-// Fetch a single trader with retry
 async function fetchTraderWithRetry(
   wallet: string,
   maxRetries = 2
@@ -123,7 +122,6 @@ async function fetchTraderWithRetry(
       const url = `${DATA_API_BASE}/v1/leaderboard?user=${wallet}&timePeriod=ALL`
       const res = await fetch(url)
       if (res.status === 429) {
-        // Rate limited -- wait and retry
         await sleep(1000 * (attempt + 1))
         continue
       }
@@ -132,114 +130,133 @@ async function fetchTraderWithRetry(
       if (Array.isArray(data) && data.length > 0) return data[0]
       return null
     } catch {
-      if (attempt < maxRetries) {
-        await sleep(500 * (attempt + 1))
-      }
+      if (attempt < maxRetries) await sleep(500 * (attempt + 1))
     }
   }
   return null
 }
 
-export async function GET() {
-  try {
-    // Strategy: First try bulk leaderboard fetch (much faster),
-    // then individually fetch any missing wallets
+// Heavy fetch from Polymarket API -- used by cron only
+async function fetchFreshTop100() {
+  const bulkUrls = [
+    `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=0`,
+    `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=500`,
+    `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=1000`,
+    `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=0`,
+    `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=500`,
+  ]
 
-    // Step 1: Fetch large leaderboard pages to find as many curated wallets as possible
-    const bulkUrls = [
-      `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=0`,
-      `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=500`,
-      `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=1000`,
-      `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=0`,
-      `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=500`,
-    ]
-
-    const bulkResults = await Promise.all(
-      bulkUrls.map(async (url) => {
-        try {
-          const res = await fetch(url)
-          if (!res.ok) return []
-          return await res.json()
-        } catch {
-          return []
-        }
-      })
-    )
-
-    // Collect all found traders by wallet
-    const foundMap = new Map<string, Record<string, unknown>>()
-    for (const page of bulkResults) {
-      if (!Array.isArray(page)) continue
-      for (const entry of page) {
-        const wallet = String(entry.proxyWallet || '').toLowerCase()
-        if (CURATED_SET.has(wallet) && !foundMap.has(wallet)) {
-          foundMap.set(wallet, entry)
-        }
+  const bulkResults = await Promise.all(
+    bulkUrls.map(async (url) => {
+      try {
+        const res = await fetch(url)
+        if (!res.ok) return []
+        return await res.json()
+      } catch {
+        return []
       }
-    }
-
-    console.log(`[Top100] Bulk fetch found ${foundMap.size} / ${CURATED_WALLETS.length} wallets`)
-
-    // Step 2: Individually fetch any missing wallets
-    const missingWallets = CURATED_WALLETS.filter(
-      (w) => !foundMap.has(w.toLowerCase())
-    )
-
-    if (missingWallets.length > 0) {
-      console.log(`[Top100] Fetching ${missingWallets.length} missing wallets individually`)
-
-      // Batch in groups of 5 with delays to avoid rate limits
-      const batchSize = 5
-      for (let i = 0; i < missingWallets.length; i += batchSize) {
-        const batch = missingWallets.slice(i, i + batchSize)
-        const results = await Promise.all(
-          batch.map((w) => fetchTraderWithRetry(w))
-        )
-        for (let j = 0; j < batch.length; j++) {
-          if (results[j]) {
-            foundMap.set(batch[j].toLowerCase(), results[j]!)
-          }
-        }
-        // Small delay between batches
-        if (i + batchSize < missingWallets.length) {
-          await sleep(300)
-        }
-      }
-    }
-
-    console.log(`[Top100] Total found: ${foundMap.size} / ${CURATED_WALLETS.length}`)
-
-    // Build final sorted list
-    const traders = Array.from(foundMap.values())
-      .map((t) => ({
-        rank: '0',
-        proxyWallet: String(t.proxyWallet || ''),
-        userName: String(t.userName || ''),
-        vol: Number(t.vol || 0),
-        pnl: Number(t.pnl || 0),
-        profileImage: String(t.profileImage || ''),
-        xUsername: String(t.xUsername || ''),
-        verifiedBadge: Boolean(t.verifiedBadge || false),
-        numTrades: Number(t.numTrades || 0),
-        marketsTraded: Number(t.marketsTraded || 0),
-      }))
-
-    // Sort by PNL descending and assign rank
-    traders.sort((a, b) => b.pnl - a.pnl)
-    traders.forEach((t, i) => {
-      t.rank = String(i + 1)
     })
+  )
+
+  const foundMap = new Map<string, Record<string, unknown>>()
+  for (const page of bulkResults) {
+    if (!Array.isArray(page)) continue
+    for (const entry of page) {
+      const wallet = String(entry.proxyWallet || '').toLowerCase()
+      if (CURATED_SET.has(wallet) && !foundMap.has(wallet)) {
+        foundMap.set(wallet, entry)
+      }
+    }
+  }
+
+  // Individually fetch missing wallets
+  const missingWallets = CURATED_WALLETS.filter((w) => !foundMap.has(w.toLowerCase()))
+  if (missingWallets.length > 0) {
+    const batchSize = 5
+    for (let i = 0; i < missingWallets.length; i += batchSize) {
+      const batch = missingWallets.slice(i, i + batchSize)
+      const results = await Promise.all(batch.map((w) => fetchTraderWithRetry(w)))
+      for (let j = 0; j < batch.length; j++) {
+        if (results[j]) foundMap.set(batch[j].toLowerCase(), results[j]!)
+      }
+      if (i + batchSize < missingWallets.length) await sleep(300)
+    }
+  }
+
+  const traders = Array.from(foundMap.values())
+    .map((t) => ({
+      rank: '0',
+      proxyWallet: String(t.proxyWallet || ''),
+      userName: String(t.userName || ''),
+      vol: Number(t.vol || 0),
+      pnl: Number(t.pnl || 0),
+      profileImage: String(t.profileImage || ''),
+      xUsername: String(t.xUsername || ''),
+      verifiedBadge: Boolean(t.verifiedBadge || false),
+      numTrades: Number(t.numTrades || 0),
+      marketsTraded: Number(t.marketsTraded || 0),
+    }))
+
+  traders.sort((a, b) => b.pnl - a.pnl)
+  traders.forEach((t, i) => { t.rank = String(i + 1) })
+
+  return traders
+}
+
+// GET: Serve from cache instantly
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const refresh = searchParams.get('refresh')
+
+    const supabase = createAdminClient()
+
+    // If refresh requested (from cron), do a full fetch and update cache
+    if (refresh === 'true') {
+      const authHeader = req.headers.get('authorization')
+      const cronSecret = process.env.CRON_SECRET
+      if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
+      const traders = await fetchFreshTop100()
+      await supabase
+        .from('top100_cache')
+        .update({ data: traders, updated_at: new Date().toISOString() })
+        .eq('id', 1)
+
+      return NextResponse.json(traders, {
+        headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+      })
+    }
+
+    // Serve from cache
+    const { data: cache } = await supabase
+      .from('top100_cache')
+      .select('data, updated_at')
+      .eq('id', 1)
+      .single()
+
+    if (cache && Array.isArray(cache.data) && cache.data.length > 0) {
+      return NextResponse.json(cache.data, {
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+      })
+    }
+
+    // Cache empty -- do a live fetch and populate cache
+    const traders = await fetchFreshTop100()
+    if (traders.length > 0) {
+      await supabase
+        .from('top100_cache')
+        .update({ data: traders, updated_at: new Date().toISOString() })
+        .eq('id', 1)
+    }
 
     return NextResponse.json(traders, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-      },
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     })
   } catch (error) {
     console.error('Top 100 API error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch top 100' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch top 100' }, { status: 500 })
   }
 }
