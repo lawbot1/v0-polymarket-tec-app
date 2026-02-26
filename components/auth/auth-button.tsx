@@ -8,7 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
+  DropdownMenuSeparator, 
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { LogIn, User, Settings, LogOut, LayoutDashboard } from 'lucide-react'
