@@ -48,9 +48,10 @@ function calculateSmartScore(pnl: number, volume: number, numTrades: number, mar
   return Math.round(Math.max(0, Math.min(100, raw)) * 10) / 10
 }
 
-function estimateWinRate(pnl: number, vol: number): number {
-  const ratio = vol > 0 ? pnl / vol : 0
-  return Math.min(85, Math.max(25, 50 + ratio * 200))
+// Calculate ROI (Return on Investment) as PnL / Volume percentage
+function calculateROI(pnl: number, vol: number): number {
+  if (vol <= 0) return 0
+  return (pnl / vol) * 100
 }
 
 function estimateSharpe(pnl: number, vol: number): number {
@@ -105,7 +106,7 @@ function XIcon({ username, className }: { username: string; className?: string }
 // ---- Extended trader type ----
 interface Top100Trader extends LeaderboardTrader {
   smartScore: number
-  winRate: number
+  roi: number
   sharpe: number
   numTrades: number
   marketsTraded: number
@@ -203,10 +204,10 @@ function PodiumCard({
             <div className={cn('font-bold text-[#22c55e]', rank === 1 ? 'text-lg' : 'text-base')}>
               {'PNL: '}{formatPnl(trader.pnl)}
             </div>
-            <div className="text-sm text-muted-foreground">
-              {'Win Rate: '}
-              <span className="text-[#22c55e] font-semibold">{trader.winRate.toFixed(1)}%</span>
-            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {'ROI: '}
+                              <span className={cn('font-semibold', trader.roi >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>{trader.roi >= 0 ? '+' : ''}{trader.roi.toFixed(1)}%</span>
+                            </div>
             <div className="text-sm text-muted-foreground">
               {'Sharpe: '}
               <span className="text-foreground font-semibold">{trader.sharpe.toFixed(2)}</span>
@@ -315,19 +316,19 @@ export default function VantakeTop100Page() {
       const nt = (t as Record<string, unknown>).numTrades as number || 0
       const mt = (t as Record<string, unknown>).marketsTraded as number || 0
       const smartScore = calculateSmartScore(t.pnl, t.vol, nt, mt)
-      const winRate = estimateWinRate(t.pnl, t.vol)
+      const roi = calculateROI(t.pnl, t.vol)
       const sharpe = estimateSharpe(t.pnl, t.vol)
 
       const stats: TraderStats = {
         pnl: t.pnl,
         volume: t.vol,
         smartScore,
-        winRate,
+        winRate: roi > 0 ? Math.min(75, 50 + roi * 2) : Math.max(25, 50 + roi * 2), // estimated for badges only
         rank,
       }
       const categories = getTraderCategories(stats)
 
-      return { ...t, rank: String(rank), smartScore, winRate, sharpe, numTrades: nt, marketsTraded: mt, categories }
+      return { ...t, rank: String(rank), smartScore, roi, sharpe, numTrades: nt, marketsTraded: mt, categories }
     })
   }, [rawTraders])
 
@@ -390,7 +391,7 @@ export default function VantakeTop100Page() {
                       <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground" style={{ minWidth: 400 }}>Trader</th>
                       <th className="px-5 py-3 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-28">Smart Score</th>
                       <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-28">Volume</th>
-                      <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-24">Winrate</th>
+                      <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-24">ROI</th>
                       <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-28">Sharpe Ratio</th>
                       <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-28">PNL</th>
                     </tr>
@@ -448,8 +449,8 @@ export default function VantakeTop100Page() {
                           <td className="px-5 py-4 text-right font-mono text-muted-foreground tabular-nums">
                             {formatVolume(trader.vol)}
                           </td>
-                          <td className="px-5 py-4 text-right text-[#22c55e] font-medium tabular-nums">
-                            {trader.winRate.toFixed(1)}%
+                          <td className={cn('px-5 py-4 text-right font-medium tabular-nums', trader.roi >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>
+                            {trader.roi >= 0 ? '+' : ''}{trader.roi.toFixed(1)}%
                           </td>
                           <td className="px-5 py-4 text-right font-mono text-muted-foreground tabular-nums">
                             {trader.sharpe.toFixed(2)}
