@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendTelegramMessage, answerCallbackQuery } from '@/lib/telegram'
+import { sendTelegramMessage, sendTelegramPhoto, answerCallbackQuery } from '@/lib/telegram'
+
+const WELCOME_IMAGE_URL = 'https://app.vantake.trade/telegram-welcome.png'
 
 // Helper: find user by telegram chat_id
 async function findUserByChatId(chatId: string) {
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     // /start or /help
     if (text === '/start' || text === '/help') {
-      await sendTelegramMessage(chatId, [
+      const welcomeCaption = [
         `<b>Welcome to Vantake Notifications Bot!</b>`,
         ``,
         `Get real-time alerts when traders you track make new bets on Polymarket.`,
@@ -78,7 +80,10 @@ export async function POST(req: NextRequest) {
         `/status - Check your account status`,
         `/unlink - Unlink your Telegram`,
         `/help - Show all commands`,
-      ].join('\n'))
+      ].join('\n')
+      
+      // Send photo with welcome message as caption
+      await sendTelegramPhoto(chatId, WELCOME_IMAGE_URL, welcomeCaption, 'HTML')
       return NextResponse.json({ ok: true })
     }
 

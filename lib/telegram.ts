@@ -63,6 +63,37 @@ export function createTradeInlineKeyboard(slug?: string): InlineKeyboardMarkup |
   }
 }
 
+// Send a photo with caption to a specific chat
+export async function sendTelegramPhoto(
+  chatId: string,
+  photoUrl: string,
+  caption?: string,
+  parseMode: 'HTML' | 'Markdown' = 'HTML'
+) {
+  const token = getToken()
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    photo: photoUrl,
+  }
+  
+  if (caption) {
+    body.caption = caption
+    body.parse_mode = parseMode
+  }
+  
+  const res = await fetch(`${TELEGRAM_API}${token}/sendPhoto`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    console.error('[Telegram] sendPhoto failed:', err)
+    return false
+  }
+  return true
+}
+
 // Answer callback query (for inline button clicks)
 export async function answerCallbackQuery(callbackQueryId: string, text?: string, showAlert = false) {
   const token = getToken()
@@ -115,12 +146,21 @@ export function formatTradeNotification(trade: {
   
   // Emojis based on action and outcome
   const isBuy = trade.side?.toUpperCase() === 'BUY'
-  const isYes = trade.outcome?.toLowerCase() === 'yes'
+  const outcomeLower = trade.outcome?.toLowerCase() || ''
   
   // Header emoji: chart up for buy, chart down for sell
   const actionEmoji = isBuy ? '📈' : '📉'
-  // Outcome emoji
-  const outcomeEmoji = isYes ? '✅' : '❌'
+  
+  // Outcome emoji logic:
+  // - YES/UP = green checkmark
+  // - NO/DOWN = red cross
+  // - Other specific outcomes (teams, names, etc.) = target/bullseye
+  const getOutcomeEmoji = () => {
+    if (outcomeLower === 'yes' || outcomeLower === 'up') return '✅'
+    if (outcomeLower === 'no' || outcomeLower === 'down') return '❌'
+    return '🎯' // For specific outcomes like team names, candidates, etc.
+  }
+  const outcomeEmoji = getOutcomeEmoji()
   // Money emoji based on value
   const valueEmoji = parseFloat(value) >= 1000 ? '💰' : parseFloat(value) >= 100 ? '💵' : '💲'
   
