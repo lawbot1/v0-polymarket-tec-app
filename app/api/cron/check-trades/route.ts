@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendTelegramMessage, formatTradeNotification } from '@/lib/telegram'
+import { sendTelegramMessage, formatTradeNotification, createTradeInlineKeyboard } from '@/lib/telegram'
 
 const DATA_API_BASE = 'https://data-api.polymarket.com'
 
@@ -142,7 +142,10 @@ export async function GET(req: NextRequest) {
                 slug: trade.slug,
               })
 
-              const success = await sendTelegramMessage(settings.telegram_chat_id, message)
+              // Create inline keyboard with Copytrade buttons
+              const inlineKeyboard = createTradeInlineKeyboard(trade.slug)
+
+              const success = await sendTelegramMessage(settings.telegram_chat_id, message, 'HTML', inlineKeyboard)
               if (success) sent++
               else errors++
             }

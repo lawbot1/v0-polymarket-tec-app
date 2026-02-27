@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendTelegramMessage } from '@/lib/telegram'
+import { sendTelegramMessage, answerCallbackQuery } from '@/lib/telegram'
 
 // Helper: find user by telegram chat_id
 async function findUserByChatId(chatId: string) {
@@ -39,6 +39,20 @@ function formatTraderList(traders: { trader_name: string; trader_address: string
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
+    
+    // Handle callback queries (inline button clicks)
+    if (body?.callback_query) {
+      const callbackQuery = body.callback_query
+      const callbackData = callbackQuery.data
+      
+      // Handle "Copytrade AI (Soon)" button
+      if (callbackData === 'copytrade_ai_soon') {
+        await answerCallbackQuery(callbackQuery.id, 'Copytrade AI is coming soon! Stay tuned.')
+      }
+      
+      return NextResponse.json({ ok: true })
+    }
+    
     const message = body?.message
     if (!message?.text || !message?.chat?.id) {
       return NextResponse.json({ ok: true })

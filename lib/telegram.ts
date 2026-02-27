@@ -6,18 +6,40 @@ function getToken(): string {
   return token
 }
 
-// Send a message to a specific chat
-export async function sendTelegramMessage(chatId: string, text: string, parseMode: 'HTML' | 'Markdown' = 'HTML') {
+// Inline keyboard button types
+type InlineKeyboardButton = {
+  text: string
+  url?: string
+  callback_data?: string
+}
+
+type InlineKeyboardMarkup = {
+  inline_keyboard: InlineKeyboardButton[][]
+}
+
+// Send a message to a specific chat with optional inline keyboard
+export async function sendTelegramMessage(
+  chatId: string, 
+  text: string, 
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  replyMarkup?: InlineKeyboardMarkup
+) {
   const token = getToken()
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    text,
+    parse_mode: parseMode,
+    disable_web_page_preview: true,
+  }
+  
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup
+  }
+  
   const res = await fetch(`${TELEGRAM_API}${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: parseMode,
-      disable_web_page_preview: true,
-    }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const err = await res.text()
@@ -25,6 +47,35 @@ export async function sendTelegramMessage(chatId: string, text: string, parseMod
     return false
   }
   return true
+}
+
+// Create inline keyboard for trade notifications
+export function createTradeInlineKeyboard(slug?: string): InlineKeyboardMarkup | undefined {
+  if (!slug) return undefined
+  
+  return {
+    inline_keyboard: [
+      [
+        { text: '📊 Copytrade', url: `https://polymarket.com/event/${slug}` },
+        { text: '🤖 Copytrade AI (Soon)', callback_data: 'copytrade_ai_soon' },
+      ]
+    ]
+  }
+}
+
+// Answer callback query (for inline button clicks)
+export async function answerCallbackQuery(callbackQueryId: string, text?: string, showAlert = false) {
+  const token = getToken()
+  const res = await fetch(`${TELEGRAM_API}${token}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      callback_query_id: callbackQueryId,
+      text,
+      show_alert: showAlert,
+    }),
+  })
+  return res.ok
 }
 
 // Set webhook URL for the bot
