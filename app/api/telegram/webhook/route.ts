@@ -629,8 +629,31 @@ export async function POST(req: NextRequest) {
             [{ text: `Copy Size: ${valueText}`, callback_data: `ct_value_${walletAddress}` }],
             [{ text: `Max: $${sub?.max_per_trade || 50}`, callback_data: `ct_max_${walletAddress}` }],
             [{ text: `Min: $${sub?.min_trade_size || 1}`, callback_data: `ct_min_${walletAddress}` }],
+            [{ text: 'AI Mode', callback_data: `ct_aimode_${walletAddress}` }],
             [{ text: 'Back', callback_data: `ct_view_${walletAddress}` }]
           ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - AI Mode (coming soon)
+      if (callbackData.startsWith('ct_aimode_')) {
+        const walletAddress = callbackData.replace('ct_aimode_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, [
+          `<b>AI Mode</b>`,
+          ``,
+          `<i>Coming soon!</i>`,
+          ``,
+          `AI will analyze trades and automatically`,
+          `decide which ones to copy based on:`,
+          ``,
+          `- Market conditions`,
+          `- Trader's historical performance`,
+          `- Risk assessment`,
+          `- Portfolio diversification`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: 'Back to Settings', callback_data: `ct_settings_${walletAddress}` }]]
         })
         return NextResponse.json({ ok: true })
       }
@@ -663,6 +686,7 @@ export async function POST(req: NextRequest) {
             [{ text: `Copy Size: ${valueText}`, callback_data: `ct_value_${walletAddress}` }],
             [{ text: `Max: $${newSub?.max_per_trade || 50}`, callback_data: `ct_max_${walletAddress}` }],
             [{ text: `Min: $${newSub?.min_trade_size || 1}`, callback_data: `ct_min_${walletAddress}` }],
+            [{ text: 'AI Mode', callback_data: `ct_aimode_${walletAddress}` }],
             [{ text: 'Back', callback_data: `ct_view_${walletAddress}` }]
           ]
         })
