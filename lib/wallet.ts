@@ -76,3 +76,55 @@ export async function getPOLBalance(address: string): Promise<string> {
     return '0.000000'
   }
 }
+
+// Position type from Polymarket
+export interface PolymarketPosition {
+  market: string
+  outcome: string
+  size: number
+  avgPrice: number
+  currentPrice: number
+  pnl: number
+}
+
+// Get Polymarket positions for a wallet
+export async function getPolymarketPositions(address: string): Promise<PolymarketPosition[]> {
+  try {
+    // Fetch from Polymarket API
+    const res = await fetch(`https://clob.polymarket.com/positions?user=${address.toLowerCase()}`, {
+      headers: { 'Accept': 'application/json' },
+    })
+    
+    if (!res.ok) {
+      console.error('Polymarket API error:', res.status)
+      return []
+    }
+    
+    const data = await res.json()
+    
+    if (!Array.isArray(data) || data.length === 0) {
+      return []
+    }
+    
+    // Transform positions to our format
+    const positions: PolymarketPosition[] = []
+    
+    for (const pos of data) {
+      if (pos.size && parseFloat(pos.size) > 0) {
+        positions.push({
+          market: pos.market?.question || pos.asset?.name || 'Unknown Market',
+          outcome: pos.outcome || pos.side || 'Yes',
+          size: parseFloat(pos.size) || 0,
+          avgPrice: parseFloat(pos.avgPrice) || 0,
+          currentPrice: parseFloat(pos.price) || 0,
+          pnl: parseFloat(pos.realizedPnl) || 0,
+        })
+      }
+    }
+    
+    return positions.slice(0, 10) // Limit to 10 positions
+  } catch (error) {
+    console.error('Error fetching Polymarket positions:', error)
+    return []
+  }
+}

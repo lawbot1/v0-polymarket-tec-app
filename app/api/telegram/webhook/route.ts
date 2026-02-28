@@ -13,7 +13,8 @@ import {
   encryptPrivateKey, 
   formatWalletAddress,
   getUSDCBalance,
-  getPOLBalance 
+  getPOLBalance,
+  getPolymarketPositions 
 } from '@/lib/wallet'
 
 const WELCOME_IMAGE_URL = 'https://app.vantake.trade/telegram-welcome.png'
@@ -253,20 +254,29 @@ export async function POST(req: NextRequest) {
       if (callbackData === 'menu_profile') {
         await answerCallbackQuery(callbackQuery.id)
         const profile = await findUserByChatId(chatId)
-        const profileText = profile ? [
-          `<b>👤 Profile</b>`,
-          ``,
-          `Name: <b>${profile.display_name || 'Vantake User'}</b>`,
-          `Status: <b>Connected</b>`,
-          ``,
-          `Manage your profile at ${APP_URL}`,
-        ].join('\n') : [
-          `<b>👤 Profile</b>`,
-          ``,
-          `Not connected to Vantake account.`,
-          `Use /link YOUR_CODE to connect.`,
-        ].join('\n')
-        await sendTelegramMessage(chatId, profileText, 'HTML', {
+        const wallet = await getWalletByChatId(chatId)
+        
+        const profileLines = [`<b>👤 Profile</b>`, ``]
+        
+        if (profile) {
+          profileLines.push(`Name: <b>${profile.display_name || 'Vantake User'}</b>`)
+          profileLines.push(`Status: <b>Connected</b>`)
+        } else {
+          profileLines.push(`Status: <b>Not connected</b>`)
+          profileLines.push(`Use /link YOUR_CODE to connect.`)
+        }
+        
+        profileLines.push(``)
+        
+        if (wallet) {
+          profileLines.push(`<b>👛 Wallet:</b>`)
+          profileLines.push(`<code>${wallet.wallet_address}</code>`)
+        } else {
+          profileLines.push(`<b>👛 Wallet:</b> Not created`)
+          profileLines.push(`Go to Wallet to create one.`)
+        }
+        
+        await sendTelegramMessage(chatId, profileLines.join('\n'), 'HTML', {
           inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
         })
         return NextResponse.json({ ok: true })
@@ -277,19 +287,42 @@ export async function POST(req: NextRequest) {
       if (callbackData === 'menu_positions') {
         await answerCallbackQuery(callbackQuery.id)
         const wallet = await getWalletByChatId(chatId)
-        const posText = wallet ? [
-          `<b>📈 Positions</b>`,
-          ``,
-          `<i>No active positions.</i>`,
-          ``,
-          `Start trading to see your positions here.`,
-        ].join('\n') : [
-          `<b>📈 Positions</b>`,
-          ``,
-          `Create a wallet first to trade.`,
-        ].join('\n')
-        await sendTelegramMessage(chatId, posText, 'HTML', {
-          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
+        
+        if (!wallet) {
+          await sendTelegramMessage(chatId, [
+            `<b>📈 Positions</b>`,
+            ``,
+            `Create a wallet first to trade.`,
+          ].join('\n'), 'HTML', {
+            inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        // Fetch real positions from Polymarket
+        const positions = await getPolymarketPositions(wallet.wallet_address)
+        
+        const posLines = [`<b>📈 Positions</b>`, ``, `Wallet: <code>${formatWalletAddress(wallet.wallet_address)}</code>`, ``]
+        
+        if (positions.length === 0) {
+          posLines.push(`<i>No active positions.</i>`)
+          posLines.push(``)
+          posLines.push(`Start trading to see your positions here.`)
+        } else {
+          for (const pos of positions) {
+            const pnlSign = pos.pnl >= 0 ? '+' : ''
+            const marketName = pos.market.length > 40 ? pos.market.slice(0, 37) + '...' : pos.market
+            posLines.push(`<b>${marketName}</b>`)
+            posLines.push(`${pos.outcome} | Size: $${pos.size.toFixed(2)} | PnL: ${pnlSign}$${pos.pnl.toFixed(2)}`)
+            posLines.push(``)
+          }
+        }
+        
+        await sendTelegramMessage(chatId, posLines.join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: '🔄 Refresh', callback_data: 'menu_positions' }],
+            [{ text: '⬅️ Back', callback_data: 'menu_main' }]
+          ]
         })
         return NextResponse.json({ ok: true })
       }

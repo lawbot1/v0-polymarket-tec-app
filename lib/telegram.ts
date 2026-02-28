@@ -213,15 +213,15 @@ export function getMainMenuKeyboard(): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [
-        { text: 'Wallet', callback_data: 'menu_wallet' },
-        { text: 'Profile', callback_data: 'menu_profile' },
+        { text: '👛 Wallet', callback_data: 'menu_wallet' },
+        { text: '👤 Profile', callback_data: 'menu_profile' },
       ],
       [
-        { text: 'Positions', callback_data: 'menu_positions' },
-        { text: 'Copy Trade', callback_data: 'menu_copytrade' },
+        { text: '📈 Positions', callback_data: 'menu_positions' },
+        { text: '🤖 Copy Trade', callback_data: 'menu_copytrade' },
       ],
       [
-        { text: 'Referral', callback_data: 'menu_referral' },
+        { text: '🎁 Referral', callback_data: 'menu_referral' },
       ],
     ]
   }
