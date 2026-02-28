@@ -106,15 +106,20 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
       
-      // Main menu
+      // Main menu (same as /start)
       if (callbackData === 'menu_main') {
         await answerCallbackQuery(callbackQuery.id)
         const welcomeText = [
-          `<b>Vantake Bot</b>`,
+          `<b>Welcome to Vantake Notifications Bot!</b>`,
           ``,
-          `Your gateway to Polymarket trading.`,
+          `Get real-time alerts when traders you track make new bets on Polymarket.`,
           ``,
-          `We on X.com / ${APP_URL}`,
+          `<b>How to get started:</b>`,
+          `1. Go to app.vantake.trade/settings`,
+          `2. Copy your linking code`,
+          `3. Send it here: /link YOUR_CODE`,
+          ``,
+          `We on <a href="${TWITTER_URL}">X.com</a> / <a href="${APP_URL}">app.vantake.trade</a>`,
         ].join('\n')
         await sendTelegramMessage(chatId, welcomeText, 'HTML', getMainMenuKeyboard())
         return NextResponse.json({ ok: true })
