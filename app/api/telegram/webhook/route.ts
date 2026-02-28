@@ -126,12 +126,7 @@ export async function POST(req: NextRequest) {
         const wallet = await getWalletByChatId(chatId)
         
         if (!wallet) {
-          const noWalletText = [
-            `<b>👛 Wallet</b>`,
-            ``,
-            `You don't have a wallet yet.`,
-            `Create one to start trading on Polymarket.`,
-          ].join('\n')
+          const noWalletText = `You do not have a wallet linked`
           await editTelegramMessage(chatId, messageId, noWalletText, 'HTML', getWalletMenuKeyboard(false))
         } else {
           const [usdcBalance, polBalance] = await Promise.all([
@@ -182,6 +177,12 @@ export async function POST(req: NextRequest) {
         ].join('\n')
         
         await editTelegramMessage(chatId, messageId, createdText, 'HTML', getWalletMenuKeyboard(true))
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Wallet import (coming soon)
+      if (callbackData === 'wallet_import') {
+        await answerCallbackQuery(callbackQuery.id, 'Import feature coming soon!', true)
         return NextResponse.json({ ok: true })
       }
       
@@ -387,22 +388,20 @@ export async function POST(req: NextRequest) {
 
     // /start
     if (text === '/start') {
-      // Send welcome photo first
       const welcomeCaption = [
-        `<b>Welcome to Vantake Bot!</b>`,
+        `<b>Welcome to Vantake Notifications Bot!</b>`,
         ``,
-        `Your gateway to Polymarket trading.`,
-        `Get real-time alerts, create wallets, and copy top traders.`,
-      ].join('\n')
-      
-      await sendTelegramPhoto(chatId, WELCOME_IMAGE_URL, welcomeCaption, 'HTML')
-      
-      // Then send menu
-      const menuText = [
+        `Get real-time alerts when traders you track make new bets on Polymarket.`,
+        ``,
+        `<b>How to get started:</b>`,
+        `1. Go to app.vantake.trade/settings`,
+        `2. Copy your linking code`,
+        `3. Send it here: /link YOUR_CODE`,
+        ``,
         `We on <a href="${TWITTER_URL}">X.com</a> / <a href="${APP_URL}">app.vantake.trade</a>`,
       ].join('\n')
       
-      await sendTelegramMessage(chatId, menuText, 'HTML', getMainMenuKeyboard())
+      await sendTelegramPhoto(chatId, WELCOME_IMAGE_URL, welcomeCaption, 'HTML', getMainMenuKeyboard())
       return NextResponse.json({ ok: true })
     }
     

@@ -63,12 +63,13 @@ export function createTradeInlineKeyboard(slug?: string): InlineKeyboardMarkup |
   }
 }
 
-// Send a photo with caption to a specific chat
+// Send a photo with caption and optional inline keyboard
 export async function sendTelegramPhoto(
   chatId: string,
   photoUrl: string,
   caption?: string,
-  parseMode: 'HTML' | 'Markdown' = 'HTML'
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  replyMarkup?: InlineKeyboardMarkup
 ) {
   const token = getToken()
   const body: Record<string, unknown> = {
@@ -79,6 +80,10 @@ export async function sendTelegramPhoto(
   if (caption) {
     body.caption = caption
     body.parse_mode = parseMode
+  }
+  
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup
   }
   
   const res = await fetch(`${TELEGRAM_API}${token}/sendPhoto`, {
@@ -235,10 +240,13 @@ export function getWalletMenuKeyboard(hasWallet: boolean): InlineKeyboardMarkup 
     return {
       inline_keyboard: [
         [
-          { text: '➕ Create Wallet', callback_data: 'wallet_create' },
+          { text: '+ Create a wallet', callback_data: 'wallet_create' },
         ],
         [
-          { text: '⬅️ Back', callback_data: 'menu_main' },
+          { text: 'Import', callback_data: 'wallet_import' },
+        ],
+        [
+          { text: 'Back', callback_data: 'menu_main' },
         ],
       ]
     }
