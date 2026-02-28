@@ -100,6 +100,8 @@ export async function POST(req: NextRequest) {
       const chatId = String(callbackQuery.message?.chat?.id)
       const messageId = callbackQuery.message?.message_id
       
+      console.log('[v0] Callback query received:', callbackData, 'from chat:', chatId)
+      
       // Handle "Copytrade AI (Soon)" button
       if (callbackData === 'copytrade_ai_soon') {
         await answerCallbackQuery(callbackQuery.id, 'Copytrade AI is coming soon! Stay tuned.')
