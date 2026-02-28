@@ -100,8 +100,6 @@ export async function POST(req: NextRequest) {
       const chatId = String(callbackQuery.message?.chat?.id)
       const messageId = callbackQuery.message?.message_id
       
-      console.log('[v0] Callback query received:', callbackData, 'from chat:', chatId)
-      
       // Handle "Copytrade AI (Soon)" button
       if (callbackData === 'copytrade_ai_soon') {
         await answerCallbackQuery(callbackQuery.id, 'Copytrade AI is coming soon! Stay tuned.')
@@ -274,23 +272,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
       
-      // Markets
-      if (callbackData === 'menu_markets') {
-        await answerCallbackQuery(callbackQuery.id)
-        await sendTelegramMessage(chatId, [
-          `<b>📊 Markets</b>`,
-          ``,
-          `Browse markets at:`,
-          `${APP_URL}/markets`,
-        ].join('\n'), 'HTML', {
-          inline_keyboard: [
-            [{ text: '🔗 Open Markets', url: `${APP_URL}/markets` }],
-            [{ text: '⬅️ Back', callback_data: 'menu_main' }]
-          ]
-        })
-        return NextResponse.json({ ok: true })
-      }
-      
+
       // Positions
       if (callbackData === 'menu_positions') {
         await answerCallbackQuery(callbackQuery.id)
@@ -327,23 +309,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
       
-      // Whales
-      if (callbackData === 'menu_whales') {
-        await answerCallbackQuery(callbackQuery.id)
-        await sendTelegramMessage(chatId, [
-          `<b>🐋 Whales</b>`,
-          ``,
-          `Track whale movements at:`,
-          `${APP_URL}/insider-signals`,
-        ].join('\n'), 'HTML', {
-          inline_keyboard: [
-            [{ text: '🔗 View Signals', url: `${APP_URL}/insider-signals` }],
-            [{ text: '⬅️ Back', callback_data: 'menu_main' }]
-          ]
-        })
-        return NextResponse.json({ ok: true })
-      }
-      
+
       // Referral
       if (callbackData === 'menu_referral') {
         await answerCallbackQuery(callbackQuery.id)
@@ -359,30 +325,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
       
-      // Help
-      if (callbackData === 'menu_help') {
-        await answerCallbackQuery(callbackQuery.id)
-        await sendTelegramMessage(chatId, [
-          `<b>Help</b>`,
-          ``,
-          `<b>Commands:</b>`,
-          `/start - Show main menu`,
-          `/link <code> - Link Vantake account`,
-          `/status - Check account status`,
-          `/unlink - Disconnect Telegram`,
-          ``,
-          `<b>Found a bug or something not working?</b>`,
-          `Contact us:`,
-        ].join('\n'), 'HTML', {
-          inline_keyboard: [
-            [{ text: 'Telegram DM', url: 'https://t.me/Eth_ancarter' }],
-            [{ text: 'X (Twitter)', url: TWITTER_URL }],
-            [{ text: 'Back', callback_data: 'menu_main' }]
-          ]
-        })
-        return NextResponse.json({ ok: true })
-      }
-      
+
       return NextResponse.json({ ok: true })
     }
     

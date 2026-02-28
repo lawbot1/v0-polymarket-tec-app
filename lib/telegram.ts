@@ -213,29 +213,22 @@ export function getMainMenuKeyboard(): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [
-        { text: '👛 Wallet', callback_data: 'menu_wallet' },
-        { text: '👤 Profile', callback_data: 'menu_profile' },
+        { text: 'Wallet', callback_data: 'menu_wallet' },
+        { text: 'Profile', callback_data: 'menu_profile' },
       ],
       [
-        { text: '📊 Markets', callback_data: 'menu_markets' },
-        { text: '📈 Positions', callback_data: 'menu_positions' },
+        { text: 'Positions', callback_data: 'menu_positions' },
+        { text: 'Copy Trade', callback_data: 'menu_copytrade' },
       ],
       [
-        { text: '🤖 Copy Trade', callback_data: 'menu_copytrade' },
-        { text: '🐋 Whales', callback_data: 'menu_whales' },
-      ],
-      [
-        { text: '🎁 Referral', callback_data: 'menu_referral' },
-      ],
-      [
-        { text: '❓ Help', callback_data: 'menu_help' },
+        { text: 'Referral', callback_data: 'menu_referral' },
       ],
     ]
   }
 }
 
-// Wallet menu keyboard
-export function getWalletMenuKeyboard(hasWallet: boolean): InlineKeyboardMarkup {
+// Wallet menu keyboard - backTo parameter for navigation history
+export function getWalletMenuKeyboard(hasWallet: boolean, backTo: string = 'menu_main'): InlineKeyboardMarkup {
   if (!hasWallet) {
     return {
       inline_keyboard: [
@@ -246,7 +239,7 @@ export function getWalletMenuKeyboard(hasWallet: boolean): InlineKeyboardMarkup 
           { text: 'Import', callback_data: 'wallet_import' },
         ],
         [
-          { text: 'Back', callback_data: 'menu_main' },
+          { text: 'Back', callback_data: backTo },
         ],
       ]
     }
