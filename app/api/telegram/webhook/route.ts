@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendTelegramMessage, sendTelegramPhoto, answerCallbackQuery } from '@/lib/telegram'
+import { 
+  sendTelegramMessage, 
+  sendTelegramPhoto, 
+  answerCallbackQuery, 
+  getMainMenuKeyboard,
+  getWalletMenuKeyboard,
+  editTelegramMessage 
+} from '@/lib/telegram'
+import { 
+  generateWallet, 
+  encryptPrivateKey, 
+  formatWalletAddress,
+  getUSDCBalance,
+  getPOLBalance 
+} from '@/lib/wallet'
 
 const WELCOME_IMAGE_URL = 'https://app.vantake.trade/telegram-welcome.png'
+const APP_URL = 'https://app.vantake.trade'
+const TWITTER_URL = 'https://x.com/VantakeTrade'
 
 // Helper: find user by telegram chat_id
 async function findUserByChatId(chatId: string) {
@@ -38,6 +54,41 @@ function formatTraderList(traders: { trader_name: string; trader_address: string
     .join('\n')
 }
 
+// Helper: get or create wallet for telegram user
+async function getWalletByChatId(chatId: string) {
+  const supabase = createAdminClient()
+  const { data: wallet } = await supabase
+    .from('telegram_wallets')
+    .select('*')
+    .eq('telegram_chat_id', chatId)
+    .single()
+  return wallet
+}
+
+// Helper: create new wallet for telegram user
+async function createWalletForChat(chatId: string) {
+  const supabase = createAdminClient()
+  const { address, privateKey } = generateWallet()
+  const encryptedKey = encryptPrivateKey(privateKey)
+  
+  const { data: wallet, error } = await supabase
+    .from('telegram_wallets')
+    .insert({
+      telegram_chat_id: chatId,
+      wallet_address: address,
+      encrypted_private_key: encryptedKey,
+    })
+    .select()
+    .single()
+  
+  if (error) {
+    console.error('Error creating wallet:', error)
+    return null
+  }
+  
+  return { ...wallet, privateKey } // Return unencrypted key only on creation
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -46,10 +97,281 @@ export async function POST(req: NextRequest) {
     if (body?.callback_query) {
       const callbackQuery = body.callback_query
       const callbackData = callbackQuery.data
+      const chatId = String(callbackQuery.message?.chat?.id)
+      const messageId = callbackQuery.message?.message_id
       
       // Handle "Copytrade AI (Soon)" button
       if (callbackData === 'copytrade_ai_soon') {
         await answerCallbackQuery(callbackQuery.id, 'Copytrade AI is coming soon! Stay tuned.')
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Main menu
+      if (callbackData === 'menu_main') {
+        await answerCallbackQuery(callbackQuery.id)
+        const welcomeText = [
+          `<b>Vantake Bot</b>`,
+          ``,
+          `Your gateway to Polymarket trading.`,
+          ``,
+          `We on X.com / ${APP_URL}`,
+        ].join('\n')
+        await editTelegramMessage(chatId, messageId, welcomeText, 'HTML', getMainMenuKeyboard())
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Wallet menu
+      if (callbackData === 'menu_wallet') {
+        await answerCallbackQuery(callbackQuery.id)
+        const wallet = await getWalletByChatId(chatId)
+        
+        if (!wallet) {
+          const noWalletText = [
+            `<b>👛 Wallet</b>`,
+            ``,
+            `You don't have a wallet yet.`,
+            `Create one to start trading on Polymarket.`,
+          ].join('\n')
+          await editTelegramMessage(chatId, messageId, noWalletText, 'HTML', getWalletMenuKeyboard(false))
+        } else {
+          const [usdcBalance, polBalance] = await Promise.all([
+            getUSDCBalance(wallet.wallet_address),
+            getPOLBalance(wallet.wallet_address),
+          ])
+          
+          const walletText = [
+            `<b>🟢 Your wallet</b> <code>${formatWalletAddress(wallet.wallet_address)}</code>`,
+            ``,
+            `💵 USDC: <b>$${usdcBalance}</b>`,
+            `💎 Polygon: <b>${parseFloat(polBalance).toFixed(6)} POL</b>`,
+            ``,
+            `<b>⚙️ Your Polymarket active</b>`,
+            ``,
+            `<i>No active bids.</i>`,
+          ].join('\n')
+          await editTelegramMessage(chatId, messageId, walletText, 'HTML', getWalletMenuKeyboard(true))
+        }
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Create wallet
+      if (callbackData === 'wallet_create') {
+        await answerCallbackQuery(callbackQuery.id, 'Creating your wallet...')
+        
+        const existingWallet = await getWalletByChatId(chatId)
+        if (existingWallet) {
+          await sendTelegramMessage(chatId, 'You already have a wallet!')
+          return NextResponse.json({ ok: true })
+        }
+        
+        const newWallet = await createWalletForChat(chatId)
+        if (!newWallet) {
+          await sendTelegramMessage(chatId, 'Failed to create wallet. Please try again.')
+          return NextResponse.json({ ok: true })
+        }
+        
+        const createdText = [
+          `<b>✅ Wallet created</b>`,
+          ``,
+          `<b>Address:</b> <code>${newWallet.wallet_address}</code>`,
+          ``,
+          `<b>⚠️ SAVE YOUR PRIVATE KEY</b>`,
+          `<code>${newWallet.privateKey}</code>`,
+          ``,
+          `<i>This is the only time your private key will be shown. Save it securely!</i>`,
+        ].join('\n')
+        
+        await editTelegramMessage(chatId, messageId, createdText, 'HTML', getWalletMenuKeyboard(true))
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Wallet deposit
+      if (callbackData === 'wallet_deposit') {
+        const wallet = await getWalletByChatId(chatId)
+        if (!wallet) {
+          await answerCallbackQuery(callbackQuery.id, 'No wallet found')
+          return NextResponse.json({ ok: true })
+        }
+        
+        await answerCallbackQuery(callbackQuery.id)
+        const depositText = [
+          `<b>➕ Deposit</b>`,
+          ``,
+          `Send USDC (Polygon) to:`,
+          `<code>${wallet.wallet_address}</code>`,
+          ``,
+          `<i>Only send USDC on Polygon network!</i>`,
+        ].join('\n')
+        await editTelegramMessage(chatId, messageId, depositText, 'HTML', getWalletMenuKeyboard(true))
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Wallet refresh
+      if (callbackData === 'wallet_refresh') {
+        await answerCallbackQuery(callbackQuery.id, 'Refreshing...')
+        const wallet = await getWalletByChatId(chatId)
+        if (wallet) {
+          const [usdcBalance, polBalance] = await Promise.all([
+            getUSDCBalance(wallet.wallet_address),
+            getPOLBalance(wallet.wallet_address),
+          ])
+          
+          const walletText = [
+            `<b>🟢 Your wallet</b> <code>${formatWalletAddress(wallet.wallet_address)}</code>`,
+            ``,
+            `💵 USDC: <b>$${usdcBalance}</b>`,
+            `💎 Polygon: <b>${parseFloat(polBalance).toFixed(6)} POL</b>`,
+            ``,
+            `<b>⚙️ Your Polymarket active</b>`,
+            ``,
+            `<i>No active bids.</i>`,
+          ].join('\n')
+          await editTelegramMessage(chatId, messageId, walletText, 'HTML', getWalletMenuKeyboard(true))
+        }
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Wallet export (show private key warning)
+      if (callbackData === 'wallet_export') {
+        await answerCallbackQuery(callbackQuery.id, 'Export is disabled for security. Save your key when creating wallet.', true)
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Wallet withdraw (coming soon)
+      if (callbackData === 'wallet_withdraw') {
+        await answerCallbackQuery(callbackQuery.id, 'Withdraw feature coming soon!', true)
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Profile
+      if (callbackData === 'menu_profile') {
+        await answerCallbackQuery(callbackQuery.id)
+        const profile = await findUserByChatId(chatId)
+        const profileText = profile ? [
+          `<b>👤 Profile</b>`,
+          ``,
+          `Name: <b>${profile.display_name || 'Vantake User'}</b>`,
+          `Status: <b>Connected</b>`,
+          ``,
+          `Manage your profile at ${APP_URL}`,
+        ].join('\n') : [
+          `<b>👤 Profile</b>`,
+          ``,
+          `Not connected to Vantake account.`,
+          `Use /link YOUR_CODE to connect.`,
+        ].join('\n')
+        await editTelegramMessage(chatId, messageId, profileText, 'HTML', {
+          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Markets
+      if (callbackData === 'menu_markets') {
+        await answerCallbackQuery(callbackQuery.id)
+        await editTelegramMessage(chatId, messageId, [
+          `<b>📊 Markets</b>`,
+          ``,
+          `Browse markets at:`,
+          `${APP_URL}/markets`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: '🔗 Open Markets', url: `${APP_URL}/markets` }],
+            [{ text: '⬅️ Back', callback_data: 'menu_main' }]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Positions
+      if (callbackData === 'menu_positions') {
+        await answerCallbackQuery(callbackQuery.id)
+        const wallet = await getWalletByChatId(chatId)
+        const posText = wallet ? [
+          `<b>📈 Positions</b>`,
+          ``,
+          `<i>No active positions.</i>`,
+          ``,
+          `Start trading to see your positions here.`,
+        ].join('\n') : [
+          `<b>📈 Positions</b>`,
+          ``,
+          `Create a wallet first to trade.`,
+        ].join('\n')
+        await editTelegramMessage(chatId, messageId, posText, 'HTML', {
+          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade
+      if (callbackData === 'menu_copytrade') {
+        await answerCallbackQuery(callbackQuery.id)
+        await editTelegramMessage(chatId, messageId, [
+          `<b>🤖 Copy Trade</b>`,
+          ``,
+          `<i>Coming soon!</i>`,
+          ``,
+          `Automatically copy trades from top traders.`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Whales
+      if (callbackData === 'menu_whales') {
+        await answerCallbackQuery(callbackQuery.id)
+        await editTelegramMessage(chatId, messageId, [
+          `<b>🐋 Whales</b>`,
+          ``,
+          `Track whale movements at:`,
+          `${APP_URL}/insider-signals`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: '🔗 View Signals', url: `${APP_URL}/insider-signals` }],
+            [{ text: '⬅️ Back', callback_data: 'menu_main' }]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Referral
+      if (callbackData === 'menu_referral') {
+        await answerCallbackQuery(callbackQuery.id)
+        await editTelegramMessage(chatId, messageId, [
+          `<b>🎁 Referral</b>`,
+          ``,
+          `<i>Coming soon!</i>`,
+          ``,
+          `Invite friends and earn rewards.`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Help
+      if (callbackData === 'menu_help') {
+        await answerCallbackQuery(callbackQuery.id)
+        await editTelegramMessage(chatId, messageId, [
+          `<b>❓ Help</b>`,
+          ``,
+          `<b>Commands:</b>`,
+          `/start - Show main menu`,
+          `/link <code> - Link Vantake account`,
+          `/status - Check account status`,
+          `/unlink - Disconnect Telegram`,
+          ``,
+          `Need help? Contact us:`,
+          `Twitter: ${TWITTER_URL}`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: '🐦 Twitter', url: TWITTER_URL }],
+            [{ text: '⬅️ Back', callback_data: 'menu_main' }]
+          ]
+        })
+        return NextResponse.json({ ok: true })
       }
       
       return NextResponse.json({ ok: true })
@@ -63,27 +385,46 @@ export async function POST(req: NextRequest) {
     const chatId = String(message.chat.id)
     const text = message.text.trim()
 
-    // /start or /help
-    if (text === '/start' || text === '/help') {
+    // /start
+    if (text === '/start') {
+      // Send welcome photo first
       const welcomeCaption = [
-        `<b>Welcome to Vantake Notifications Bot!</b>`,
+        `<b>Welcome to Vantake Bot!</b>`,
         ``,
-        `Get real-time alerts when traders you track make new bets on Polymarket.`,
-        ``,
-        `<b>How to get started:</b>`,
-        `1. Go to app.vantake.trade/settings`,
-        `2. Copy your linking code`,
-        `3. Send it here: <code>/link YOUR_CODE</code>`,
-        ``,
-        `<b>Commands:</b>`,
-        `/link &lt;code&gt; - Link your Vantake account`,
-        `/status - Check your account status`,
-        `/unlink - Unlink your Telegram`,
-        `/help - Show all commands`,
+        `Your gateway to Polymarket trading.`,
+        `Get real-time alerts, create wallets, and copy top traders.`,
       ].join('\n')
       
-      // Send photo with welcome message as caption
       await sendTelegramPhoto(chatId, WELCOME_IMAGE_URL, welcomeCaption, 'HTML')
+      
+      // Then send menu
+      const menuText = [
+        `We on <a href="${TWITTER_URL}">X.com</a> / <a href="${APP_URL}">app.vantake.trade</a>`,
+      ].join('\n')
+      
+      await sendTelegramMessage(chatId, menuText, 'HTML', getMainMenuKeyboard())
+      return NextResponse.json({ ok: true })
+    }
+    
+    // /help
+    if (text === '/help') {
+      await sendTelegramMessage(chatId, [
+        `<b>❓ Help</b>`,
+        ``,
+        `<b>Commands:</b>`,
+        `/start - Show main menu`,
+        `/link <code> - Link Vantake account`,
+        `/status - Check account status`,
+        `/unlink - Disconnect Telegram`,
+        ``,
+        `Need help? Contact us:`,
+        `Twitter: ${TWITTER_URL}`,
+      ].join('\n'), 'HTML', {
+        inline_keyboard: [
+          [{ text: '🐦 Twitter', url: TWITTER_URL }],
+          [{ text: '🏠 Main Menu', callback_data: 'menu_main' }]
+        ]
+      })
       return NextResponse.json({ ok: true })
     }
 

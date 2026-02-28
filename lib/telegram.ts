@@ -202,3 +202,90 @@ export function generateLinkingCode(): string {
   }
   return code
 }
+
+// Main menu inline keyboard
+export function getMainMenuKeyboard(): InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [
+        { text: '👛 Wallet', callback_data: 'menu_wallet' },
+        { text: '👤 Profile', callback_data: 'menu_profile' },
+      ],
+      [
+        { text: '📊 Markets', callback_data: 'menu_markets' },
+        { text: '📈 Positions', callback_data: 'menu_positions' },
+      ],
+      [
+        { text: '🤖 Copy Trade', callback_data: 'menu_copytrade' },
+        { text: '🐋 Whales', callback_data: 'menu_whales' },
+      ],
+      [
+        { text: '🎁 Referral', callback_data: 'menu_referral' },
+      ],
+      [
+        { text: '❓ Help', callback_data: 'menu_help' },
+      ],
+    ]
+  }
+}
+
+// Wallet menu keyboard
+export function getWalletMenuKeyboard(hasWallet: boolean): InlineKeyboardMarkup {
+  if (!hasWallet) {
+    return {
+      inline_keyboard: [
+        [
+          { text: '➕ Create Wallet', callback_data: 'wallet_create' },
+        ],
+        [
+          { text: '⬅️ Back', callback_data: 'menu_main' },
+        ],
+      ]
+    }
+  }
+  
+  return {
+    inline_keyboard: [
+      [
+        { text: '💸 Withdraw', callback_data: 'wallet_withdraw' },
+        { text: '➕ Deposit', callback_data: 'wallet_deposit' },
+      ],
+      [
+        { text: '📤 Export', callback_data: 'wallet_export' },
+        { text: '🔄 Refresh', callback_data: 'wallet_refresh' },
+      ],
+      [
+        { text: '⬅️ Back', callback_data: 'menu_main' },
+      ],
+    ]
+  }
+}
+
+// Edit message with new text and keyboard
+export async function editTelegramMessage(
+  chatId: string,
+  messageId: number,
+  text: string,
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  replyMarkup?: InlineKeyboardMarkup
+) {
+  const token = getToken()
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: parseMode,
+    disable_web_page_preview: true,
+  }
+  
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup
+  }
+  
+  const res = await fetch(`${TELEGRAM_API}${token}/editMessageText`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.ok
+}
