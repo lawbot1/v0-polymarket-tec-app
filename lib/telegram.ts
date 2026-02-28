@@ -269,7 +269,7 @@ export function getWalletMenuKeyboard(hasWallet: boolean): InlineKeyboardMarkup 
   }
 }
 
-// Edit message with new text and keyboard
+// Edit message text with new text and keyboard
 export async function editTelegramMessage(
   chatId: string,
   messageId: number,
@@ -296,4 +296,49 @@ export async function editTelegramMessage(
     body: JSON.stringify(body),
   })
   return res.ok
+}
+
+// Edit message caption (for photo messages) with new text and keyboard
+export async function editMessageCaption(
+  chatId: string,
+  messageId: number,
+  caption: string,
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  replyMarkup?: InlineKeyboardMarkup
+) {
+  const token = getToken()
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+    caption,
+    parse_mode: parseMode,
+  }
+  
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup
+  }
+  
+  const res = await fetch(`${TELEGRAM_API}${token}/editMessageCaption`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.ok
+}
+
+// Smart edit - tries editMessageText first, falls back to editMessageCaption for photo messages
+export async function smartEditMessage(
+  chatId: string,
+  messageId: number,
+  text: string,
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  replyMarkup?: InlineKeyboardMarkup
+) {
+  // Try editing as text first
+  const textSuccess = await editTelegramMessage(chatId, messageId, text, parseMode, replyMarkup)
+  if (textSuccess) return true
+  
+  // If failed, try editing as caption (for photo messages)
+  const captionSuccess = await editMessageCaption(chatId, messageId, text, parseMode, replyMarkup)
+  return captionSuccess
 }
