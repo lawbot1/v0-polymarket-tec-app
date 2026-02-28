@@ -356,7 +356,7 @@ export async function POST(req: NextRequest) {
       if (callbackData === 'menu_help') {
         await answerCallbackQuery(callbackQuery.id)
         await sendTelegramMessage(chatId, [
-          `<b>❓ Help</b>`,
+          `<b>Help</b>`,
           ``,
           `<b>Commands:</b>`,
           `/start - Show main menu`,
@@ -364,12 +364,13 @@ export async function POST(req: NextRequest) {
           `/status - Check account status`,
           `/unlink - Disconnect Telegram`,
           ``,
-          `Need help? Contact us:`,
-          `Twitter: ${TWITTER_URL}`,
+          `<b>Found a bug or something not working?</b>`,
+          `Contact us:`,
         ].join('\n'), 'HTML', {
           inline_keyboard: [
-            [{ text: '🐦 Twitter', url: TWITTER_URL }],
-            [{ text: '⬅️ Back', callback_data: 'menu_main' }]
+            [{ text: 'Telegram DM', url: 'https://t.me/Eth_ancarter' }],
+            [{ text: 'X (Twitter)', url: TWITTER_URL }],
+            [{ text: 'Back', callback_data: 'menu_main' }]
           ]
         })
         return NextResponse.json({ ok: true })
