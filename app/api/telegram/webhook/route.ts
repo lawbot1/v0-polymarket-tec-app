@@ -21,6 +21,7 @@ import {
 } from '@/lib/wallet'
 
 const WELCOME_IMAGE_URL = 'https://app.vantake.trade/telegram-welcome.png'
+const WALLET_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-5ZjBkRTp9vW4km5vzyvp5JPVeGBq8B.png'
 const APP_URL = 'https://app.vantake.trade'
 const TWITTER_URL = 'https://x.com/VantakeTrade'
 
@@ -192,7 +193,7 @@ export async function POST(req: NextRequest) {
         
         if (!wallet) {
           const noWalletText = `You do not have a wallet linked`
-          await sendTelegramMessage(chatId, noWalletText, 'HTML', getWalletMenuKeyboard(false))
+          await sendTelegramPhoto(chatId, WALLET_IMAGE_URL, noWalletText, 'HTML', getWalletMenuKeyboard(false))
         } else {
           const [usdcBalance, polBalance] = await Promise.all([
             getUSDCBalance(wallet.wallet_address),
@@ -209,7 +210,7 @@ export async function POST(req: NextRequest) {
             ``,
             `<i>No active bids.</i>`,
           ].join('\n')
-          await sendTelegramMessage(chatId, walletText, 'HTML', getWalletMenuKeyboard(true))
+          await sendTelegramPhoto(chatId, WALLET_IMAGE_URL, walletText, 'HTML', getWalletMenuKeyboard(true))
         }
         return NextResponse.json({ ok: true })
       }
@@ -220,28 +221,28 @@ export async function POST(req: NextRequest) {
         
         const existingWallet = await getWalletByChatId(chatId)
         if (existingWallet) {
-          await sendTelegramMessage(chatId, 'You already have a wallet!')
+          await sendTelegramPhoto(chatId, WALLET_IMAGE_URL, 'You already have a wallet!', 'HTML', getWalletMenuKeyboard(true))
           return NextResponse.json({ ok: true })
         }
         
         const newWallet = await createWalletForChat(chatId)
         if (!newWallet) {
-          await sendTelegramMessage(chatId, 'Failed to create wallet. Please try again.')
+          await sendTelegramPhoto(chatId, WALLET_IMAGE_URL, 'Failed to create wallet. Please try again.', 'HTML', getWalletMenuKeyboard(false))
           return NextResponse.json({ ok: true })
         }
         
         const createdText = [
-          `<b>✅ Wallet created</b>`,
+          `<b>Wallet created</b>`,
           ``,
           `<b>Address:</b> <code>${newWallet.wallet_address}</code>`,
           ``,
-          `<b>⚠️ SAVE YOUR PRIVATE KEY</b>`,
+          `<b>SAVE YOUR PRIVATE KEY</b>`,
           `<code>${newWallet.privateKey}</code>`,
           ``,
           `<i>This is the only time your private key will be shown. Save it securely!</i>`,
         ].join('\n')
         
-        await sendTelegramMessage(chatId, createdText, 'HTML', getWalletMenuKeyboard(true))
+        await sendTelegramPhoto(chatId, WALLET_IMAGE_URL, createdText, 'HTML', getWalletMenuKeyboard(true))
         return NextResponse.json({ ok: true })
       }
       
@@ -261,14 +262,14 @@ export async function POST(req: NextRequest) {
         
         await answerCallbackQuery(callbackQuery.id)
         const depositText = [
-          `<b>➕ Deposit</b>`,
+          `<b>Deposit</b>`,
           ``,
           `Send USDC (Polygon) to:`,
           `<code>${wallet.wallet_address}</code>`,
           ``,
           `<i>Only send USDC on Polygon network!</i>`,
         ].join('\n')
-        await sendTelegramMessage(chatId, depositText, 'HTML', getWalletMenuKeyboard(true))
+        await sendTelegramPhoto(chatId, WALLET_IMAGE_URL, depositText, 'HTML', getWalletMenuKeyboard(true))
         return NextResponse.json({ ok: true })
       }
       
@@ -310,7 +311,7 @@ export async function POST(req: NextRequest) {
         // Decrypt private key
         const privateKey = decryptPrivateKey(wallet.encrypted_private_key)
         
-        await sendTelegramMessage(chatId, [
+        await sendTelegramPhoto(chatId, WALLET_IMAGE_URL, [
           `<b>Export Private Key</b>`,
           ``,
           `<b>Address:</b>`,
@@ -339,7 +340,7 @@ export async function POST(req: NextRequest) {
         userStates.set(chatId, { action: 'withdraw_address' })
         
         const usdcBalance = await getUSDCBalance(wallet.wallet_address)
-        await sendTelegramMessage(chatId, [
+        await sendTelegramPhoto(chatId, WALLET_IMAGE_URL, [
           `<b>Withdraw USDC</b>`,
           ``,
           `Balance: <b>$${usdcBalance}</b>`,
