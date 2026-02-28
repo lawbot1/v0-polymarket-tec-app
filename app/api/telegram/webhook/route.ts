@@ -24,6 +24,7 @@ const WELCOME_IMAGE_URL = 'https://app.vantake.trade/telegram-welcome.png'
 const WALLET_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-5ZjBkRTp9vW4km5vzyvp5JPVeGBq8B.png'
 const PROFILE_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-Fgu7NCVLAF6fGAL2VTUhBB4FQ2bmrQ.png'
 const POSITIONS_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-2B2qRwHmVM6TZtDud2rgIqirvtDZ9b.png'
+const COPYTRADE_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-kyFfan5ygX8M725TJvgTtLUj75cJmd.png'
 const APP_URL = 'https://app.vantake.trade'
 const TWITTER_URL = 'https://x.com/VantakeTrade'
 
@@ -458,7 +459,7 @@ export async function POST(req: NextRequest) {
           { text: 'Refresh', callback_data: 'menu_copytrade' }
         ])
         
-        await sendTelegramMessage(chatId, lines.join('\n'), 'HTML', { inline_keyboard: keyboard })
+        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, lines.join('\n'), 'HTML', { inline_keyboard: keyboard })
         return NextResponse.json({ ok: true })
       }
       
@@ -467,7 +468,7 @@ export async function POST(req: NextRequest) {
         await answerCallbackQuery(callbackQuery.id)
         userStates.set(chatId, { action: 'copytrade_add' })
         
-        await sendTelegramMessage(chatId, [
+        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, [
           `<b>Add Copy Trade Address</b>`,
           ``,
           `Enter the wallet address you want to copy (0x...):`,
@@ -508,7 +509,7 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        await sendTelegramMessage(chatId, lines.join('\n'), 'HTML', {
+        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, lines.join('\n'), 'HTML', {
           inline_keyboard: [
             [{ text: 'Rename', callback_data: `ct_rename_${walletAddress}` }],
             [{ text: 'Delete', callback_data: `ct_delete_${walletAddress}` }],
