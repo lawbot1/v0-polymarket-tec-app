@@ -77,6 +77,75 @@ export async function getPOLBalance(address: string): Promise<string> {
   }
 }
 
+// Send USDC to another address
+export async function sendUSDC(
+  fromPrivateKey: string,
+  toAddress: string,
+  amount: string
+): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  try {
+    const provider = new ethers.JsonRpcProvider(POLYGON_RPC)
+    const wallet = new Wallet(fromPrivateKey, provider)
+    
+    // USDC contract on Polygon
+    const usdcAddress = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174'
+    const usdcAbi = [
+      'function balanceOf(address) view returns (uint256)',
+      'function transfer(address to, uint256 amount) returns (bool)',
+    ]
+    const usdcContract = new ethers.Contract(usdcAddress, usdcAbi, wallet)
+    
+    // Convert amount to USDC units (6 decimals)
+    const amountInUnits = BigInt(Math.floor(parseFloat(amount) * 1e6))
+    
+    // Check balance
+    const balance = await usdcContract.balanceOf(wallet.address)
+    if (balance < amountInUnits) {
+      return { success: false, error: 'Insufficient USDC balance' }
+    }
+    
+    // Send transaction
+    const tx = await usdcContract.transfer(toAddress, amountInUnits)
+    await tx.wait()
+    
+    return { success: true, txHash: tx.hash }
+  } catch (error) {
+    console.error('Error sending USDC:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Transaction failed' }
+  }
+}
+
+// Get trader stats from Polymarket
+export async function getTraderStats(address: string): Promise<{
+  pnl: number
+  volume: number
+  numTrades: number
+  positions: PolymarketPosition[]
+}> {
+  try {
+    const [profileRes, positions] = await Promise.all([
+      fetch(`https://clob.polymarket.com/profile?user=${address.toLowerCase()}`),
+      getPolymarketPositions(address),
+    ])
+    
+    let pnl = 0
+    let volume = 0
+    let numTrades = 0
+    
+    if (profileRes.ok) {
+      const profile = await profileRes.json()
+      pnl = parseFloat(profile.totalPnl || profile.pnl || '0')
+      volume = parseFloat(profile.totalVolume || profile.volume || '0')
+      numTrades = parseInt(profile.numTrades || profile.tradesCount || '0')
+    }
+    
+    return { pnl, volume, numTrades, positions }
+  } catch (error) {
+    console.error('Error fetching trader stats:', error)
+    return { pnl: 0, volume: 0, numTrades: 0, positions: [] }
+  }
+}
+
 // Position type from Polymarket
 export interface PolymarketPosition {
   market: string

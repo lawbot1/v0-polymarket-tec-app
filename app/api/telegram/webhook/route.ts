@@ -10,11 +10,14 @@ import {
 } from '@/lib/telegram'
 import { 
   generateWallet, 
-  encryptPrivateKey, 
+  encryptPrivateKey,
+  decryptPrivateKey,
   formatWalletAddress,
   getUSDCBalance,
   getPOLBalance,
-  getPolymarketPositions 
+  getPolymarketPositions,
+  sendUSDC,
+  getTraderStats
 } from '@/lib/wallet'
 
 const WELCOME_IMAGE_URL = 'https://app.vantake.trade/telegram-welcome.png'
@@ -89,6 +92,57 @@ async function createWalletForChat(chatId: string) {
   
   return { ...wallet, privateKey } // Return unencrypted key only on creation
 }
+
+// Helper: get copytrade subscriptions for telegram user
+async function getCopytradeSubscriptions(chatId: string) {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('telegram_copytrade_subscriptions')
+    .select('*')
+    .eq('telegram_chat_id', chatId)
+    .order('created_at', { ascending: false })
+  return data || []
+}
+
+// Helper: add copytrade subscription
+async function addCopytradeSubscription(chatId: string, walletAddress: string, name?: string) {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('telegram_copytrade_subscriptions')
+    .insert({
+      telegram_chat_id: chatId,
+      wallet_address: walletAddress.toLowerCase(),
+      name: name || null,
+    })
+    .select()
+    .single()
+  return { data, error }
+}
+
+// Helper: delete copytrade subscription
+async function deleteCopytradeSubscription(chatId: string, walletAddress: string) {
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from('telegram_copytrade_subscriptions')
+    .delete()
+    .eq('telegram_chat_id', chatId)
+    .eq('wallet_address', walletAddress.toLowerCase())
+  return !error
+}
+
+// Helper: rename copytrade subscription
+async function renameCopytradeSubscription(chatId: string, walletAddress: string, newName: string) {
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from('telegram_copytrade_subscriptions')
+    .update({ name: newName, updated_at: new Date().toISOString() })
+    .eq('telegram_chat_id', chatId)
+    .eq('wallet_address', walletAddress.toLowerCase())
+  return !error
+}
+
+// User state for multi-step operations (withdraw amount, add address, rename)
+const userStates = new Map<string, { action: string; data?: Record<string, unknown> }>()
 
 export async function POST(req: NextRequest) {
   try {
@@ -243,15 +297,57 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
       
-      // Wallet export (show private key warning)
+      // Wallet export - show private key
       if (callbackData === 'wallet_export') {
-        await answerCallbackQuery(callbackQuery.id, 'Export is disabled for security. Save your key when creating wallet.', true)
+        const wallet = await getWalletByChatId(chatId)
+        if (!wallet) {
+          await answerCallbackQuery(callbackQuery.id, 'No wallet found')
+          return NextResponse.json({ ok: true })
+        }
+        
+        await answerCallbackQuery(callbackQuery.id)
+        
+        // Decrypt private key
+        const privateKey = decryptPrivateKey(wallet.encrypted_private_key)
+        
+        await sendTelegramMessage(chatId, [
+          `<b>Export Private Key</b>`,
+          ``,
+          `<b>Address:</b>`,
+          `<code>${wallet.wallet_address}</code>`,
+          ``,
+          `<b>Private Key:</b>`,
+          `<code>${privateKey}</code>`,
+          ``,
+          `<b>Warning:</b> Never share your private key with anyone!`,
+          `Delete this message after saving your key.`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: 'Back', callback_data: 'menu_wallet' }]]
+        })
         return NextResponse.json({ ok: true })
       }
       
-      // Wallet withdraw (coming soon)
+      // Wallet withdraw - step 1: ask for address
       if (callbackData === 'wallet_withdraw') {
-        await answerCallbackQuery(callbackQuery.id, 'Withdraw feature coming soon!', true)
+        const wallet = await getWalletByChatId(chatId)
+        if (!wallet) {
+          await answerCallbackQuery(callbackQuery.id, 'No wallet found')
+          return NextResponse.json({ ok: true })
+        }
+        
+        await answerCallbackQuery(callbackQuery.id)
+        userStates.set(chatId, { action: 'withdraw_address' })
+        
+        const usdcBalance = await getUSDCBalance(wallet.wallet_address)
+        await sendTelegramMessage(chatId, [
+          `<b>Withdraw USDC</b>`,
+          ``,
+          `Balance: <b>$${usdcBalance}</b>`,
+          ``,
+          `Enter the destination address (0x...):`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu_wallet' }]]
+        })
         return NextResponse.json({ ok: true })
       }
       
@@ -332,18 +428,134 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
       
-      // Copy Trade
+      // Copy Trade - main menu
       if (callbackData === 'menu_copytrade') {
         await answerCallbackQuery(callbackQuery.id)
+        const subscriptions = await getCopytradeSubscriptions(chatId)
+        
+        const lines = [`<b>Copy Trading</b>`, ``, `Your subscriptions:`]
+        
+        // Build keyboard with subscriptions
+        const keyboard: { text: string; callback_data: string }[][] = []
+        
+        if (subscriptions.length === 0) {
+          lines.push(``, `<i>No subscriptions yet.</i>`)
+        } else {
+          for (const sub of subscriptions) {
+            const displayName = sub.name || formatWalletAddress(sub.wallet_address)
+            lines.push(``)
+            lines.push(`🟢 Active <code>${formatWalletAddress(sub.wallet_address)}</code>`)
+            keyboard.push([{ text: displayName, callback_data: `ct_view_${sub.wallet_address}` }])
+          }
+        }
+        
+        lines.push(``, `Choose a source to copy_trade:`)
+        
+        // Add subscription addresses as buttons
+        for (const sub of subscriptions) {
+          const displayName = sub.name || sub.wallet_address
+          keyboard.push([{ text: displayName.slice(0, 40), callback_data: `ct_view_${sub.wallet_address}` }])
+        }
+        
+        keyboard.push([{ text: '+ Add address', callback_data: 'ct_add' }])
+        keyboard.push([
+          { text: 'Back', callback_data: 'menu_main' },
+          { text: 'Refresh', callback_data: 'menu_copytrade' }
+        ])
+        
+        await sendTelegramMessage(chatId, lines.join('\n'), 'HTML', { inline_keyboard: keyboard })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - add address
+      if (callbackData === 'ct_add') {
+        await answerCallbackQuery(callbackQuery.id)
+        userStates.set(chatId, { action: 'copytrade_add' })
+        
         await sendTelegramMessage(chatId, [
-          `<b>🤖 Copy Trade</b>`,
+          `<b>Add Copy Trade Address</b>`,
           ``,
-          `<i>Coming soon!</i>`,
-          ``,
-          `Automatically copy trades from top traders.`,
+          `Enter the wallet address you want to copy (0x...):`,
         ].join('\n'), 'HTML', {
-          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
+          inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu_copytrade' }]]
         })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - view subscription details
+      if (callbackData.startsWith('ct_view_')) {
+        const walletAddress = callbackData.replace('ct_view_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        
+        // Get stats for this wallet
+        const stats = await getTraderStats(walletAddress)
+        const pnlSign = stats.pnl >= 0 ? '+' : ''
+        
+        const lines = [
+          `<b>Trader Stats</b>`,
+          ``,
+          `Address: <code>${formatWalletAddress(walletAddress)}</code>`,
+          ``,
+          `PnL: <b>${pnlSign}$${stats.pnl.toFixed(2)}</b>`,
+          `Volume: <b>$${stats.volume.toFixed(2)}</b>`,
+          `Trades: <b>${stats.numTrades}</b>`,
+          ``,
+          `<b>Active Positions:</b>`,
+        ]
+        
+        if (stats.positions.length === 0) {
+          lines.push(`<i>No active positions.</i>`)
+        } else {
+          for (const pos of stats.positions.slice(0, 5)) {
+            const marketName = pos.market.length > 35 ? pos.market.slice(0, 32) + '...' : pos.market
+            lines.push(`• ${marketName}`)
+            lines.push(`  ${pos.outcome} | $${pos.size.toFixed(2)}`)
+          }
+        }
+        
+        await sendTelegramMessage(chatId, lines.join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: 'Rename', callback_data: `ct_rename_${walletAddress}` }],
+            [{ text: 'Delete', callback_data: `ct_delete_${walletAddress}` }],
+            [{ text: 'Back', callback_data: 'menu_copytrade' }]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - rename subscription
+      if (callbackData.startsWith('ct_rename_')) {
+        const walletAddress = callbackData.replace('ct_rename_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        userStates.set(chatId, { action: 'copytrade_rename', data: { walletAddress } })
+        
+        await sendTelegramMessage(chatId, [
+          `<b>Rename Subscription</b>`,
+          ``,
+          `Current: <code>${formatWalletAddress(walletAddress)}</code>`,
+          ``,
+          `Enter new name:`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: 'Cancel', callback_data: `ct_view_${walletAddress}` }]]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - delete subscription
+      if (callbackData.startsWith('ct_delete_')) {
+        const walletAddress = callbackData.replace('ct_delete_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        
+        const success = await deleteCopytradeSubscription(chatId, walletAddress)
+        if (success) {
+          await sendTelegramMessage(chatId, `Subscription deleted.`, 'HTML', {
+            inline_keyboard: [[{ text: 'Back to Copy Trading', callback_data: 'menu_copytrade' }]]
+          })
+        } else {
+          await sendTelegramMessage(chatId, `Failed to delete subscription.`, 'HTML', {
+            inline_keyboard: [[{ text: 'Back', callback_data: 'menu_copytrade' }]]
+          })
+        }
         return NextResponse.json({ ok: true })
       }
       
@@ -374,7 +586,128 @@ export async function POST(req: NextRequest) {
 
     const chatId = String(message.chat.id)
     const text = message.text.trim()
-
+    
+    // Check for user state (multi-step operations)
+    const userState = userStates.get(chatId)
+    if (userState) {
+      // Withdraw - step 2: got address, ask for amount
+      if (userState.action === 'withdraw_address') {
+        if (!text.startsWith('0x') || text.length !== 42) {
+          await sendTelegramMessage(chatId, 'Invalid address. Please enter a valid Ethereum address (0x...)', 'HTML', {
+            inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu_wallet' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        userStates.set(chatId, { action: 'withdraw_amount', data: { toAddress: text } })
+        await sendTelegramMessage(chatId, [
+          `<b>Withdraw USDC</b>`,
+          ``,
+          `To: <code>${text}</code>`,
+          ``,
+          `Enter amount to withdraw (e.g., 10.50):`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu_wallet' }]]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Withdraw - step 3: got amount, execute
+      if (userState.action === 'withdraw_amount') {
+        const amount = parseFloat(text)
+        if (isNaN(amount) || amount <= 0) {
+          await sendTelegramMessage(chatId, 'Invalid amount. Please enter a valid number.', 'HTML', {
+            inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu_wallet' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        const toAddress = userState.data?.toAddress as string
+        userStates.delete(chatId)
+        
+        const wallet = await getWalletByChatId(chatId)
+        if (!wallet) {
+          await sendTelegramMessage(chatId, 'No wallet found.')
+          return NextResponse.json({ ok: true })
+        }
+        
+        await sendTelegramMessage(chatId, 'Processing withdrawal...')
+        
+        const privateKey = decryptPrivateKey(wallet.encrypted_private_key)
+        const result = await sendUSDC(privateKey, toAddress, amount.toString())
+        
+        if (result.success) {
+          await sendTelegramMessage(chatId, [
+            `<b>Withdrawal Successful</b>`,
+            ``,
+            `Amount: <b>$${amount.toFixed(2)}</b>`,
+            `To: <code>${formatWalletAddress(toAddress)}</code>`,
+            ``,
+            `TX: <code>${result.txHash}</code>`,
+          ].join('\n'), 'HTML', {
+            inline_keyboard: [[{ text: 'Back to Wallet', callback_data: 'menu_wallet' }]]
+          })
+        } else {
+          await sendTelegramMessage(chatId, [
+            `<b>Withdrawal Failed</b>`,
+            ``,
+            `Error: ${result.error}`,
+          ].join('\n'), 'HTML', {
+            inline_keyboard: [[{ text: 'Back to Wallet', callback_data: 'menu_wallet' }]]
+          })
+        }
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - add address
+      if (userState.action === 'copytrade_add') {
+        if (!text.startsWith('0x') || text.length !== 42) {
+          await sendTelegramMessage(chatId, 'Invalid address. Please enter a valid Ethereum address (0x...)', 'HTML', {
+            inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu_copytrade' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        userStates.delete(chatId)
+        const { error } = await addCopytradeSubscription(chatId, text)
+        
+        if (error) {
+          await sendTelegramMessage(chatId, 'This address is already in your subscriptions.', 'HTML', {
+            inline_keyboard: [[{ text: 'Back to Copy Trading', callback_data: 'menu_copytrade' }]]
+          })
+        } else {
+          await sendTelegramMessage(chatId, [
+            `<b>Address Added</b>`,
+            ``,
+            `<code>${text}</code>`,
+            ``,
+            `You will now copy trades from this wallet.`,
+          ].join('\n'), 'HTML', {
+            inline_keyboard: [[{ text: 'Back to Copy Trading', callback_data: 'menu_copytrade' }]]
+          })
+        }
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - rename
+      if (userState.action === 'copytrade_rename') {
+        const walletAddress = userState.data?.walletAddress as string
+        userStates.delete(chatId)
+        
+        const success = await renameCopytradeSubscription(chatId, walletAddress, text)
+        if (success) {
+          await sendTelegramMessage(chatId, `Renamed to "${text}"`, 'HTML', {
+            inline_keyboard: [[{ text: 'Back to Copy Trading', callback_data: 'menu_copytrade' }]]
+          })
+        } else {
+          await sendTelegramMessage(chatId, 'Failed to rename.', 'HTML', {
+            inline_keyboard: [[{ text: 'Back', callback_data: 'menu_copytrade' }]]
+          })
+        }
+        return NextResponse.json({ ok: true })
+      }
+    }
+    
     // /start
     if (text === '/start') {
       const welcomeCaption = [
