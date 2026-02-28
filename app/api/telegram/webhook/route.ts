@@ -25,6 +25,7 @@ const WALLET_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.co
 const PROFILE_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-Fgu7NCVLAF6fGAL2VTUhBB4FQ2bmrQ.png'
 const POSITIONS_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-2B2qRwHmVM6TZtDud2rgIqirvtDZ9b.png'
 const COPYTRADE_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-kyFfan5ygX8M725TJvgTtLUj75cJmd.png'
+const REFERRAL_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-4ZomyzJGs8UwpFz8ERZyeLYnDkQkPP.png'
 const APP_URL = 'https://app.vantake.trade'
 const TWITTER_URL = 'https://x.com/VantakeTrade'
 
@@ -559,14 +560,14 @@ export async function POST(req: NextRequest) {
       // Referral
       if (callbackData === 'menu_referral') {
         await answerCallbackQuery(callbackQuery.id)
-        await sendTelegramMessage(chatId, [
-          `<b>🎁 Referral</b>`,
+        await sendTelegramPhoto(chatId, REFERRAL_IMAGE_URL, [
+          `<b>Referral</b>`,
           ``,
           `<i>Coming soon!</i>`,
           ``,
           `Invite friends and earn rewards.`,
         ].join('\n'), 'HTML', {
-          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
+          inline_keyboard: [[{ text: 'Back', callback_data: 'menu_main' }]]
         })
         return NextResponse.json({ ok: true })
       }
