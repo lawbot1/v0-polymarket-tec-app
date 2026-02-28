@@ -23,6 +23,7 @@ import {
 const WELCOME_IMAGE_URL = 'https://app.vantake.trade/telegram-welcome.png'
 const WALLET_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-5ZjBkRTp9vW4km5vzyvp5JPVeGBq8B.png'
 const PROFILE_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-Fgu7NCVLAF6fGAL2VTUhBB4FQ2bmrQ.png'
+const POSITIONS_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-2B2qRwHmVM6TZtDud2rgIqirvtDZ9b.png'
 const APP_URL = 'https://app.vantake.trade'
 const TWITTER_URL = 'https://x.com/VantakeTrade'
 
@@ -392,12 +393,12 @@ export async function POST(req: NextRequest) {
         const wallet = await getWalletByChatId(chatId)
         
         if (!wallet) {
-          await sendTelegramMessage(chatId, [
-            `<b>📈 Positions</b>`,
+          await sendTelegramPhoto(chatId, POSITIONS_IMAGE_URL, [
+            `<b>Positions</b>`,
             ``,
             `Create a wallet first to trade.`,
           ].join('\n'), 'HTML', {
-            inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
+            inline_keyboard: [[{ text: 'Back', callback_data: 'menu_main' }]]
           })
           return NextResponse.json({ ok: true })
         }
@@ -405,7 +406,7 @@ export async function POST(req: NextRequest) {
         // Fetch real positions from Polymarket
         const positions = await getPolymarketPositions(wallet.wallet_address)
         
-        const posLines = [`<b>📈 Positions</b>`, ``, `Wallet: <code>${formatWalletAddress(wallet.wallet_address)}</code>`, ``]
+        const posLines = [`<b>Positions</b>`, ``, `Wallet: <code>${formatWalletAddress(wallet.wallet_address)}</code>`, ``]
         
         if (positions.length === 0) {
           posLines.push(`<i>No active positions.</i>`)
@@ -421,10 +422,10 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        await sendTelegramMessage(chatId, posLines.join('\n'), 'HTML', {
+        await sendTelegramPhoto(chatId, POSITIONS_IMAGE_URL, posLines.join('\n'), 'HTML', {
           inline_keyboard: [
-            [{ text: '🔄 Refresh', callback_data: 'menu_positions' }],
-            [{ text: '⬅️ Back', callback_data: 'menu_main' }]
+            [{ text: 'Refresh', callback_data: 'menu_positions' }],
+            [{ text: 'Back', callback_data: 'menu_main' }]
           ]
         })
         return NextResponse.json({ ok: true })
