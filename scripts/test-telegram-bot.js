@@ -52,7 +52,7 @@ async function main() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: 'https://app.vantake.trade/api/telegram/webhook',
-      allowed_updates: ['message']
+      allowed_updates: ['message', 'callback_query']
     })
   });
   const setResult = await setRes.json();

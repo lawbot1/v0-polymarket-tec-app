@@ -93,8 +93,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     
+    console.log('[v0] Telegram webhook received:', JSON.stringify(body, null, 2))
+    
     // Handle callback queries (inline button clicks)
     if (body?.callback_query) {
+      console.log('[v0] Callback query detected:', body.callback_query.data)
       const callbackQuery = body.callback_query
       const callbackData = callbackQuery.data
       const chatId = String(callbackQuery.message?.chat?.id)
@@ -116,7 +119,7 @@ export async function POST(req: NextRequest) {
           ``,
           `We on X.com / ${APP_URL}`,
         ].join('\n')
-        await smartEditMessage(chatId, messageId, welcomeText, 'HTML', getMainMenuKeyboard())
+        await sendTelegramMessage(chatId, welcomeText, 'HTML', getMainMenuKeyboard())
         return NextResponse.json({ ok: true })
       }
       
@@ -127,7 +130,7 @@ export async function POST(req: NextRequest) {
         
         if (!wallet) {
           const noWalletText = `You do not have a wallet linked`
-          await smartEditMessage(chatId, messageId, noWalletText, 'HTML', getWalletMenuKeyboard(false))
+          await sendTelegramMessage(chatId, noWalletText, 'HTML', getWalletMenuKeyboard(false))
         } else {
           const [usdcBalance, polBalance] = await Promise.all([
             getUSDCBalance(wallet.wallet_address),
@@ -135,16 +138,16 @@ export async function POST(req: NextRequest) {
           ])
           
           const walletText = [
-            `<b>🟢 Your wallet</b> <code>${formatWalletAddress(wallet.wallet_address)}</code>`,
+            `<b>Your wallet</b> <code>${formatWalletAddress(wallet.wallet_address)}</code>`,
             ``,
-            `💵 USDC: <b>$${usdcBalance}</b>`,
-            `💎 Polygon: <b>${parseFloat(polBalance).toFixed(6)} POL</b>`,
+            `USDC: <b>$${usdcBalance}</b>`,
+            `Polygon: <b>${parseFloat(polBalance).toFixed(6)} POL</b>`,
             ``,
-            `<b>⚙️ Your Polymarket active</b>`,
+            `<b>Your Polymarket active</b>`,
             ``,
             `<i>No active bids.</i>`,
           ].join('\n')
-          await smartEditMessage(chatId, messageId, walletText, 'HTML', getWalletMenuKeyboard(true))
+          await sendTelegramMessage(chatId, walletText, 'HTML', getWalletMenuKeyboard(true))
         }
         return NextResponse.json({ ok: true })
       }
@@ -176,7 +179,7 @@ export async function POST(req: NextRequest) {
           `<i>This is the only time your private key will be shown. Save it securely!</i>`,
         ].join('\n')
         
-        await smartEditMessage(chatId, messageId, createdText, 'HTML', getWalletMenuKeyboard(true))
+        await sendTelegramMessage(chatId, createdText, 'HTML', getWalletMenuKeyboard(true))
         return NextResponse.json({ ok: true })
       }
       
@@ -203,7 +206,7 @@ export async function POST(req: NextRequest) {
           ``,
           `<i>Only send USDC on Polygon network!</i>`,
         ].join('\n')
-        await smartEditMessage(chatId, messageId, depositText, 'HTML', getWalletMenuKeyboard(true))
+        await sendTelegramMessage(chatId, depositText, 'HTML', getWalletMenuKeyboard(true))
         return NextResponse.json({ ok: true })
       }
       
@@ -227,7 +230,7 @@ export async function POST(req: NextRequest) {
             ``,
             `<i>No active bids.</i>`,
           ].join('\n')
-          await smartEditMessage(chatId, messageId, walletText, 'HTML', getWalletMenuKeyboard(true))
+          await sendTelegramMessage(chatId, walletText, 'HTML', getWalletMenuKeyboard(true))
         }
         return NextResponse.json({ ok: true })
       }
@@ -261,7 +264,7 @@ export async function POST(req: NextRequest) {
           `Not connected to Vantake account.`,
           `Use /link YOUR_CODE to connect.`,
         ].join('\n')
-        await smartEditMessage(chatId, messageId, profileText, 'HTML', {
+        await sendTelegramMessage(chatId, profileText, 'HTML', {
           inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
         })
         return NextResponse.json({ ok: true })
@@ -270,7 +273,7 @@ export async function POST(req: NextRequest) {
       // Markets
       if (callbackData === 'menu_markets') {
         await answerCallbackQuery(callbackQuery.id)
-        await smartEditMessage(chatId, messageId, [
+        await sendTelegramMessage(chatId, [
           `<b>📊 Markets</b>`,
           ``,
           `Browse markets at:`,
@@ -299,7 +302,7 @@ export async function POST(req: NextRequest) {
           ``,
           `Create a wallet first to trade.`,
         ].join('\n')
-        await smartEditMessage(chatId, messageId, posText, 'HTML', {
+        await sendTelegramMessage(chatId, posText, 'HTML', {
           inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
         })
         return NextResponse.json({ ok: true })
@@ -308,7 +311,7 @@ export async function POST(req: NextRequest) {
       // Copy Trade
       if (callbackData === 'menu_copytrade') {
         await answerCallbackQuery(callbackQuery.id)
-        await smartEditMessage(chatId, messageId, [
+        await sendTelegramMessage(chatId, [
           `<b>🤖 Copy Trade</b>`,
           ``,
           `<i>Coming soon!</i>`,
@@ -323,7 +326,7 @@ export async function POST(req: NextRequest) {
       // Whales
       if (callbackData === 'menu_whales') {
         await answerCallbackQuery(callbackQuery.id)
-        await smartEditMessage(chatId, messageId, [
+        await sendTelegramMessage(chatId, [
           `<b>🐋 Whales</b>`,
           ``,
           `Track whale movements at:`,
@@ -340,7 +343,7 @@ export async function POST(req: NextRequest) {
       // Referral
       if (callbackData === 'menu_referral') {
         await answerCallbackQuery(callbackQuery.id)
-        await smartEditMessage(chatId, messageId, [
+        await sendTelegramMessage(chatId, [
           `<b>🎁 Referral</b>`,
           ``,
           `<i>Coming soon!</i>`,
@@ -355,7 +358,7 @@ export async function POST(req: NextRequest) {
       // Help
       if (callbackData === 'menu_help') {
         await answerCallbackQuery(callbackQuery.id)
-        await smartEditMessage(chatId, messageId, [
+        await sendTelegramMessage(chatId, [
           `<b>❓ Help</b>`,
           ``,
           `<b>Commands:</b>`,
