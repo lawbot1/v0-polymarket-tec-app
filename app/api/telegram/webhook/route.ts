@@ -22,6 +22,7 @@ import {
 
 const WELCOME_IMAGE_URL = 'https://app.vantake.trade/telegram-welcome.png'
 const WALLET_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-5ZjBkRTp9vW4km5vzyvp5JPVeGBq8B.png'
+const PROFILE_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-Fgu7NCVLAF6fGAL2VTUhBB4FQ2bmrQ.png'
 const APP_URL = 'https://app.vantake.trade'
 const TWITTER_URL = 'https://x.com/VantakeTrade'
 
@@ -378,8 +379,8 @@ export async function POST(req: NextRequest) {
           profileLines.push(`Go to Wallet to create one.`)
         }
         
-        await sendTelegramMessage(chatId, profileLines.join('\n'), 'HTML', {
-          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'menu_main' }]]
+        await sendTelegramPhoto(chatId, PROFILE_IMAGE_URL, profileLines.join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: 'Back', callback_data: 'menu_main' }]]
         })
         return NextResponse.json({ ok: true })
       }
