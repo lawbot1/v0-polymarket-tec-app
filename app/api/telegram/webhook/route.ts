@@ -449,14 +449,6 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        lines.push(``, `Choose a source to copy_trade:`)
-        
-        // Add subscription addresses as buttons
-        for (const sub of subscriptions) {
-          const displayName = sub.name || sub.wallet_address
-          keyboard.push([{ text: displayName.slice(0, 40), callback_data: `ct_view_${sub.wallet_address}` }])
-        }
-        
         keyboard.push([{ text: '+ Add address', callback_data: 'ct_add' }])
         keyboard.push([
           { text: 'Back', callback_data: 'menu_main' },
