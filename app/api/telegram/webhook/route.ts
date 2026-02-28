@@ -93,11 +93,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     
-    console.log('[v0] Telegram webhook received:', JSON.stringify(body, null, 2))
-    
     // Handle callback queries (inline button clicks)
     if (body?.callback_query) {
-      console.log('[v0] Callback query detected:', body.callback_query.data)
       const callbackQuery = body.callback_query
       const callbackData = callbackQuery.data
       const chatId = String(callbackQuery.message?.chat?.id)
