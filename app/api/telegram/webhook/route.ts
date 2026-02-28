@@ -488,12 +488,72 @@ export async function POST(req: NextRequest) {
         }
         
         keyboard.push([{ text: '+ Add address', callback_data: 'ct_add' }])
+        keyboard.push([{ text: '⚙️ Settings', callback_data: 'ct_global_settings' }])
         keyboard.push([
           { text: 'Back', callback_data: 'menu_main' },
           { text: 'Refresh', callback_data: 'menu_copytrade' }
         ])
         
         await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, lines.join('\n'), 'HTML', { inline_keyboard: keyboard })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - global settings
+      if (callbackData === 'ct_global_settings') {
+        await answerCallbackQuery(callbackQuery.id)
+        const subscriptions = await getCopytradeSubscriptions(chatId)
+        
+        if (subscriptions.length === 0) {
+          await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, [
+            `<b>⚙️ Copy Trade Settings</b>`,
+            ``,
+            `<i>No subscriptions yet.</i>`,
+            ``,
+            `Add a wallet address first to configure settings.`,
+          ].join('\n'), 'HTML', {
+            inline_keyboard: [[{ text: 'Back', callback_data: 'menu_copytrade' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        const lines = [
+          `<b>⚙️ Copy Trade Settings</b>`,
+          ``,
+          `Select a wallet to configure:`,
+        ]
+        
+        const keyboard: { text: string; callback_data: string }[][] = []
+        for (const sub of subscriptions) {
+          const displayName = sub.name || formatWalletAddress(sub.wallet_address)
+          const status = sub.is_enabled ? '🟢' : '🔴'
+          keyboard.push([{ text: `${status} ${displayName}`, callback_data: `ct_settings_${sub.wallet_address}` }])
+        }
+        
+        keyboard.push([{ text: '🤖 AI Mode', callback_data: 'ct_aimode_global' }])
+        keyboard.push([{ text: 'Back', callback_data: 'menu_copytrade' }])
+        
+        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, lines.join('\n'), 'HTML', { inline_keyboard: keyboard })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - global AI mode
+      if (callbackData === 'ct_aimode_global') {
+        await answerCallbackQuery(callbackQuery.id)
+        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, [
+          `<b>🤖 AI Mode</b>`,
+          ``,
+          `<i>Coming soon!</i>`,
+          ``,
+          `AI will analyze trades and automatically`,
+          `decide which ones to copy based on:`,
+          ``,
+          `• Market conditions`,
+          `• Trader's historical performance`,
+          `• Risk assessment`,
+          `• Portfolio diversification`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: 'Back to Settings', callback_data: 'ct_global_settings' }]]
+        })
         return NextResponse.json({ ok: true })
       }
       
