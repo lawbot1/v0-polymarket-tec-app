@@ -146,6 +146,39 @@ async function renameCopytradeSubscription(chatId: string, walletAddress: string
   return !error
 }
 
+// Helper: get single subscription by wallet
+async function getSubscription(chatId: string, walletAddress: string) {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('telegram_copytrade_subscriptions')
+    .select('*')
+    .eq('telegram_chat_id', chatId)
+    .eq('wallet_address', walletAddress.toLowerCase())
+    .single()
+  return data
+}
+
+// Helper: update copytrade settings
+async function updateCopytradeSettings(
+  chatId: string, 
+  walletAddress: string, 
+  settings: {
+    copy_mode?: string
+    copy_value?: number
+    max_per_trade?: number
+    min_trade_size?: number
+    is_enabled?: boolean
+  }
+) {
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from('telegram_copytrade_subscriptions')
+    .update({ ...settings, updated_at: new Date().toISOString() })
+    .eq('telegram_chat_id', chatId)
+    .eq('wallet_address', walletAddress.toLowerCase())
+  return !error
+}
+
 // User state for multi-step operations (withdraw amount, add address, rename)
 const userStates = new Map<string, { action: string; data?: Record<string, unknown> }>()
 
@@ -484,38 +517,208 @@ export async function POST(req: NextRequest) {
         const walletAddress = callbackData.replace('ct_view_', '')
         await answerCallbackQuery(callbackQuery.id)
         
-        // Get stats for this wallet
+        // Get subscription settings
+        const sub = await getSubscription(chatId, walletAddress)
         const stats = await getTraderStats(walletAddress)
         const pnlSign = stats.pnl >= 0 ? '+' : ''
+        
+        const modeText = sub?.copy_mode === 'fixed' ? `$${sub?.copy_value || 5}` : `${sub?.copy_value || 10}%`
+        const statusText = sub?.is_enabled ? 'Enabled' : 'Disabled'
         
         const lines = [
           `<b>Trader Stats</b>`,
           ``,
           `Address: <code>${formatWalletAddress(walletAddress)}</code>`,
+          `Status: <b>${statusText}</b>`,
           ``,
+          `<b>Copy Settings:</b>`,
+          `Mode: ${sub?.copy_mode === 'fixed' ? 'Fixed Amount' : 'Percentage'}`,
+          `Copy Size: ${modeText}`,
+          `Max per trade: $${sub?.max_per_trade || 50}`,
+          `Min trade size: $${sub?.min_trade_size || 1}`,
+          ``,
+          `<b>Trader Performance:</b>`,
           `PnL: <b>${pnlSign}$${stats.pnl.toFixed(2)}</b>`,
           `Volume: <b>$${stats.volume.toFixed(2)}</b>`,
           `Trades: <b>${stats.numTrades}</b>`,
-          ``,
-          `<b>Active Positions:</b>`,
         ]
         
-        if (stats.positions.length === 0) {
-          lines.push(`<i>No active positions.</i>`)
-        } else {
-          for (const pos of stats.positions.slice(0, 5)) {
-            const marketName = pos.market.length > 35 ? pos.market.slice(0, 32) + '...' : pos.market
+        if (stats.positions.length > 0) {
+          lines.push(``, `<b>Active Positions:</b>`)
+          for (const pos of stats.positions.slice(0, 3)) {
+            const marketName = pos.market.length > 30 ? pos.market.slice(0, 27) + '...' : pos.market
             lines.push(`• ${marketName}`)
-            lines.push(`  ${pos.outcome} | $${pos.size.toFixed(2)}`)
           }
         }
         
         await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, lines.join('\n'), 'HTML', {
           inline_keyboard: [
+            [{ text: sub?.is_enabled ? 'Disable' : 'Enable', callback_data: `ct_toggle_${walletAddress}` }],
+            [{ text: 'Settings', callback_data: `ct_settings_${walletAddress}` }],
             [{ text: 'Rename', callback_data: `ct_rename_${walletAddress}` }],
             [{ text: 'Delete', callback_data: `ct_delete_${walletAddress}` }],
             [{ text: 'Back', callback_data: 'menu_copytrade' }]
           ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - toggle enable/disable
+      if (callbackData.startsWith('ct_toggle_')) {
+        const walletAddress = callbackData.replace('ct_toggle_', '')
+        const sub = await getSubscription(chatId, walletAddress)
+        await updateCopytradeSettings(chatId, walletAddress, { is_enabled: !sub?.is_enabled })
+        await answerCallbackQuery(callbackQuery.id, sub?.is_enabled ? 'Disabled' : 'Enabled')
+        // Redirect back to view
+        const newSub = await getSubscription(chatId, walletAddress)
+        const stats = await getTraderStats(walletAddress)
+        const pnlSign = stats.pnl >= 0 ? '+' : ''
+        const modeText = newSub?.copy_mode === 'fixed' ? `$${newSub?.copy_value || 5}` : `${newSub?.copy_value || 10}%`
+        const statusText = newSub?.is_enabled ? 'Enabled' : 'Disabled'
+        
+        const lines = [
+          `<b>Trader Stats</b>`,
+          ``,
+          `Address: <code>${formatWalletAddress(walletAddress)}</code>`,
+          `Status: <b>${statusText}</b>`,
+          ``,
+          `<b>Copy Settings:</b>`,
+          `Mode: ${newSub?.copy_mode === 'fixed' ? 'Fixed Amount' : 'Percentage'}`,
+          `Copy Size: ${modeText}`,
+          `Max per trade: $${newSub?.max_per_trade || 50}`,
+          `Min trade size: $${newSub?.min_trade_size || 1}`,
+          ``,
+          `<b>Trader Performance:</b>`,
+          `PnL: <b>${pnlSign}$${stats.pnl.toFixed(2)}</b>`,
+        ]
+        
+        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, lines.join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: newSub?.is_enabled ? 'Disable' : 'Enable', callback_data: `ct_toggle_${walletAddress}` }],
+            [{ text: 'Settings', callback_data: `ct_settings_${walletAddress}` }],
+            [{ text: 'Rename', callback_data: `ct_rename_${walletAddress}` }],
+            [{ text: 'Delete', callback_data: `ct_delete_${walletAddress}` }],
+            [{ text: 'Back', callback_data: 'menu_copytrade' }]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - settings menu
+      if (callbackData.startsWith('ct_settings_')) {
+        const walletAddress = callbackData.replace('ct_settings_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        const sub = await getSubscription(chatId, walletAddress)
+        
+        const modeText = sub?.copy_mode === 'fixed' ? 'Fixed Amount' : 'Percentage'
+        const valueText = sub?.copy_mode === 'fixed' ? `$${sub?.copy_value || 5}` : `${sub?.copy_value || 10}%`
+        
+        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, [
+          `<b>Copy Trade Settings</b>`,
+          ``,
+          `Wallet: <code>${formatWalletAddress(walletAddress)}</code>`,
+          ``,
+          `<b>Current Settings:</b>`,
+          `Copy Mode: ${modeText}`,
+          `Copy Size: ${valueText}`,
+          `Max per trade: $${sub?.max_per_trade || 50}`,
+          `Min trade size: $${sub?.min_trade_size || 1}`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: `Mode: ${modeText}`, callback_data: `ct_mode_${walletAddress}` }],
+            [{ text: `Copy Size: ${valueText}`, callback_data: `ct_value_${walletAddress}` }],
+            [{ text: `Max: $${sub?.max_per_trade || 50}`, callback_data: `ct_max_${walletAddress}` }],
+            [{ text: `Min: $${sub?.min_trade_size || 1}`, callback_data: `ct_min_${walletAddress}` }],
+            [{ text: 'Back', callback_data: `ct_view_${walletAddress}` }]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - change mode
+      if (callbackData.startsWith('ct_mode_')) {
+        const walletAddress = callbackData.replace('ct_mode_', '')
+        const sub = await getSubscription(chatId, walletAddress)
+        const newMode = sub?.copy_mode === 'fixed' ? 'percentage' : 'fixed'
+        await updateCopytradeSettings(chatId, walletAddress, { copy_mode: newMode })
+        await answerCallbackQuery(callbackQuery.id, `Mode: ${newMode === 'fixed' ? 'Fixed Amount' : 'Percentage'}`)
+        // Refresh settings
+        const newSub = await getSubscription(chatId, walletAddress)
+        const modeText = newSub?.copy_mode === 'fixed' ? 'Fixed Amount' : 'Percentage'
+        const valueText = newSub?.copy_mode === 'fixed' ? `$${newSub?.copy_value || 5}` : `${newSub?.copy_value || 10}%`
+        
+        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, [
+          `<b>Copy Trade Settings</b>`,
+          ``,
+          `Wallet: <code>${formatWalletAddress(walletAddress)}</code>`,
+          ``,
+          `<b>Current Settings:</b>`,
+          `Copy Mode: ${modeText}`,
+          `Copy Size: ${valueText}`,
+          `Max per trade: $${newSub?.max_per_trade || 50}`,
+          `Min trade size: $${newSub?.min_trade_size || 1}`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: `Mode: ${modeText}`, callback_data: `ct_mode_${walletAddress}` }],
+            [{ text: `Copy Size: ${valueText}`, callback_data: `ct_value_${walletAddress}` }],
+            [{ text: `Max: $${newSub?.max_per_trade || 50}`, callback_data: `ct_max_${walletAddress}` }],
+            [{ text: `Min: $${newSub?.min_trade_size || 1}`, callback_data: `ct_min_${walletAddress}` }],
+            [{ text: 'Back', callback_data: `ct_view_${walletAddress}` }]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - set copy value
+      if (callbackData.startsWith('ct_value_')) {
+        const walletAddress = callbackData.replace('ct_value_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        const sub = await getSubscription(chatId, walletAddress)
+        userStates.set(chatId, { action: 'ct_set_value', data: { walletAddress } })
+        
+        const hint = sub?.copy_mode === 'fixed' ? 'Enter amount in $ (e.g., 10):' : 'Enter percentage (e.g., 15):'
+        await sendTelegramMessage(chatId, [
+          `<b>Set Copy Size</b>`,
+          ``,
+          `Mode: ${sub?.copy_mode === 'fixed' ? 'Fixed Amount' : 'Percentage'}`,
+          `Current: ${sub?.copy_mode === 'fixed' ? `$${sub?.copy_value}` : `${sub?.copy_value}%`}`,
+          ``,
+          hint,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: 'Cancel', callback_data: `ct_settings_${walletAddress}` }]]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - set max per trade
+      if (callbackData.startsWith('ct_max_')) {
+        const walletAddress = callbackData.replace('ct_max_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        userStates.set(chatId, { action: 'ct_set_max', data: { walletAddress } })
+        
+        await sendTelegramMessage(chatId, [
+          `<b>Set Max Per Trade</b>`,
+          ``,
+          `Enter maximum amount per single trade in $ (e.g., 100):`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: 'Cancel', callback_data: `ct_settings_${walletAddress}` }]]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - set min trade size
+      if (callbackData.startsWith('ct_min_')) {
+        const walletAddress = callbackData.replace('ct_min_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        userStates.set(chatId, { action: 'ct_set_min', data: { walletAddress } })
+        
+        await sendTelegramMessage(chatId, [
+          `<b>Set Min Trade Size</b>`,
+          ``,
+          `Enter minimum trade size to copy in $ (e.g., 5):`,
+          `Trades smaller than this will be ignored.`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [[{ text: 'Cancel', callback_data: `ct_settings_${walletAddress}` }]]
         })
         return NextResponse.json({ ok: true })
       }
@@ -701,6 +904,60 @@ export async function POST(req: NextRequest) {
             inline_keyboard: [[{ text: 'Back', callback_data: 'menu_copytrade' }]]
           })
         }
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - set copy value
+      if (userState.action === 'ct_set_value') {
+        const walletAddress = userState.data?.walletAddress as string
+        const value = parseFloat(text)
+        if (isNaN(value) || value <= 0) {
+          await sendTelegramMessage(chatId, 'Invalid value. Please enter a positive number.', 'HTML', {
+            inline_keyboard: [[{ text: 'Cancel', callback_data: `ct_settings_${walletAddress}` }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        userStates.delete(chatId)
+        await updateCopytradeSettings(chatId, walletAddress, { copy_value: value })
+        await sendTelegramMessage(chatId, `Copy size updated to ${value}`, 'HTML', {
+          inline_keyboard: [[{ text: 'Back to Settings', callback_data: `ct_settings_${walletAddress}` }]]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - set max per trade
+      if (userState.action === 'ct_set_max') {
+        const walletAddress = userState.data?.walletAddress as string
+        const value = parseFloat(text)
+        if (isNaN(value) || value <= 0) {
+          await sendTelegramMessage(chatId, 'Invalid value. Please enter a positive number.', 'HTML', {
+            inline_keyboard: [[{ text: 'Cancel', callback_data: `ct_settings_${walletAddress}` }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        userStates.delete(chatId)
+        await updateCopytradeSettings(chatId, walletAddress, { max_per_trade: value })
+        await sendTelegramMessage(chatId, `Max per trade updated to $${value}`, 'HTML', {
+          inline_keyboard: [[{ text: 'Back to Settings', callback_data: `ct_settings_${walletAddress}` }]]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - set min trade size
+      if (userState.action === 'ct_set_min') {
+        const walletAddress = userState.data?.walletAddress as string
+        const value = parseFloat(text)
+        if (isNaN(value) || value < 0) {
+          await sendTelegramMessage(chatId, 'Invalid value. Please enter a non-negative number.', 'HTML', {
+            inline_keyboard: [[{ text: 'Cancel', callback_data: `ct_settings_${walletAddress}` }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        userStates.delete(chatId)
+        await updateCopytradeSettings(chatId, walletAddress, { min_trade_size: value })
+        await sendTelegramMessage(chatId, `Min trade size updated to $${value}`, 'HTML', {
+          inline_keyboard: [[{ text: 'Back to Settings', callback_data: `ct_settings_${walletAddress}` }]]
+        })
         return NextResponse.json({ ok: true })
       }
     }
