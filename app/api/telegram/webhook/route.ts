@@ -108,10 +108,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
       
-      // Main menu (same as /start)
+      // Main menu (same as /start) - with photo
       if (callbackData === 'menu_main') {
         await answerCallbackQuery(callbackQuery.id)
-        const welcomeText = [
+        const welcomeCaption = [
           `<b>Welcome to Vantake Notifications Bot!</b>`,
           ``,
           `Get real-time alerts when traders you track make new bets on Polymarket.`,
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
           ``,
           `We on <a href="${TWITTER_URL}">X.com</a> / <a href="${APP_URL}">app.vantake.trade</a>`,
         ].join('\n')
-        await sendTelegramMessage(chatId, welcomeText, 'HTML', getMainMenuKeyboard())
+        await sendTelegramPhoto(chatId, WELCOME_IMAGE_URL, welcomeCaption, 'HTML', getMainMenuKeyboard())
         return NextResponse.json({ ok: true })
       }
       
