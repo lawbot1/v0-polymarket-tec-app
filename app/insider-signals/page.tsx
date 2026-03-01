@@ -464,8 +464,13 @@ export default function InsiderSignalsPage() {
             <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Top Traders</div>
           </div>
           <div className="sharp-panel p-3 sm:p-4">
-            <div className="flex items-center gap-2 text-[#22c55e]">
-              <Sparkles className="h-8 w-8 sm:h-10 sm:w-10" />
+            <div className="flex items-center gap-2 text-yellow-500">
+              <img
+                src="/icon-whale.png"
+                alt="Avg Win Rate"
+                className="h-8 w-8 sm:h-12 sm:w-12 object-contain"
+                style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
+              />
               {isLoading ? (
                 <Skeleton className="h-6 sm:h-8 w-10 sm:w-12" />
               ) : (
