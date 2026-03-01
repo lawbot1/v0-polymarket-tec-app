@@ -13,7 +13,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { WalletAvatar } from '@/components/trader/wallet-avatar'
 import {
   type UserTrade,
-  type UserPosition,
   type LeaderboardTrader,
   formatVolume,
   formatAddress,
@@ -245,12 +244,12 @@ const FEATURED_TRADERS = [
 const MIN_SIGNAL_VALUE = 40000 // Minimum $40k for signals
 
 // ---- Main page ----
-// SWR fetcher that loads leaderboard + positions in one shot, returns { traders, signals }
+// SWR fetcher that loads leaderboard + trades, returns { traders, signals }
 async function signalsFetcher() {
-  // Fetch leaderboard and featured traders positions in parallel for speed
+  // Fetch leaderboard and featured traders trades in parallel for speed
   const [leaderboardRes, ...featuredResponses] = await Promise.all([
     fetch('/api/polymarket/leaderboard?window=day&limit=30'),
-    ...FEATURED_TRADERS.map(addr => fetch(`/api/polymarket/positions?user=${addr}`))
+    ...FEATURED_TRADERS.map(addr => fetch(`/api/polymarket/trades?user=${addr}&limit=100`))
   ])
   
   let traders: LeaderboardTrader[] = []
@@ -258,82 +257,117 @@ async function signalsFetcher() {
 
   const allSignals: SignalEntry[] = []
   
-  // Process featured traders positions (high priority - these are current holdings)
+  // Process featured traders trades - aggregate by market to get total position
   for (let i = 0; i < FEATURED_TRADERS.length; i++) {
     const res = featuredResponses[i]
     if (res.ok) {
       try {
-        const positions: UserPosition[] = await res.json()
-        // Transform positions to signal format
-        const filtered = positions
-          .filter((pos) => {
-            const posValue = pos.initialValue || pos.size * pos.avgPrice
-            const entryPrice = pos.avgPrice * 100
-            return posValue >= MIN_SIGNAL_VALUE && entryPrice < 99 && entryPrice > 1
-          })
-          .map((pos) => ({
-            title: pos.title || 'Unknown Market',
-            outcome: pos.outcome || 'Yes',
-            side: 'BUY' as const,
-            size: pos.size,
-            price: pos.avgPrice,
-            timestamp: pos.endDate ? new Date(pos.endDate).getTime() : Date.now(),
-            eventSlug: pos.eventSlug,
-            conditionId: pos.conditionId,
+        const trades: UserTrade[] = await res.json()
+        
+        // Group trades by conditionId to aggregate into positions
+        const tradesByMarket = new Map<string, UserTrade[]>()
+        for (const trade of trades) {
+          const key = trade.conditionId || trade.title
+          if (!tradesByMarket.has(key)) tradesByMarket.set(key, [])
+          tradesByMarket.get(key)!.push(trade)
+        }
+        
+        // Aggregate each market's trades
+        for (const [, marketTrades] of tradesByMarket) {
+          // Calculate total BUY position
+          const buyTrades = marketTrades.filter(t => t.side === 'BUY')
+          if (buyTrades.length === 0) continue
+          
+          const totalSize = buyTrades.reduce((sum, t) => sum + t.size, 0)
+          const totalValue = buyTrades.reduce((sum, t) => sum + t.size * t.price, 0)
+          const avgPrice = totalValue / totalSize
+          const latestTrade = buyTrades.reduce((latest, t) => 
+            normalizeTimestamp(t.timestamp) > normalizeTimestamp(latest.timestamp) ? t : latest
+          )
+          
+          if (totalValue < MIN_SIGNAL_VALUE) continue
+          if (avgPrice * 100 >= 99 || avgPrice * 100 <= 1) continue
+          
+          allSignals.push({
+            title: latestTrade.title || 'Unknown Market',
+            outcome: latestTrade.outcome || 'Yes',
+            side: 'BUY',
+            size: totalSize,
+            price: avgPrice,
+            timestamp: latestTrade.timestamp,
+            eventSlug: latestTrade.eventSlug,
+            conditionId: latestTrade.conditionId,
             proxyWallet: FEATURED_TRADERS[i],
-            traderPnl: pos.cashPnl || 0,
+            traderPnl: 0,
             traderRank: 1,
             traderProfileImage: undefined,
             traderName: undefined,
-            confidence: 'High' as const,
-            isWhale: pos.initialValue >= 50000,
-          }))
-        allSignals.push(...filtered)
+            confidence: 'High',
+            isWhale: totalValue >= 50000,
+          })
+        }
       } catch {}
     }
   }
   
-  // Top 15 traders, fetch their positions too
-  const posPromises = traders.slice(0, 15).map(async (trader) => {
+  // Top 15 traders, fetch their trades too
+  const tradePromises = traders.slice(0, 15).map(async (trader) => {
     if (FEATURED_TRADERS.includes(trader.proxyWallet.toLowerCase())) return []
     try {
-      const posRes = await fetch(`/api/polymarket/positions?user=${trader.proxyWallet}`)
-      if (posRes.ok) {
-        const positions: UserPosition[] = await posRes.json()
-        return positions
-          .filter((pos) => {
-            const posValue = pos.initialValue || pos.size * pos.avgPrice
-            const entryPrice = pos.avgPrice * 100
-            return posValue >= MIN_SIGNAL_VALUE && entryPrice < 99
+      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=50`)
+      if (tradesRes.ok) {
+        const trades: UserTrade[] = await tradesRes.json()
+        
+        // Group trades by conditionId
+        const tradesByMarket = new Map<string, UserTrade[]>()
+        for (const trade of trades) {
+          const key = trade.conditionId || trade.title
+          if (!tradesByMarket.has(key)) tradesByMarket.set(key, [])
+          tradesByMarket.get(key)!.push(trade)
+        }
+        
+        const signals: SignalEntry[] = []
+        for (const [, marketTrades] of tradesByMarket) {
+          const buyTrades = marketTrades.filter(t => t.side === 'BUY')
+          if (buyTrades.length === 0) continue
+          
+          const totalSize = buyTrades.reduce((sum, t) => sum + t.size, 0)
+          const totalValue = buyTrades.reduce((sum, t) => sum + t.size * t.price, 0)
+          const avgPrice = totalValue / totalSize
+          const latestTrade = buyTrades.reduce((latest, t) => 
+            normalizeTimestamp(t.timestamp) > normalizeTimestamp(latest.timestamp) ? t : latest
+          )
+          
+          if (totalValue < MIN_SIGNAL_VALUE) continue
+          if (avgPrice * 100 >= 99) continue
+          
+          signals.push({
+            title: latestTrade.title || 'Unknown Market',
+            outcome: latestTrade.outcome || 'Yes',
+            side: 'BUY',
+            size: totalSize,
+            price: avgPrice,
+            timestamp: latestTrade.timestamp,
+            eventSlug: latestTrade.eventSlug,
+            conditionId: latestTrade.conditionId,
+            proxyWallet: trader.proxyWallet,
+            traderPnl: trader.pnl || 0,
+            traderRank: trader.rank,
+            traderProfileImage: trader.profileImage,
+            traderName: trader.userName,
+            confidence: (trader.rank && trader.rank <= 10 && totalValue >= 50000 ? 'High' : 
+              trader.rank && trader.rank <= 30 && totalValue >= 40000 ? 'Medium' : 'Low') as 'High' | 'Medium' | 'Low',
+            isWhale: totalValue >= 100000,
           })
-          .map((pos) => {
-            const posValue = pos.initialValue || pos.size * pos.avgPrice
-            return {
-              title: pos.title || 'Unknown Market',
-              outcome: pos.outcome || 'Yes',
-              side: 'BUY' as const,
-              size: pos.size,
-              price: pos.avgPrice,
-              timestamp: pos.endDate ? new Date(pos.endDate).getTime() : Date.now(),
-              eventSlug: pos.eventSlug,
-              conditionId: pos.conditionId,
-              proxyWallet: trader.proxyWallet,
-              traderPnl: trader.pnl || 0,
-              traderRank: trader.rank,
-              traderProfileImage: trader.profileImage,
-              traderName: trader.userName,
-              confidence: (trader.rank && trader.rank <= 10 && posValue >= 50000 ? 'High' : 
-                trader.rank && trader.rank <= 30 && posValue >= 40000 ? 'Medium' : 'Low') as 'High' | 'Medium' | 'Low',
-              isWhale: posValue >= 100000,
-            }
-          })
+        }
+        return signals
       }
       return []
     } catch { return [] }
   })
 
-  const posResults = await Promise.all(posPromises)
-  posResults.forEach(positions => allSignals.push(...positions))
+  const tradeResults = await Promise.all(tradePromises)
+  tradeResults.forEach(signals => allSignals.push(...signals))
   
   // Deduplicate: keep only the largest position per market per trader
   const deduped = new Map<string, SignalEntry>()
@@ -346,8 +380,8 @@ async function signalsFetcher() {
   }
   
   const finalSignals = Array.from(deduped.values())
-  // Sort by position value (largest first) since these are current holdings
-  finalSignals.sort((a, b) => (b.size * b.price) - (a.size * a.price))
+  // Sort by timestamp (newest first)
+  finalSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
 
   return { traders: traders.slice(0, 15), signals: finalSignals }
 }
