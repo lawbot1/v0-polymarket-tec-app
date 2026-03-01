@@ -240,25 +240,63 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
   )
 }
 
+// Featured high win-rate traders to always include
+const FEATURED_TRADERS = [
+  '0x37d10ffb61998561c5f9fb941c42c952d8fb4e28', // High win-rate trader
+]
+
 // ---- Main page ----
 // SWR fetcher that loads leaderboard + trades in one shot, returns { traders, signals }
 async function signalsFetcher() {
-  const leaderboardRes = await fetch('/api/polymarket/leaderboard?window=day&limit=50')
+  // Fetch leaderboard and featured traders in parallel for speed
+  const [leaderboardRes, ...featuredResponses] = await Promise.all([
+    fetch('/api/polymarket/leaderboard?window=day&limit=30'),
+    ...FEATURED_TRADERS.map(addr => fetch(`/api/polymarket/trades?user=${addr}&limit=15`))
+  ])
+  
   let traders: LeaderboardTrader[] = []
   if (leaderboardRes.ok) traders = await leaderboardRes.json()
 
   const allSignals: SignalEntry[] = []
-  // Top 30 traders, 10 trades each
-  const tradePromises = traders.slice(0, 30).map(async (trader) => {
+  
+  // Process featured traders first (high priority)
+  for (let i = 0; i < FEATURED_TRADERS.length; i++) {
+    const res = featuredResponses[i]
+    if (res.ok) {
+      try {
+        const trades: UserTrade[] = await res.json()
+        const filtered = trades
+          .filter(trade => {
+            const tradeValue = trade.size * trade.price
+            const entryPrice = trade.price * 100
+            return tradeValue >= 500 && entryPrice < 99.9 && entryPrice > 1
+          })
+          .map(trade => ({
+            ...trade,
+            traderPnl: 0,
+            traderRank: 1,
+            traderProfileImage: undefined,
+            traderName: undefined,
+            confidence: 'High' as const,
+            isWhale: (trade.size * trade.price) >= 10000,
+          }))
+        allSignals.push(...filtered)
+      } catch {}
+    }
+  }
+  
+  // Top 15 traders only (reduced for speed), 8 trades each
+  const tradePromises = traders.slice(0, 15).map(async (trader) => {
+    // Skip if already in featured
+    if (FEATURED_TRADERS.includes(trader.proxyWallet.toLowerCase())) return []
     try {
-      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=10`)
+      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=8`)
       if (tradesRes.ok) {
         const trades: UserTrade[] = await tradesRes.json()
         return trades
-          // Filter out trades < $2000 and trades at 99.9c+ entry (redemptions/certainty plays)
           .filter(trade => {
             const tradeValue = trade.size * trade.price
-            const entryPrice = trade.price * 100 // convert to cents
+            const entryPrice = trade.price * 100
             return tradeValue >= 2000 && entryPrice < 99.9
           })
           .map(trade => {
@@ -283,15 +321,28 @@ async function signalsFetcher() {
 
   const tradeResults = await Promise.all(tradePromises)
   tradeResults.forEach(trades => allSignals.push(...trades))
-  allSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
+  
+  // Deduplicate: keep only the largest trade per event per trader
+  const deduped = new Map<string, SignalEntry>()
+  for (const signal of allSignals) {
+    const key = `${signal.proxyWallet}-${signal.conditionId || signal.eventSlug || signal.title}`
+    const existing = deduped.get(key)
+    if (!existing || (signal.size * signal.price) > (existing.size * existing.price)) {
+      deduped.set(key, signal)
+    }
+  }
+  
+  const finalSignals = Array.from(deduped.values())
+  finalSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
 
-  return { traders: traders.slice(0, 30), signals: allSignals }
+  return { traders: traders.slice(0, 15), signals: finalSignals }
 }
 
 export default function InsiderSignalsPage() {
   const { data, isLoading, mutate } = useSWR('insider-signals', signalsFetcher, {
     revalidateOnFocus: false,
-    dedupingInterval: 120000, // Cache for 2 minutes
+    dedupingInterval: 300000, // Cache for 5 minutes
+    revalidateOnReconnect: false,
   })
   const signals = data?.signals || []
   const topTraders = data?.traders || []
