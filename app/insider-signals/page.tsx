@@ -249,7 +249,7 @@ async function signalsFetcher() {
   // Fetch leaderboard and featured traders trades in parallel for speed
   const [leaderboardRes, ...featuredResponses] = await Promise.all([
     fetch('/api/polymarket/leaderboard?window=day&limit=30'),
-    ...FEATURED_TRADERS.map(addr => fetch(`/api/polymarket/trades?user=${addr}&limit=100`))
+    ...FEATURED_TRADERS.map(addr => fetch(`/api/polymarket/trades?user=${addr}&limit=200`))
   ])
   
   let traders: LeaderboardTrader[] = []
@@ -314,7 +314,7 @@ async function signalsFetcher() {
   const tradePromises = traders.slice(0, 15).map(async (trader) => {
     if (FEATURED_TRADERS.includes(trader.proxyWallet.toLowerCase())) return []
     try {
-      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=50`)
+      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=100`)
       if (tradesRes.ok) {
         const trades: UserTrade[] = await tradesRes.json()
         
@@ -398,6 +398,7 @@ export default function InsiderSignalsPage() {
   const [sortBy, setSortBy] = useState<SortOption>('Recent')
   const [minSize, setMinSize] = useState('')
   const [whalesOnly, setWhalesOnly] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(30)
 
   const filteredSignals = useMemo(() => {
     let result = [...signals]
@@ -429,6 +430,11 @@ export default function InsiderSignalsPage() {
     return result
   }, [signals, minSize, whalesOnly, sortBy])
 
+  const visibleSignals = useMemo(() => {
+    return filteredSignals.slice(0, visibleCount)
+  }, [filteredSignals, visibleCount])
+
+  const hasMore = filteredSignals.length > visibleCount
 
   const whaleCount = signals.filter((s) => s.isWhale).length
   const totalVolume = signals.reduce((acc, s) => acc + s.size * s.price, 0)
@@ -614,11 +620,27 @@ export default function InsiderSignalsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredSignals.map((signal, i) => (
-              <SignalCard key={`${signal.transactionHash}-${i}`} signal={signal} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {visibleSignals.map((signal, i) => (
+                <SignalCard key={`${signal.transactionHash}-${i}`} signal={signal} />
+              ))}
+            </div>
+            
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="flex justify-center mt-6">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setVisibleCount(prev => prev + 30)}
+                  className="gap-2 bg-transparent border-border"
+                >
+                  Load More ({filteredSignals.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
         {/* Data Source */}
