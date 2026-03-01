@@ -29,6 +29,35 @@ const REFERRAL_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.
 const APP_URL = 'https://app.vantake.trade'
 const TWITTER_URL = 'https://x.com/VantakeTrade'
 
+// Helper: edit message with photo (for refresh buttons)
+async function editMessageMedia(
+  chatId: string,
+  messageId: number,
+  photoUrl: string,
+  caption: string,
+  parseMode: string = 'HTML',
+  replyMarkup?: { inline_keyboard: { text: string; callback_data?: string; url?: string }[][] }
+) {
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+    media: {
+      type: 'photo',
+      media: photoUrl,
+      caption: caption,
+      parse_mode: parseMode,
+    },
+  }
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup
+  }
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/editMessageMedia`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
 // Helper: find user by telegram chat_id
 async function findUserByChatId(chatId: string) {
   const supabase = createAdminClient()
@@ -390,18 +419,31 @@ export async function POST(req: NextRequest) {
       
 
       // Positions
-      if (callbackData === 'menu_positions') {
-        await answerCallbackQuery(callbackQuery.id)
+      if (callbackData === 'menu_positions' || callbackData === 'refresh_positions') {
+        const isRefresh = callbackData === 'refresh_positions'
+        const messageId = callbackQuery.message?.message_id
+        await answerCallbackQuery(callbackQuery.id, isRefresh ? 'Refreshing...' : undefined)
+        
         const wallet = await getWalletByChatId(chatId)
         
         if (!wallet) {
-          await sendTelegramPhoto(chatId, POSITIONS_IMAGE_URL, [
-            `<b>Positions</b>`,
-            ``,
-            `Create a wallet first to trade.`,
-          ].join('\n'), 'HTML', {
-            inline_keyboard: [[{ text: 'Back', callback_data: 'menu_main' }]]
-          })
+          if (isRefresh && messageId) {
+            await editMessageMedia(chatId, messageId, POSITIONS_IMAGE_URL, [
+              `<b>Positions</b>`,
+              ``,
+              `Create a wallet first to trade.`,
+            ].join('\n'), 'HTML', {
+              inline_keyboard: [[{ text: 'Back', callback_data: 'menu_main' }]]
+            })
+          } else {
+            await sendTelegramPhoto(chatId, POSITIONS_IMAGE_URL, [
+              `<b>Positions</b>`,
+              ``,
+              `Create a wallet first to trade.`,
+            ].join('\n'), 'HTML', {
+              inline_keyboard: [[{ text: 'Back', callback_data: 'menu_main' }]]
+            })
+          }
           return NextResponse.json({ ok: true })
         }
         
@@ -424,18 +466,27 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        await sendTelegramPhoto(chatId, POSITIONS_IMAGE_URL, posLines.join('\n'), 'HTML', {
+        const keyboard = {
           inline_keyboard: [
-            [{ text: 'Refresh', callback_data: 'menu_positions' }],
+            [{ text: 'Refresh', callback_data: 'refresh_positions' }],
             [{ text: 'Back', callback_data: 'menu_main' }]
           ]
-        })
+        }
+        
+        if (isRefresh && messageId) {
+          await editMessageMedia(chatId, messageId, POSITIONS_IMAGE_URL, posLines.join('\n'), 'HTML', keyboard)
+        } else {
+          await sendTelegramPhoto(chatId, POSITIONS_IMAGE_URL, posLines.join('\n'), 'HTML', keyboard)
+        }
         return NextResponse.json({ ok: true })
       }
       
       // Copy Trade - main menu
-      if (callbackData === 'menu_copytrade') {
-        await answerCallbackQuery(callbackQuery.id)
+      if (callbackData === 'menu_copytrade' || callbackData === 'refresh_copytrade') {
+        const isRefresh = callbackData === 'refresh_copytrade'
+        const messageId = callbackQuery.message?.message_id
+        await answerCallbackQuery(callbackQuery.id, isRefresh ? 'Refreshing...' : undefined)
+        
         const subscriptions = await getCopytradeSubscriptions(chatId)
         
         const lines = [`<b>Copy Trading</b>`, ``, `Your subscriptions:`]
@@ -449,19 +500,23 @@ export async function POST(req: NextRequest) {
           for (const sub of subscriptions) {
             const displayName = sub.name || formatWalletAddress(sub.wallet_address)
             lines.push(``)
-            lines.push(`🟢 Active <code>${formatWalletAddress(sub.wallet_address)}</code>`)
+            lines.push(`Active <code>${formatWalletAddress(sub.wallet_address)}</code>`)
             keyboard.push([{ text: displayName, callback_data: `ct_view_${sub.wallet_address}` }])
           }
         }
         
         keyboard.push([{ text: '+ Add address', callback_data: 'ct_add' }])
-        keyboard.push([{ text: '⚙️ Settings', callback_data: 'ct_global_settings' }])
+        keyboard.push([{ text: 'Settings', callback_data: 'ct_global_settings' }])
         keyboard.push([
           { text: 'Back', callback_data: 'menu_main' },
-          { text: 'Refresh', callback_data: 'menu_copytrade' }
+          { text: 'Refresh', callback_data: 'refresh_copytrade' }
         ])
         
-        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, lines.join('\n'), 'HTML', { inline_keyboard: keyboard })
+        if (isRefresh && messageId) {
+          await editMessageMedia(chatId, messageId, COPYTRADE_IMAGE_URL, lines.join('\n'), 'HTML', { inline_keyboard: keyboard })
+        } else {
+          await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, lines.join('\n'), 'HTML', { inline_keyboard: keyboard })
+        }
         return NextResponse.json({ ok: true })
       }
       
@@ -865,10 +920,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
+    // /link without code - show instructions
+    if (text.toLowerCase() === '/link') {
+      await sendTelegramMessage(chatId, [
+        `<b>Link Your Vantake Account</b>`,
+        ``,
+        `To receive trade alerts, link your Vantake account:`,
+        ``,
+        `1. Go to <b>app.vantake.trade/settings</b>`,
+        `2. Find your <b>Telegram Linking Code</b>`,
+        `3. Send it here: <code>/link YOUR_CODE</code>`,
+        ``,
+        `Example: <code>/link ABC12345</code>`,
+      ].join('\n'), 'HTML', {
+        inline_keyboard: [
+          [{ text: 'Open Settings', url: 'https://app.vantake.trade/settings' }],
+          [{ text: 'Main Menu', callback_data: 'menu_main' }]
+        ]
+      })
+      return NextResponse.json({ ok: true })
+    }
+    
     // /link CODE or raw 8-char code
     let rawCode = text
-    if (text.toLowerCase().startsWith('/link')) {
-      rawCode = text.slice(5).trim()
+    if (text.toLowerCase().startsWith('/link ')) {
+      rawCode = text.slice(6).trim()
     }
     const codeMatch = rawCode.toUpperCase().replace(/\s/g, '')
     if (/^[A-Z0-9]{8}$/.test(codeMatch)) {
