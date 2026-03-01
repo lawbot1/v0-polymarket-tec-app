@@ -38,33 +38,6 @@ import {
 import { Badge } from '@/components/ui/badge'
 
 // ---- Types ----
-type SmartSignal = UserTrade & {
-  traderAddress: string
-  traderWinRate: number
-  traderScore: number
-  traderPnl: number
-  traderRoi: number
-  traderProfitFactor: number
-  traderAvgSize: number
-  traderTotalTrades: number
-  profileImage?: string
-  userName?: string
-}
-
-type SmartTrader = {
-  address: string
-  winRate: number
-  totalTrades: number
-  avgTradeSize: number
-  pnl: number
-  roi: number
-  profitFactor: number
-  score: number
-  profileImage?: string
-  userName?: string
-}
-
-// Legacy type for backwards compatibility
 type SignalEntry = UserTrade & {
   traderPnl: number
   traderRank?: number
@@ -72,14 +45,9 @@ type SignalEntry = UserTrade & {
   traderName?: string
   confidence: 'High' | 'Medium' | 'Low'
   isWhale: boolean
-  // Smart signal fields
-  traderWinRate?: number
-  traderScore?: number
-  traderRoi?: number
-  traderProfitFactor?: number
 }
 
-const sortOptions = ['Recent', 'Win Rate', 'Size', 'Score'] as const
+const sortOptions = ['Recent', 'Size', 'Confidence'] as const
 type SortOption = (typeof sortOptions)[number]
 
 // ---- Category mapping (same as trader profile) ----
@@ -185,14 +153,10 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
     : rawName
 
   const category = getTradeCategory(signal)
-  
-  // Win rate badge color
-  const winRate = signal.traderWinRate || 0
-  const winRateColor = winRate >= 80 ? 'text-[#22c55e]' : winRate >= 65 ? 'text-yellow-500' : 'text-muted-foreground'
 
   return (
     <div className="sharp-panel p-4 hover:border-primary/30 transition-colors">
-      {/* Trader + win rate badge */}
+      {/* Trader + time */}
       <div className="flex items-center justify-between mb-3">
         <Link href={`/trader/${signal.proxyWallet}`} className="flex items-center gap-2 group min-w-0">
           {signal.traderProfileImage ? (
@@ -207,11 +171,6 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
             <WalletAvatar wallet={signal.proxyWallet || ''} size={28} />
           )}
           <span className="text-sm font-medium text-foreground group-hover:underline truncate">{displayName}</span>
-          {winRate >= 65 && (
-            <Badge variant="outline" className={cn("text-[10px] border-current flex-shrink-0", winRateColor)}>
-              {winRate.toFixed(0)}% WR
-            </Badge>
-          )}
           {signal.isWhale && (
             <Badge variant="outline" className="text-[10px] border-yellow-500/30 text-yellow-500 flex-shrink-0">
               Whale
@@ -242,6 +201,12 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
       {/* Trade details */}
       <div className="space-y-1.5 border-t border-border pt-3">
         <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Date & Time</span>
+          <span className="text-foreground tabular-nums">
+            {new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">Amount</span>
           <span className="text-foreground font-semibold tabular-nums">
             ${signal.size * signal.price >= 1000
@@ -255,22 +220,6 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
             {((signal.price || 0) * 100).toFixed(1)}c
           </span>
         </div>
-        {signal.traderWinRate && signal.traderWinRate > 0 && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Trader Win Rate</span>
-            <span className={cn("font-semibold tabular-nums", winRateColor)}>
-              {signal.traderWinRate.toFixed(0)}%
-            </span>
-          </div>
-        )}
-        {signal.traderProfitFactor && signal.traderProfitFactor > 0 && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Profit Factor</span>
-            <span className="text-foreground font-semibold tabular-nums">
-              {signal.traderProfitFactor.toFixed(2)}x
-            </span>
-          </div>
-        )}
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">Category</span>
           <span className="text-foreground font-medium">{category}</span>
@@ -292,60 +241,24 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
 }
 
 // ---- Main page ----
-// SWR fetcher that loads smart signals from analyzed high-winrate traders
+// SWR fetcher that loads leaderboard + trades in one shot, returns { traders, signals }
 async function signalsFetcher() {
-  try {
-    // Use new smart signals API
-    const smartRes = await fetch('/api/polymarket/smart-signals')
-    if (smartRes.ok) {
-      const data = await smartRes.json()
-      
-      // Transform smart signals to SignalEntry format
-      const signals: SignalEntry[] = data.signals.map((signal: SmartSignal) => ({
-        ...signal,
-        traderPnl: signal.traderPnl || 0,
-        traderProfileImage: signal.profileImage,
-        traderName: signal.userName,
-        traderWinRate: signal.traderWinRate,
-        traderScore: signal.traderScore,
-        traderRoi: signal.traderRoi,
-        traderProfitFactor: signal.traderProfitFactor,
-        confidence: signal.traderWinRate >= 80 ? 'High' : signal.traderWinRate >= 70 ? 'Medium' : 'Low',
-        isWhale: (signal.size * signal.price) >= 10000,
-      }))
-      
-      // Transform traders
-      const traders = data.traders.map((t: SmartTrader) => ({
-        proxyWallet: t.address,
-        userName: t.userName,
-        profileImage: t.profileImage,
-        pnl: t.pnl,
-        rank: Math.round(t.score), // Use score as pseudo-rank
-        winRate: t.winRate,
-        vol: t.avgTradeSize * t.totalTrades,
-      }))
-      
-      return { traders, signals, meta: data.meta }
-    }
-  } catch (error) {
-    console.error('Smart signals fetch failed, falling back to leaderboard:', error)
-  }
-  
-  // Fallback to old leaderboard-based method
   const leaderboardRes = await fetch('/api/polymarket/leaderboard?window=day&limit=50')
   let traders: LeaderboardTrader[] = []
   if (leaderboardRes.ok) traders = await leaderboardRes.json()
 
   const allSignals: SignalEntry[] = []
+  // Top 30 traders, 10 trades each
   const tradePromises = traders.slice(0, 30).map(async (trader) => {
     try {
       const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=10`)
       if (tradesRes.ok) {
         const trades: UserTrade[] = await tradesRes.json()
         return trades
+          // Filter out trades < $2000 and trades at 99.9c+ entry (redemptions/certainty plays)
           .filter(trade => {
             const tradeValue = trade.size * trade.price
-            const entryPrice = trade.price * 100
+            const entryPrice = trade.price * 100 // convert to cents
             return tradeValue >= 2000 && entryPrice < 99.9
           })
           .map(trade => {
@@ -410,24 +323,19 @@ export default function InsiderSignalsPage() {
     // Sort
     if (sortBy === 'Size') {
       result.sort((a, b) => (b.size * b.price) - (a.size * a.price))
-    } else if (sortBy === 'Win Rate') {
-      result.sort((a, b) => (b.traderWinRate || 0) - (a.traderWinRate || 0))
-    } else if (sortBy === 'Score') {
-      result.sort((a, b) => (b.traderScore || 0) - (a.traderScore || 0))
+    } else if (sortBy === 'Confidence') {
+      result.sort((a, b) => b.size * b.price - a.size * a.price)
     }
 
     return result
   }, [signals, minSize, whalesOnly, sortBy])
 
-  // Stats
-  const avgWinRate = signals.length > 0 
-    ? signals.reduce((acc, s) => acc + (s.traderWinRate || 0), 0) / signals.length 
-    : 0
+
   const whaleCount = signals.filter((s) => s.isWhale).length
   const totalVolume = signals.reduce((acc, s) => acc + s.size * s.price, 0)
 
   return (
-    <AppShell title="Smart Signals" subtitle="High win-rate traders with proven track records">
+    <AppShell title="Insider Signals" subtitle="Real-time trades from top Polymarket traders">
       <div className="space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
@@ -467,17 +375,17 @@ export default function InsiderSignalsPage() {
             <div className="flex items-center gap-2 text-yellow-500">
               <img
                 src="/icon-whale.png"
-                alt="Avg Win Rate"
+                alt="Whale Trades"
                 className="h-8 w-8 sm:h-12 sm:w-12 object-contain"
                 style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
               />
               {isLoading ? (
                 <Skeleton className="h-6 sm:h-8 w-10 sm:w-12" />
               ) : (
-                <span className="text-xl sm:text-2xl font-bold">{avgWinRate.toFixed(0)}%</span>
+                <span className="text-xl sm:text-2xl font-bold">{whaleCount}</span>
               )}
             </div>
-            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Avg Win Rate</div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Whale Trades</div>
           </div>
           <div className="sharp-panel p-3 sm:p-4">
             <div className="flex items-center gap-2 text-foreground">
