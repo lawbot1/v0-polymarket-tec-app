@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Accept': 'application/json',
       },
-      cache: 'no-store'
+      next: { revalidate: 60 }, // Cache price history for 1 minute
     })
 
     if (!res.ok) {

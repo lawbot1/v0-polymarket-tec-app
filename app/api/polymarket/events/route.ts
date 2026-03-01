@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export const dynamic = 'force-dynamic'
-export const fetchCache = 'force-no-store'
-
 const GAMMA_API_BASE = 'https://gamma-api.polymarket.com'
 
 export async function GET(request: NextRequest) {
@@ -19,7 +16,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Accept': 'application/json',
       },
-      cache: 'no-store'
+      next: { revalidate: 60 }, // Cache for 1 minute
     })
 
     if (!res.ok) {
