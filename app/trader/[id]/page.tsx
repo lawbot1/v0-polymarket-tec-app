@@ -203,12 +203,17 @@ export default function TraderPage({ params }: TraderPageProps) {
     solana: 'Crypto', sol: 'Crypto', crypto: 'Crypto', defi: 'Crypto',
     token: 'Crypto', xrp: 'Crypto', doge: 'Crypto', memecoin: 'Crypto',
     nft: 'Crypto', web3: 'Crypto', stablecoin: 'Crypto', altcoin: 'Crypto',
-    // Politics
+    // Politics & Political figures
     trump: 'Politics', biden: 'Politics', election: 'Elections', vote: 'Elections',
     president: 'Politics', congress: 'Politics', senate: 'Politics', governor: 'Politics',
     democrat: 'Politics', republican: 'Politics', gop: 'Politics', primary: 'Elections',
     political: 'Politics', politics: 'Politics', harris: 'Politics', desantis: 'Politics',
     vance: 'Politics', newsom: 'Politics', midterm: 'Elections', ballot: 'Elections',
+    // World leaders & political figures -> Geopolitics
+    khamenei: 'Geopolitics', putin: 'Geopolitics', xi: 'Geopolitics', zelensky: 'Geopolitics',
+    netanyahu: 'Geopolitics', macron: 'Geopolitics', scholz: 'Geopolitics', modi: 'Geopolitics',
+    erdogan: 'Geopolitics', kim: 'Geopolitics', lula: 'Geopolitics', milei: 'Geopolitics',
+    sunak: 'Geopolitics', starmer: 'Geopolitics', trudeau: 'Geopolitics',
     // Tech
     ai: 'Tech', apple: 'Tech', google: 'Tech', openai: 'Tech', spacex: 'Tech',
     tesla: 'Tech', meta: 'Tech', microsoft: 'Tech', nvidia: 'Tech', tech: 'Tech',
@@ -225,12 +230,13 @@ export default function TraderPage({ params }: TraderPageProps) {
     nato: 'Geopolitics', iran: 'Geopolitics', israel: 'Geopolitics', gaza: 'Geopolitics',
     taiwan: 'Geopolitics', korea: 'Geopolitics', sanctions: 'Geopolitics',
     india: 'Geopolitics', syria: 'Geopolitics', eu: 'Geopolitics', brexit: 'Geopolitics',
+    successor: 'Geopolitics', leader: 'Geopolitics', regime: 'Geopolitics',
     // Pop Culture
     oscar: 'Pop Culture', emmy: 'Pop Culture', grammy: 'Pop Culture',
     movie: 'Pop Culture', film: 'Pop Culture', celebrity: 'Pop Culture',
     music: 'Pop Culture', superbowl: 'Pop Culture', culture: 'Pop Culture',
     kanye: 'Pop Culture', taylor: 'Pop Culture', drake: 'Pop Culture', netflix: 'Pop Culture',
-    disney: 'Pop Culture', youtube: 'Pop Culture', twitch: 'Pop Culture', tiktok: 'Pop Culture',
+    disney: 'Pop Culture', youtube: 'Pop Culture', twitch: 'Pop Culture',
     // World
     weather: 'World', covid: 'World', climate: 'World', earthquake: 'World',
     who: 'World', un: 'World', world: 'World', pandemic: 'World', hurricane: 'World',
@@ -243,7 +249,8 @@ export default function TraderPage({ params }: TraderPageProps) {
     const catPnl = new Map<string, number>()
     positions.forEach(p => {
       const rawSlug = p.eventSlug?.split('-')[0]?.toLowerCase() || 'other'
-      const categoryName = SLUG_TO_CATEGORY[rawSlug] || rawSlug.charAt(0).toUpperCase() + rawSlug.slice(1)
+      // Only use mapped categories, fallback to 'World' if not found
+      const categoryName = SLUG_TO_CATEGORY[rawSlug] || 'World'
       catPnl.set(categoryName, (catPnl.get(categoryName) || 0) + (p.cashPnl || 0))
     })
     let best = 'N/A'
