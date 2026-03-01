@@ -226,10 +226,8 @@ export default function MarketsPage() {
     fetcher,
     {
       revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 300000, // Cache for 5 minutes
+      dedupingInterval: 60000, // Cache for 1 minute
       keepPreviousData: true,
-      fallbackData: [], // Show empty immediately, then populate
     }
   )
 
@@ -316,7 +314,7 @@ export default function MarketsPage() {
         </div>
 
         {/* Loading State - Skeleton Grid */}
-        {isLoading && events?.length === 0 && (
+        {isLoading && !events && (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="sharp-panel p-4 animate-pulse">
