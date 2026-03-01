@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { WalletAvatar } from '@/components/trader/wallet-avatar'
 import {
   type UserTrade,
+  type UserPosition,
   type LeaderboardTrader,
   formatVolume,
   formatAddress,
@@ -262,21 +263,21 @@ async function signalsFetcher() {
     const res = featuredResponses[i]
     if (res.ok) {
       try {
-        const positions = await res.json()
+        const positions: UserPosition[] = await res.json()
         // Transform positions to signal format
         const filtered = positions
-          .filter((pos: { initialValue?: number; size?: number; avgPrice?: number; curPrice?: number }) => {
-            const posValue = pos.initialValue || (pos.size || 0) * (pos.avgPrice || 0)
-            const entryPrice = (pos.avgPrice || 0) * 100
+          .filter((pos) => {
+            const posValue = pos.initialValue || pos.size * pos.avgPrice
+            const entryPrice = pos.avgPrice * 100
             return posValue >= MIN_SIGNAL_VALUE && entryPrice < 99 && entryPrice > 1
           })
-          .map((pos: { market?: string; outcome?: string; size?: number; avgPrice?: number; curPrice?: number; initialValue?: number; eventSlug?: string; conditionId?: string; proxyWallet?: string; cashPnl?: number }) => ({
-            title: pos.market || 'Unknown Market',
+          .map((pos) => ({
+            title: pos.title || 'Unknown Market',
             outcome: pos.outcome || 'Yes',
-            side: 'BUY',
-            size: pos.size || 0,
-            price: pos.avgPrice || 0,
-            timestamp: Date.now(), // Current positions
+            side: 'BUY' as const,
+            size: pos.size,
+            price: pos.avgPrice,
+            timestamp: pos.endDate ? new Date(pos.endDate).getTime() : Date.now(),
             eventSlug: pos.eventSlug,
             conditionId: pos.conditionId,
             proxyWallet: FEATURED_TRADERS[i],
@@ -285,7 +286,7 @@ async function signalsFetcher() {
             traderProfileImage: undefined,
             traderName: undefined,
             confidence: 'High' as const,
-            isWhale: (pos.initialValue || (pos.size || 0) * (pos.avgPrice || 0)) >= 50000,
+            isWhale: pos.initialValue >= 50000,
           }))
         allSignals.push(...filtered)
       } catch {}
@@ -298,22 +299,22 @@ async function signalsFetcher() {
     try {
       const posRes = await fetch(`/api/polymarket/positions?user=${trader.proxyWallet}`)
       if (posRes.ok) {
-        const positions = await posRes.json()
+        const positions: UserPosition[] = await posRes.json()
         return positions
-          .filter((pos: { initialValue?: number; size?: number; avgPrice?: number }) => {
-            const posValue = pos.initialValue || (pos.size || 0) * (pos.avgPrice || 0)
-            const entryPrice = (pos.avgPrice || 0) * 100
+          .filter((pos) => {
+            const posValue = pos.initialValue || pos.size * pos.avgPrice
+            const entryPrice = pos.avgPrice * 100
             return posValue >= MIN_SIGNAL_VALUE && entryPrice < 99
           })
-          .map((pos: { market?: string; outcome?: string; size?: number; avgPrice?: number; curPrice?: number; initialValue?: number; eventSlug?: string; conditionId?: string; cashPnl?: number }) => {
-            const posValue = pos.initialValue || (pos.size || 0) * (pos.avgPrice || 0)
+          .map((pos) => {
+            const posValue = pos.initialValue || pos.size * pos.avgPrice
             return {
-              title: pos.market || 'Unknown Market',
+              title: pos.title || 'Unknown Market',
               outcome: pos.outcome || 'Yes',
-              side: 'BUY',
-              size: pos.size || 0,
-              price: pos.avgPrice || 0,
-              timestamp: Date.now(),
+              side: 'BUY' as const,
+              size: pos.size,
+              price: pos.avgPrice,
+              timestamp: pos.endDate ? new Date(pos.endDate).getTime() : Date.now(),
               eventSlug: pos.eventSlug,
               conditionId: pos.conditionId,
               proxyWallet: trader.proxyWallet,
