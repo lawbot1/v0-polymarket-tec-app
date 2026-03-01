@@ -198,19 +198,13 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
         </span>
       </div>
 
-      {/* Trade details */}
+      {/* Position details */}
       <div className="space-y-1.5 border-t border-border pt-3">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Date & Time</span>
-          <span className="text-foreground tabular-nums">
-            {new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
-          </span>
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Amount</span>
+          <span className="text-muted-foreground">Position Value</span>
           <span className="text-foreground font-semibold tabular-nums">
             ${signal.size * signal.price >= 1000
-              ? ((signal.size * signal.price) / 1000).toFixed(1) + 'k'
+              ? ((signal.size * signal.price) / 1000).toFixed(0) + 'k'
               : (signal.size * signal.price).toFixed(2)}
           </span>
         </div>
@@ -221,8 +215,10 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
           </span>
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Category</span>
-          <span className="text-foreground font-medium">{category}</span>
+          <span className="text-muted-foreground">Shares</span>
+          <span className="text-foreground font-semibold tabular-nums">
+            {signal.size >= 1000 ? (signal.size / 1000).toFixed(1) + 'k' : signal.size.toFixed(0)}
+          </span>
         </div>
         <div className="pt-2 mt-2 border-t border-border">
           <a
@@ -245,13 +241,15 @@ const FEATURED_TRADERS = [
   '0x37d10ffb61998561c5f9fb941c42c952d8fb4e28', // High win-rate trader
 ]
 
+const MIN_SIGNAL_VALUE = 40000 // Minimum $40k for signals
+
 // ---- Main page ----
-// SWR fetcher that loads leaderboard + trades in one shot, returns { traders, signals }
+// SWR fetcher that loads leaderboard + positions in one shot, returns { traders, signals }
 async function signalsFetcher() {
-  // Fetch leaderboard and featured traders in parallel for speed
+  // Fetch leaderboard and featured traders positions in parallel for speed
   const [leaderboardRes, ...featuredResponses] = await Promise.all([
     fetch('/api/polymarket/leaderboard?window=day&limit=30'),
-    ...FEATURED_TRADERS.map(addr => fetch(`/api/polymarket/trades?user=${addr}&limit=15`))
+    ...FEATURED_TRADERS.map(addr => fetch(`/api/polymarket/positions?user=${addr}`))
   ])
   
   let traders: LeaderboardTrader[] = []
@@ -259,59 +257,73 @@ async function signalsFetcher() {
 
   const allSignals: SignalEntry[] = []
   
-  // Process featured traders first (high priority)
+  // Process featured traders positions (high priority - these are current holdings)
   for (let i = 0; i < FEATURED_TRADERS.length; i++) {
     const res = featuredResponses[i]
     if (res.ok) {
       try {
-        const trades: UserTrade[] = await res.json()
-        const filtered = trades
-          .filter(trade => {
-            const tradeValue = trade.size * trade.price
-            const entryPrice = trade.price * 100
-            return tradeValue >= 500 && entryPrice < 99.9 && entryPrice > 1
+        const positions = await res.json()
+        // Transform positions to signal format
+        const filtered = positions
+          .filter((pos: { initialValue?: number; size?: number; avgPrice?: number; curPrice?: number }) => {
+            const posValue = pos.initialValue || (pos.size || 0) * (pos.avgPrice || 0)
+            const entryPrice = (pos.avgPrice || 0) * 100
+            return posValue >= MIN_SIGNAL_VALUE && entryPrice < 99 && entryPrice > 1
           })
-          .map(trade => ({
-            ...trade,
-            traderPnl: 0,
+          .map((pos: { market?: string; outcome?: string; size?: number; avgPrice?: number; curPrice?: number; initialValue?: number; eventSlug?: string; conditionId?: string; proxyWallet?: string; cashPnl?: number }) => ({
+            title: pos.market || 'Unknown Market',
+            outcome: pos.outcome || 'Yes',
+            side: 'BUY',
+            size: pos.size || 0,
+            price: pos.avgPrice || 0,
+            timestamp: Date.now(), // Current positions
+            eventSlug: pos.eventSlug,
+            conditionId: pos.conditionId,
+            proxyWallet: FEATURED_TRADERS[i],
+            traderPnl: pos.cashPnl || 0,
             traderRank: 1,
             traderProfileImage: undefined,
             traderName: undefined,
             confidence: 'High' as const,
-            isWhale: (trade.size * trade.price) >= 10000,
+            isWhale: (pos.initialValue || (pos.size || 0) * (pos.avgPrice || 0)) >= 50000,
           }))
         allSignals.push(...filtered)
       } catch {}
     }
   }
   
-  // Top 15 traders only (reduced for speed), 8 trades each
-  const tradePromises = traders.slice(0, 15).map(async (trader) => {
-    // Skip if already in featured
+  // Top 15 traders, fetch their positions too
+  const posPromises = traders.slice(0, 15).map(async (trader) => {
     if (FEATURED_TRADERS.includes(trader.proxyWallet.toLowerCase())) return []
     try {
-      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=8`)
-      if (tradesRes.ok) {
-        const trades: UserTrade[] = await tradesRes.json()
-        return trades
-          .filter(trade => {
-            const tradeValue = trade.size * trade.price
-            const entryPrice = trade.price * 100
-            return tradeValue >= 2000 && entryPrice < 99.9
+      const posRes = await fetch(`/api/polymarket/positions?user=${trader.proxyWallet}`)
+      if (posRes.ok) {
+        const positions = await posRes.json()
+        return positions
+          .filter((pos: { initialValue?: number; size?: number; avgPrice?: number }) => {
+            const posValue = pos.initialValue || (pos.size || 0) * (pos.avgPrice || 0)
+            const entryPrice = (pos.avgPrice || 0) * 100
+            return posValue >= MIN_SIGNAL_VALUE && entryPrice < 99
           })
-          .map(trade => {
-            const tradeValue = trade.size * trade.price
-            const confidence: 'High' | 'Medium' | 'Low' =
-              trader.rank && trader.rank <= 10 && tradeValue >= 5000 ? 'High' :
-              trader.rank && trader.rank <= 30 && tradeValue >= 3000 ? 'Medium' : 'Low'
+          .map((pos: { market?: string; outcome?: string; size?: number; avgPrice?: number; curPrice?: number; initialValue?: number; eventSlug?: string; conditionId?: string; cashPnl?: number }) => {
+            const posValue = pos.initialValue || (pos.size || 0) * (pos.avgPrice || 0)
             return {
-              ...trade,
+              title: pos.market || 'Unknown Market',
+              outcome: pos.outcome || 'Yes',
+              side: 'BUY',
+              size: pos.size || 0,
+              price: pos.avgPrice || 0,
+              timestamp: Date.now(),
+              eventSlug: pos.eventSlug,
+              conditionId: pos.conditionId,
+              proxyWallet: trader.proxyWallet,
               traderPnl: trader.pnl || 0,
               traderRank: trader.rank,
               traderProfileImage: trader.profileImage,
               traderName: trader.userName,
-              confidence,
-              isWhale: tradeValue >= 10000,
+              confidence: (trader.rank && trader.rank <= 10 && posValue >= 50000 ? 'High' : 
+                trader.rank && trader.rank <= 30 && posValue >= 40000 ? 'Medium' : 'Low') as 'High' | 'Medium' | 'Low',
+              isWhale: posValue >= 100000,
             }
           })
       }
@@ -319,10 +331,10 @@ async function signalsFetcher() {
     } catch { return [] }
   })
 
-  const tradeResults = await Promise.all(tradePromises)
-  tradeResults.forEach(trades => allSignals.push(...trades))
+  const posResults = await Promise.all(posPromises)
+  posResults.forEach(positions => allSignals.push(...positions))
   
-  // Deduplicate: keep only the largest trade per event per trader
+  // Deduplicate: keep only the largest position per market per trader
   const deduped = new Map<string, SignalEntry>()
   for (const signal of allSignals) {
     const key = `${signal.proxyWallet}-${signal.conditionId || signal.eventSlug || signal.title}`
@@ -333,7 +345,8 @@ async function signalsFetcher() {
   }
   
   const finalSignals = Array.from(deduped.values())
-  finalSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
+  // Sort by position value (largest first) since these are current holdings
+  finalSignals.sort((a, b) => (b.size * b.price) - (a.size * a.price))
 
   return { traders: traders.slice(0, 15), signals: finalSignals }
 }
