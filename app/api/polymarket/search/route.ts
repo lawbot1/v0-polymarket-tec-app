@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Accept': 'application/json',
       },
-      next: { revalidate: 30 }, // Cache search for 30 seconds
+      cache: 'no-store'
     })
 
     if (!res.ok) {

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Accept': 'application/json',
       },
-      next: { revalidate: 5 }, // Cache price for 5 seconds
+      cache: 'no-store'
     })
 
     if (!res.ok) {
