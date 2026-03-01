@@ -176,38 +176,6 @@ export function formatTradeNotification(trade: {
 
   return lines.join('\n')
 }
-  const outcomeEmoji = getOutcomeEmoji()
-  // Money emoji based on value
-  const valueEmoji = parseFloat(value) >= 1000 ? '💰' : parseFloat(value) >= 100 ? '💵' : '💲'
-  
-  // Format value with K suffix for large amounts
-  const formattedValue = parseFloat(value) >= 1000 
-    ? `$${(parseFloat(value) / 1000).toFixed(1)}K` 
-    : `$${value}`
-
-  // Build market link
-  const marketLink = trade.slug 
-    ? `<a href="https://polymarket.com/event/${trade.slug}">${trade.market}</a>`
-    : trade.market
-
-  const lines = [
-    `${actionEmoji} <b>${isBuy ? 'BUY' : 'SELL'}</b> ${outcomeEmoji} <b>${trade.outcome?.toUpperCase()}</b>`,
-    ``,
-    `👤 <b>${name}</b>`,
-    ``,
-    `📊 ${marketLink}`,
-    ``,
-    `┌─────────────────────`,
-    `│ ${valueEmoji} Value: <b>${formattedValue}</b>`,
-    `│ 📍 Price: <b>${pricePercent}¢</b>`,
-    `│ 📦 Size: <b>${trade.size.toLocaleString()}</b> shares`,
-    `└─────────────────────`,
-    ``,
-    `<i>Vantake • Real-time alerts</i>`,
-  ]
-
-  return lines.join('\n')
-}
 
 // Generate a random 8-character linking code
 export function generateLinkingCode(): string {
