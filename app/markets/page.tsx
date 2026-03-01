@@ -226,8 +226,10 @@ export default function MarketsPage() {
     fetcher,
     {
       revalidateOnFocus: false,
-      dedupingInterval: 60000, // Cache for 60s
+      revalidateOnReconnect: false,
+      dedupingInterval: 300000, // Cache for 5 minutes
       keepPreviousData: true,
+      fallbackData: [], // Show empty immediately, then populate
     }
   )
 
@@ -313,11 +315,25 @@ export default function MarketsPage() {
           </div>
         </div>
 
-        {/* Loading State */}
-        {isLoading && !events && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-foreground" />
-            <span className="ml-3 text-sm text-muted-foreground uppercase tracking-wider">Loading markets...</span>
+        {/* Loading State - Skeleton Grid */}
+        {isLoading && events?.length === 0 && (
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="sharp-panel p-4 animate-pulse">
+                <div className="flex items-start gap-3">
+                  <div className="h-12 w-12 rounded-lg bg-secondary" />
+                  <div className="flex-1 space-y-3">
+                    <div className="h-4 w-16 bg-secondary rounded" />
+                    <div className="h-4 w-full bg-secondary rounded" />
+                    <div className="h-4 w-3/4 bg-secondary rounded" />
+                    <div className="flex gap-4 pt-2">
+                      <div className="h-8 w-12 bg-secondary rounded" />
+                      <div className="h-8 w-12 bg-secondary rounded" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

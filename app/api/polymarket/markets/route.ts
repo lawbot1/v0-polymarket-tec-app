@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     const res = await fetch(url.toString(), {
       headers: { 'Accept': 'application/json' },
-      cache: 'no-store',
+      next: { revalidate: 120 }, // Cache for 2 minutes
     })
 
     if (!res.ok) {
