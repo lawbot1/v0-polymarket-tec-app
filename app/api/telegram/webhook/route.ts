@@ -770,42 +770,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
     
-    // /help
-    if (text === '/help') {
-      await sendTelegramMessage(chatId, [
-        `<b>❓ Help</b>`,
-        ``,
-        `<b>Commands:</b>`,
-        `/start - Show main menu`,
-        `/link <code> - Link Vantake account`,
-        `/status - Check account status`,
-        `/unlink - Disconnect Telegram`,
-        ``,
-        `Need help? Contact us:`,
-        `Twitter: ${TWITTER_URL}`,
-      ].join('\n'), 'HTML', {
-        inline_keyboard: [
-          [{ text: '🐦 Twitter', url: TWITTER_URL }],
-          [{ text: '🏠 Main Menu', callback_data: 'menu_main' }]
-        ]
-      })
-      return NextResponse.json({ ok: true })
-    }
-
     // /status
     if (text === '/status') {
+      const supabase = createAdminClient()
+      
+      // Check both profiles AND notification_settings for telegram_chat_id
       const profile = await findUserByChatId(chatId)
+      
+      // Also check notification_settings directly
+      const { data: notifSettings } = await supabase
+        .from('notification_settings')
+        .select('user_id, telegram_notifications_enabled, telegram_chat_id')
+        .eq('telegram_chat_id', chatId)
+        .single()
 
-      if (profile) {
-        const traders = await getTrackedTraders(profile.id)
-
-        // Check notification_settings
-        const supabase = createAdminClient()
-        const { data: notifSettings } = await supabase
-          .from('notification_settings')
-          .select('telegram_notifications_enabled')
-          .eq('user_id', profile.id)
-          .single()
+      if (profile || notifSettings) {
+        const userId = profile?.id || notifSettings?.user_id
+        const traders = userId ? await getTrackedTraders(userId) : []
+        
+        // Get display name if not from profile
+        let displayName = profile?.display_name
+        if (!displayName && notifSettings?.user_id) {
+          const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('display_name')
+            .eq('id', notifSettings.user_id)
+            .single()
+          displayName = userProfile?.display_name
+        }
 
         const enabled = notifSettings?.telegram_notifications_enabled ?? true
         const status = enabled ? 'Active' : 'Paused'
@@ -813,7 +805,7 @@ export async function POST(req: NextRequest) {
         await sendTelegramMessage(chatId, [
           `<b>Account Status</b>`,
           ``,
-          `Account: <b>${profile.display_name || 'Vantake User'}</b>`,
+          `Account: <b>${displayName || 'Vantake User'}</b>`,
           `Status: <b>${status}</b>`,
           `Notifications: ${enabled ? 'On' : 'Off'}`,
           ``,
@@ -962,7 +954,6 @@ export async function POST(req: NextRequest) {
         `<b>Commands:</b>`,
         `/status - Check your account status`,
         `/unlink - Disconnect Telegram`,
-        `/help - Show all commands`,
       ].join('\n'))
       return NextResponse.json({ ok: true })
     }
@@ -975,7 +966,6 @@ export async function POST(req: NextRequest) {
       `/link &lt;code&gt; - Link your Vantake account`,
       `/status - Check your account status`,
       `/unlink - Unlink your Telegram`,
-      `/help - Show all commands`,
     ].join('\n'))
 
     return NextResponse.json({ ok: true })

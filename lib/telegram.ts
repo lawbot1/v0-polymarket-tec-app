@@ -145,26 +145,37 @@ export function formatTradeNotification(trade: {
   price: number
   slug?: string
 }) {
-  const name = trade.traderName || `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}`
+  const displayName = trade.traderName || `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}`
   const value = (trade.size * trade.price).toFixed(2)
   const pricePercent = (trade.price * 100).toFixed(0)
   
-  // Emojis based on action and outcome
   const isBuy = trade.side?.toUpperCase() === 'BUY'
-  const outcomeLower = trade.outcome?.toLowerCase() || ''
   
-  // Header emoji: chart up for buy, chart down for sell
-  const actionEmoji = isBuy ? '📈' : '📉'
-  
-  // Outcome emoji logic:
-  // - YES/UP = green checkmark
-  // - NO/DOWN = red cross
-  // - Other specific outcomes (teams, names, etc.) = target/bullseye
-  const getOutcomeEmoji = () => {
-    if (outcomeLower === 'yes' || outcomeLower === 'up') return '✅'
-    if (outcomeLower === 'no' || outcomeLower === 'down') return '❌'
-    return '🎯' // For specific outcomes like team names, candidates, etc.
-  }
+  // Format value with K suffix for large amounts
+  const formattedValue = parseFloat(value) >= 1000 
+    ? `$${(parseFloat(value) / 1000).toFixed(1)}K` 
+    : `$${value}`
+
+  // Build market link
+  const marketLink = trade.slug 
+    ? `<a href="https://polymarket.com/event/${trade.slug}">${trade.market}</a>`
+    : trade.market
+
+  const lines = [
+    `<b>${isBuy ? 'BUY' : 'SELL'}</b> — "${trade.outcome}"`,
+    ``,
+    `Smart Wallet: <b>${displayName}</b> (<code>${trade.walletAddress}</code>)`,
+    `Market: "${marketLink}"`,
+    ``,
+    `• Capital Deployed: <b>${formattedValue}</b>`,
+    `• Entry: <b>${pricePercent}c</b>`,
+    `• Size: <b>${trade.size.toLocaleString()}</b> shares`,
+    ``,
+    `<i>Vantake — Real-time Capital Intelligence</i>`,
+  ]
+
+  return lines.join('\n')
+}
   const outcomeEmoji = getOutcomeEmoji()
   // Money emoji based on value
   const valueEmoji = parseFloat(value) >= 1000 ? '💰' : parseFloat(value) >= 100 ? '💵' : '💲'
