@@ -314,8 +314,22 @@ export default function TraderPage({ params }: TraderPageProps) {
   }, [trades, profile])
 
   const filteredCurve = filterByTimeframe(equityCurve, chartTf)
+  
+  // Calculate PnL for selected timeframe
+  const filteredPnl = useMemo(() => {
+    if (filteredCurve.length === 0) return 0
+    if (chartTf === 'ALL') return profile?.pnl || 0
+    // For filtered timeframes, calculate the change within that period
+    const startValue = filteredCurve.length > 0 ? filteredCurve[0].value : 0
+    const endValue = filteredCurve.length > 0 ? filteredCurve[filteredCurve.length - 1].value : 0
+    // Get the value before the start of the filtered period
+    const startIdx = equityCurve.findIndex(d => d.date === filteredCurve[0]?.date)
+    const prevValue = startIdx > 0 ? equityCurve[startIdx - 1].value : 0
+    return endValue - prevValue
+  }, [filteredCurve, equityCurve, chartTf, profile?.pnl])
+  
   const lastValue = filteredCurve.length > 0 ? filteredCurve[filteredCurve.length - 1].value : 0
-  const chartColor = lastValue >= 0 ? '#22c55e' : '#ef4444'
+  const chartColor = filteredPnl >= 0 ? '#22c55e' : '#ef4444'
 
   return (
     <AppShell
@@ -413,17 +427,17 @@ export default function TraderPage({ params }: TraderPageProps) {
               </div>
             )}
           </div>
-          {/* Total P&L */}
+          {/* Total P&L - changes based on selected timeframe */}
           <div className="sharp-panel p-3 sm:p-5">
             <div className="text-[9px] sm:text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1 sm:mb-2 truncate">
-              P&L
+              P&L {chartTf !== 'ALL' && `(${chartTf})`}
             </div>
             {isLoading ? <Skeleton className="h-6 sm:h-9 w-16 sm:w-32" /> : (
               <div className={cn(
                 'text-lg sm:text-3xl font-semibold font-mono tracking-tight',
-                (profile?.pnl || 0) >= 0 ? 'text-[#22c55e]' : 'text-destructive'
+                filteredPnl >= 0 ? 'text-[#22c55e]' : 'text-destructive'
               )}>
-                {formatPnl(profile?.pnl || 0)}
+                {formatPnl(filteredPnl)}
               </div>
             )}
           </div>
