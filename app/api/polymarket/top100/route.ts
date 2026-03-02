@@ -17,38 +17,56 @@ async function fetchWalletProfile(wallet: string) {
   }
 }
 
-// Fetch fresh data for Vantake Top 100 wallets
+// Fetch fresh data for Vantake Top 100 wallets - preserving original order
 async function fetchFreshTop100() {
   // Fetch all wallet profiles in parallel (batched to avoid rate limits)
   const batchSize = 20
-  const allProfiles: Record<string, unknown>[] = []
+  const profileMap = new Map<string, Record<string, unknown>>()
   
   for (let i = 0; i < VANTAKE_TOP_100_WALLETS.length; i += batchSize) {
     const batch = VANTAKE_TOP_100_WALLETS.slice(i, i + batchSize)
     const results = await Promise.all(batch.map(fetchWalletProfile))
-    allProfiles.push(...results.filter(Boolean) as Record<string, unknown>[])
+    
+    // Map results back to wallets to preserve order
+    batch.forEach((wallet, idx) => {
+      if (results[idx]) {
+        profileMap.set(wallet.toLowerCase(), results[idx] as Record<string, unknown>)
+      }
+    })
   }
 
-  // Map to trader format and sort by PNL
-  const traders = allProfiles
-    .map((t) => ({
-      rank: '0',
-      proxyWallet: String(t.proxyWallet || ''),
-      userName: String(t.userName || ''),
-      vol: Number(t.vol || 0),
-      pnl: Number(t.pnl || 0),
-      profileImage: String(t.profileImage || ''),
-      xUsername: String(t.xUsername || ''),
-      verifiedBadge: Boolean(t.verifiedBadge || false),
-      numTrades: Number(t.numTrades || 0),
-      marketsTraded: Number(t.marketsTraded || 0),
-    }))
-    .sort((a, b) => b.pnl - a.pnl)
-
-  // Assign ranks
-  traders.forEach((t, i) => {
-    t.rank = String(i + 1)
-  })
+  // Build traders array in ORIGINAL order from VANTAKE_TOP_100_WALLETS
+  const traders = VANTAKE_TOP_100_WALLETS
+    .map((wallet, index) => {
+      const t = profileMap.get(wallet.toLowerCase())
+      if (!t) {
+        // Return placeholder for wallets without profile data
+        return {
+          rank: String(index + 1),
+          proxyWallet: wallet,
+          userName: '',
+          vol: 0,
+          pnl: 0,
+          profileImage: '',
+          xUsername: '',
+          verifiedBadge: false,
+          numTrades: 0,
+          marketsTraded: 0,
+        }
+      }
+      return {
+        rank: String(index + 1),
+        proxyWallet: String(t.proxyWallet || wallet),
+        userName: String(t.userName || ''),
+        vol: Number(t.vol || 0),
+        pnl: Number(t.pnl || 0),
+        profileImage: String(t.profileImage || ''),
+        xUsername: String(t.xUsername || ''),
+        verifiedBadge: Boolean(t.verifiedBadge || false),
+        numTrades: Number(t.numTrades || 0),
+        marketsTraded: Number(t.marketsTraded || 0),
+      }
+    })
 
   return traders
 }
