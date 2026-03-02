@@ -1,98 +1,59 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { VANTAKE_TOP_100_WALLETS } from '@/lib/top100-wallets'
+import { getProfile } from '@/lib/polymarket-api'
 
-const DATA_API = 'https://data-api.polymarket.com'
-
-// Fetch fresh data for Vantake Top 100 wallets from leaderboard
+// Fetch fresh data for Vantake Top 100 wallets using profile API (same as trader page)
 async function fetchFreshTop100() {
-  // Polymarket API uses /v1/leaderboard with max limit=50
-  // Need to paginate extensively to find all our wallets
-  const urls: string[] = []
+  // Fetch all profiles in parallel batches using the working getProfile function
+  const batchSize = 10
+  const allProfiles: (Record<string, unknown> | null)[] = []
   
-  // Fetch by PNL and VOL with ALL time period (max coverage)
-  for (let offset = 0; offset <= 5000; offset += 50) {
-    urls.push(`${DATA_API}/v1/leaderboard?timePeriod=ALL&orderBy=PNL&limit=50&offset=${offset}`)
-  }
-  for (let offset = 0; offset <= 5000; offset += 50) {
-    urls.push(`${DATA_API}/v1/leaderboard?timePeriod=ALL&orderBy=VOL&limit=50&offset=${offset}`)
-  }
-  
-  // Fetch in batches to avoid rate limits
-  const batchSize = 20
-  const allResults: Record<string, unknown>[][] = []
-  
-  for (let i = 0; i < urls.length; i += batchSize) {
-    const batch = urls.slice(i, i + batchSize)
-    const batchResults = await Promise.all(batch.map(async (url) => {
-      try {
-        const res = await fetch(url, { 
-          headers: { 'Accept': 'application/json' },
-        })
-        if (!res.ok) return []
-        const data = await res.json()
-        return Array.isArray(data) ? data : []
-      } catch {
-        return []
-      }
-    }))
-    allResults.push(...batchResults)
+  for (let i = 0; i < VANTAKE_TOP_100_WALLETS.length; i += batchSize) {
+    const batch = VANTAKE_TOP_100_WALLETS.slice(i, i + batchSize)
+    const results = await Promise.all(
+      batch.map(wallet => getProfile(wallet).catch(() => null))
+    )
+    allProfiles.push(...results)
+    
     // Small delay between batches to avoid rate limiting
-    if (i + batchSize < urls.length) {
-      await new Promise(r => setTimeout(r, 100))
+    if (i + batchSize < VANTAKE_TOP_100_WALLETS.length) {
+      await new Promise(r => setTimeout(r, 50))
     }
   }
-  
-  // Build map of all traders by wallet address (lowercase for matching)
-  // Check both 'address' and 'proxyWallet' fields
-  const traderMap = new Map<string, Record<string, unknown>>()
-  for (const page of allResults) {
-    for (const entry of page) {
-      // API can return 'address' or 'proxyWallet'
-      const wallet = String(entry.address || entry.proxyWallet || '').toLowerCase()
-      if (wallet && !traderMap.has(wallet)) {
-        traderMap.set(wallet, entry)
-      }
-    }
-  }
-  
-  console.log(`[v0] Loaded ${traderMap.size} traders from leaderboard`)
-  
-  // Count how many of our wallets were found
-  const foundCount = VANTAKE_TOP_100_WALLETS.filter(w => traderMap.has(w.toLowerCase())).length
-  console.log(`[v0] Found ${foundCount}/${VANTAKE_TOP_100_WALLETS.length} Vantake wallets in leaderboard`)
   
   // Build traders array in ORIGINAL order from VANTAKE_TOP_100_WALLETS
-  const traders = VANTAKE_TOP_100_WALLETS
-    .map((wallet, index) => {
-      const t = traderMap.get(wallet.toLowerCase())
-      if (!t) {
-        return {
-          rank: String(index + 1),
-          proxyWallet: wallet,
-          userName: '',
-          vol: 0,
-          pnl: 0,
-          profileImage: '',
-          xUsername: '',
-          verifiedBadge: false,
-          numTrades: 0,
-          marketsTraded: 0,
-        }
-      }
+  const traders = VANTAKE_TOP_100_WALLETS.map((wallet, index) => {
+    const profile = allProfiles[index] as Record<string, unknown> | null
+    
+    if (!profile) {
       return {
         rank: String(index + 1),
-        proxyWallet: String(t.address || t.proxyWallet || wallet),
-        userName: String(t.userName || t.username || ''),
-        vol: Number(t.vol || t.volume || 0),
-        pnl: Number(t.pnl || 0),
-        profileImage: String(t.profileImage || t.pfp || ''),
-        xUsername: String(t.xUsername || t.twitterUsername || ''),
-        verifiedBadge: Boolean(t.verifiedBadge || false),
-        numTrades: Number(t.numTrades || t.tradesCount || 0),
-        marketsTraded: Number(t.marketsTraded || t.markets || 0),
+        proxyWallet: wallet,
+        userName: '',
+        vol: 0,
+        pnl: 0,
+        profileImage: '',
+        xUsername: '',
+        verifiedBadge: false,
+        numTrades: 0,
+        marketsTraded: 0,
       }
-    })
+    }
+    
+    return {
+      rank: String(index + 1),
+      proxyWallet: String(profile.proxyWallet || profile.address || wallet),
+      userName: String(profile.username || profile.userName || ''),
+      vol: Number(profile.volume || profile.vol || 0),
+      pnl: Number(profile.pnl || profile.profit || 0),
+      profileImage: String(profile.profileImage || profile.pfp || ''),
+      xUsername: String(profile.twitterUsername || profile.xUsername || ''),
+      verifiedBadge: Boolean(profile.verifiedBadge || false),
+      numTrades: Number(profile.numTrades || profile.tradesCount || 0),
+      marketsTraded: Number(profile.marketsTraded || profile.markets || 0),
+    }
+  })
 
   return traders
 }
@@ -125,14 +86,20 @@ export async function GET(req: Request) {
       })
     }
 
-    // Serve from cache (instant)
+    // Serve from cache (instant) - but check if cache has valid data with usernames
     const { data: cache } = await supabase
       .from('top100_cache')
       .select('data, updated_at')
       .eq('id', 1)
       .single()
 
-    if (cache && Array.isArray(cache.data) && cache.data.length > 0) {
+    // Check if cache is valid - must have traders with userNames
+    const cacheValid = cache && 
+      Array.isArray(cache.data) && 
+      cache.data.length > 0 &&
+      cache.data.some((t: Record<string, unknown>) => t.userName || t.pnl)
+
+    if (cacheValid) {
       return NextResponse.json(cache.data, {
         headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
       })
