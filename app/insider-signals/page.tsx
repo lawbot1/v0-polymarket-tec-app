@@ -666,10 +666,7 @@ export default function InsiderSignalsPage() {
           </>
         )}
 
-        {/* Data Source */}
-        <div className="text-center text-xs text-muted-foreground">
-          Real-time data from top {topTraders.length} Polymarket traders
-        </div>
+
       </div>
     </AppShell>
   )
