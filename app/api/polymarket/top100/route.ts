@@ -4,43 +4,44 @@ import { VANTAKE_TOP_100_WALLETS } from '@/lib/top100-wallets'
 
 const DATA_API = 'https://data-api.polymarket.com'
 
-// Fetch profile data for a single wallet
-async function fetchWalletProfile(wallet: string) {
-  try {
-    const res = await fetch(`${DATA_API}/v1/profile/${wallet}`, {
-      next: { revalidate: 300 }, // Cache for 5 minutes
-    })
-    if (!res.ok) return null
-    return await res.json()
-  } catch {
-    return null
-  }
-}
-
-// Fetch fresh data for Vantake Top 100 wallets - preserving original order
+// Fetch leaderboard data and filter to our wallets
 async function fetchFreshTop100() {
-  // Fetch all wallet profiles in parallel (batched to avoid rate limits)
-  const batchSize = 20
-  const profileMap = new Map<string, Record<string, unknown>>()
+  // Fetch large leaderboard to find our wallets
+  const urls = [
+    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=0`,
+    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=500`,
+    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=0`,
+    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=500`,
+  ]
   
-  for (let i = 0; i < VANTAKE_TOP_100_WALLETS.length; i += batchSize) {
-    const batch = VANTAKE_TOP_100_WALLETS.slice(i, i + batchSize)
-    const results = await Promise.all(batch.map(fetchWalletProfile))
-    
-    // Map results back to wallets to preserve order
-    batch.forEach((wallet, idx) => {
-      if (results[idx]) {
-        profileMap.set(wallet.toLowerCase(), results[idx] as Record<string, unknown>)
+  const results = await Promise.all(urls.map(async (url) => {
+    try {
+      const res = await fetch(url, { next: { revalidate: 300 } })
+      if (!res.ok) return []
+      return await res.json()
+    } catch {
+      return []
+    }
+  }))
+  
+  // Build map of all traders by wallet address
+  const traderMap = new Map<string, Record<string, unknown>>()
+  for (const page of results) {
+    if (!Array.isArray(page)) continue
+    for (const entry of page) {
+      const wallet = String(entry.proxyWallet || '').toLowerCase()
+      if (wallet && !traderMap.has(wallet)) {
+        traderMap.set(wallet, entry)
       }
-    })
+    }
   }
-
+  
   // Build traders array in ORIGINAL order from VANTAKE_TOP_100_WALLETS
   const traders = VANTAKE_TOP_100_WALLETS
     .map((wallet, index) => {
-      const t = profileMap.get(wallet.toLowerCase())
+      const t = traderMap.get(wallet.toLowerCase())
       if (!t) {
-        // Return placeholder for wallets without profile data
+        // Return placeholder for wallets not found in leaderboard
         return {
           rank: String(index + 1),
           proxyWallet: wallet,
