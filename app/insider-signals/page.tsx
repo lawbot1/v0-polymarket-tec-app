@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -11,6 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WalletAvatar } from '@/components/trader/wallet-avatar'
+import { createClient } from '@/lib/supabase/client'
 import {
   type UserTrade,
   type LeaderboardTrader,
@@ -248,8 +250,8 @@ const MIN_SIGNAL_VALUE = 40000 // Minimum $40k for signals
 async function signalsFetcher() {
   // Fetch leaderboard and featured traders trades in parallel for speed
   const [leaderboardRes, ...featuredResponses] = await Promise.all([
-    fetch('/api/polymarket/leaderboard?window=day&limit=30'),
-    ...FEATURED_TRADERS.map(addr => fetch(`/api/polymarket/trades?user=${addr}&limit=200`))
+    fetch('/api/polymarket/leaderboard?window=day&limit=20'),
+    ...FEATURED_TRADERS.map(addr => fetch(`/api/polymarket/trades?user=${addr}&limit=100`))
   ])
   
   let traders: LeaderboardTrader[] = []
@@ -310,11 +312,11 @@ async function signalsFetcher() {
     }
   }
   
-  // Top 15 traders, fetch their trades too
-  const tradePromises = traders.slice(0, 15).map(async (trader) => {
+  // Top 10 traders, fetch their trades too (reduced for speed)
+  const tradePromises = traders.slice(0, 10).map(async (trader) => {
     if (FEATURED_TRADERS.includes(trader.proxyWallet.toLowerCase())) return []
     try {
-      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=100`)
+      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=50`)
       if (tradesRes.ok) {
         const trades: UserTrade[] = await tradesRes.json()
         
@@ -383,15 +385,38 @@ async function signalsFetcher() {
   // Sort by timestamp (newest first)
   finalSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
 
-  return { traders: traders.slice(0, 15), signals: finalSignals }
+  return { traders: traders.slice(0, 10), signals: finalSignals }
 }
 
 export default function InsiderSignalsPage() {
-  const { data, isLoading, mutate } = useSWR('insider-signals', signalsFetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 300000, // Cache for 5 minutes
-    revalidateOnReconnect: false,
-  })
+  const router = useRouter()
+  const [isAuthChecking, setIsAuthChecking] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  
+  // Check auth immediately on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.replace('/auth/login')
+        return
+      }
+      setIsAuthenticated(true)
+      setIsAuthChecking(false)
+    }
+    checkAuth()
+  }, [router])
+
+  const { data, isLoading, mutate } = useSWR(
+    isAuthenticated ? 'insider-signals' : null, // Only fetch when authenticated
+    signalsFetcher, 
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 300000, // Cache for 5 minutes
+      revalidateOnReconnect: false,
+    }
+  )
   const signals = data?.signals || []
   const topTraders = data?.traders || []
 
@@ -399,6 +424,17 @@ export default function InsiderSignalsPage() {
   const [minSize, setMinSize] = useState('')
   const [whalesOnly, setWhalesOnly] = useState(false)
   const [visibleCount, setVisibleCount] = useState(30)
+  
+  // Show loading while checking auth
+  if (isAuthChecking) {
+    return (
+      <AppShell title="Insider Signals" subtitle="Real-time trades from top Polymarket traders">
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </AppShell>
+    )
+  }
 
   const filteredSignals = useMemo(() => {
     let result = [...signals]
