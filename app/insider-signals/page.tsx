@@ -248,6 +248,37 @@ const MIN_SIGNAL_VALUE_TOP100 = 5000 // $5k for Top100 Vantake traders
 const MIN_SIGNAL_VALUE_OTHER = 40000 // $40k for other traders
 const MAX_SIGNALS = 150 // Maximum signals to load
 
+// Polymarket profile API
+const GAMMA_API_BASE = 'https://gamma-api.polymarket.com'
+
+// Cache for trader profiles to avoid repeated requests
+const profileCache = new Map<string, { userName?: string; profileImage?: string } | null>()
+
+async function fetchTraderProfile(walletAddress: string): Promise<{ userName?: string; profileImage?: string } | null> {
+  const cacheKey = walletAddress.toLowerCase()
+  if (profileCache.has(cacheKey)) {
+    return profileCache.get(cacheKey) || null
+  }
+  
+  try {
+    const res = await fetch(`${GAMMA_API_BASE}/profiles/${walletAddress}`, { cache: 'no-store' })
+    if (!res.ok) {
+      profileCache.set(cacheKey, null)
+      return null
+    }
+    const profile = await res.json()
+    const data = {
+      userName: profile.name || profile.username,
+      profileImage: profile.profileImage || profile.pfp,
+    }
+    profileCache.set(cacheKey, data)
+    return data
+  } catch {
+    profileCache.set(cacheKey, null)
+    return null
+  }
+}
+
 // ---- Main page ----
 // SWR fetcher that loads leaderboard + trades, returns { traders, signals }
 async function signalsFetcher() {
@@ -272,10 +303,23 @@ async function signalsFetcher() {
     const signals: SignalEntry[] = []
     
     try {
-      const tradesRes = await fetch(`/api/polymarket/trades?user=${walletAddress}&limit=100`)
+      // Fetch trades and profile in parallel
+      const [tradesRes, profile] = await Promise.all([
+        fetch(`/api/polymarket/trades?user=${walletAddress}&limit=100`),
+        !traderInfo?.profileImage ? fetchTraderProfile(walletAddress) : Promise.resolve(null)
+      ])
+      
       if (!tradesRes.ok) return signals
       
       const trades: UserTrade[] = await tradesRes.json()
+      
+      // Use profile data if we fetched it, otherwise use passed traderInfo
+      const finalTraderInfo = {
+        pnl: traderInfo?.pnl || 0,
+        rank: traderInfo?.rank,
+        profileImage: traderInfo?.profileImage || profile?.profileImage,
+        userName: traderInfo?.userName || profile?.userName,
+      }
       
       // Group trades by conditionId to aggregate into positions
       const tradesByMarket = new Map<string, UserTrade[]>()
@@ -310,10 +354,10 @@ async function signalsFetcher() {
           eventSlug: latestTrade.eventSlug,
           conditionId: latestTrade.conditionId,
           proxyWallet: walletAddress,
-          traderPnl: traderInfo?.pnl || 0,
-          traderRank: traderInfo?.rank,
-          traderProfileImage: traderInfo?.profileImage,
-          traderName: traderInfo?.userName,
+          traderPnl: finalTraderInfo.pnl,
+          traderRank: finalTraderInfo.rank,
+          traderProfileImage: finalTraderInfo.profileImage,
+          traderName: finalTraderInfo.userName,
           confidence: (isTop100 ? 'High' : totalValue >= 100000 ? 'High' : totalValue >= 50000 ? 'Medium' : 'Low') as 'High' | 'Medium' | 'Low',
           isWhale: totalValue >= 100000,
         })
