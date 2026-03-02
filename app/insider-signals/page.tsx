@@ -424,17 +424,6 @@ export default function InsiderSignalsPage() {
   const [minSize, setMinSize] = useState('')
   const [whalesOnly, setWhalesOnly] = useState(false)
   const [visibleCount, setVisibleCount] = useState(30)
-  
-  // Show loading while checking auth
-  if (isAuthChecking) {
-    return (
-      <AppShell title="Insider Signals" subtitle="Real-time trades from top Polymarket traders">
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        </div>
-      </AppShell>
-    )
-  }
 
   const filteredSignals = useMemo(() => {
     let result = [...signals]
@@ -474,6 +463,17 @@ export default function InsiderSignalsPage() {
 
   const whaleCount = signals.filter((s) => s.isWhale).length
   const totalVolume = signals.reduce((acc, s) => acc + s.size * s.price, 0)
+
+  // Show loading while checking auth
+  if (isAuthChecking) {
+    return (
+      <AppShell title="Insider Signals" subtitle="Real-time trades from top Polymarket traders">
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </AppShell>
+    )
+  }
 
   return (
     <AppShell title="Insider Signals" subtitle="Real-time trades from top Polymarket traders">
