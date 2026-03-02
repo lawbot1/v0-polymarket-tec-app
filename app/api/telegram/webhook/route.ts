@@ -1129,33 +1129,204 @@ export async function POST(req: NextRequest) {
         const walletAddress = callbackData.replace('ct_view_', '')
         await answerCallbackQuery(callbackQuery.id)
         
-        const stats = await getTraderStats(walletAddress)
-        const pnlSign = stats.pnl >= 0 ? '+' : ''
+        // Get subscription details from database
+        const subscriptions = await getCopytradeSubscriptions(chatId)
+        const sub = subscriptions.find(s => s.wallet_address.toLowerCase() === walletAddress.toLowerCase())
         
-        const lines = [
-          `<b>Trader Stats</b>`,
-          ``,
-          `Address: <code>${formatWalletAddress(walletAddress)}</code>`,
-          ``,
-          `<b>Performance:</b>`,
-          `PnL: <b>${pnlSign}$${stats.pnl.toFixed(2)}</b>`,
-          `Volume: <b>$${stats.volume.toFixed(2)}</b>`,
-          `Trades: <b>${stats.numTrades}</b>`,
-        ]
-        
-        if (stats.positions.length > 0) {
-          lines.push(``, `<b>Active Positions:</b>`)
-          for (const pos of stats.positions.slice(0, 3)) {
-            const marketName = pos.market.length > 30 ? pos.market.slice(0, 27) + '...' : pos.market
-            lines.push(`- ${marketName}`)
-          }
+        if (!sub) {
+          await sendTelegramMessage(chatId, 'Subscription not found.', 'HTML', {
+            inline_keyboard: [[{ text: 'Back', callback_data: 'menu_copytrade' }]]
+          })
+          return NextResponse.json({ ok: true })
         }
         
-        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, lines.join('\n'), 'HTML', {
+        // Format mode text
+        const modeText = sub.mode === 'fixed' 
+          ? 'Fixed Amount' 
+          : sub.mode === 'percentage' 
+            ? 'Percentage'
+            : 'Portfolio-Weighted'
+        
+        // Format trade size
+        const tradeSizeText = sub.mode === 'fixed'
+          ? `$${sub.trade_size || 0}`
+          : `${sub.trade_size || 0}% of leader's amount`
+        
+        // Format price range
+        const priceRangeText = sub.price_range_min && sub.price_range_max
+          ? `${sub.price_range_min}c - ${sub.price_range_max}c`
+          : 'No filter'
+        
+        // Format single trade limit
+        const singleLimitText = sub.single_trade_limit 
+          ? `$${parseFloat(sub.single_trade_limit).toFixed(2)}`
+          : 'No limit'
+        
+        // Status (default to active)
+        const isActive = sub.is_active !== false
+        const statusText = isActive ? '▶️ Active' : '⏸ Paused'
+        
+        // Notifications (default to enabled)
+        const notificationsEnabled = sub.notifications !== false
+        const notifText = notificationsEnabled ? '🔔 Enabled' : '🔕 Disabled'
+        
+        const lines = [
+          `📋 <b>Copytrade Details</b>`,
+          ``,
+          `👤 <b>Leader:</b> <code>${formatWalletAddress(walletAddress)}</code>`,
+          `🔗 <a href="https://polymarket.com/profile/${walletAddress}">View on Polymarket</a>`,
+          `📊 <b>Status:</b> ${statusText}`,
+          `🔔 <b>Notifications:</b> ${notifText}`,
+          `💵 <b>Spent:</b> $0.00 / ${sub.single_trade_limit ? '$' + sub.single_trade_limit : '∞'}`,
+          ``,
+          `<b>Mode & Trade Size</b>`,
+          `• Mode: ${modeText}`,
+          `• Trade Size: ${tradeSizeText}`,
+          ``,
+          `<b>Limits</b>`,
+          `• Slippage: ${sub.slippage || 5}%`,
+          `• Price Range: ${priceRangeText}`,
+          `• Single Market: ${singleLimitText}`,
+        ]
+        
+        await sendTelegramMessage(chatId, lines.join('\n'), 'HTML', {
           inline_keyboard: [
-            [{ text: 'Rename', callback_data: `ct_rename_${walletAddress}` }],
-            [{ text: 'Delete', callback_data: `ct_delete_${walletAddress}` }],
-            [{ text: 'Back', callback_data: 'menu_copytrade' }]
+            [{ text: '⚙️ Change Mode', callback_data: `ct_edit_mode_${walletAddress}` }],
+            [
+              { text: '📊 Price Range', callback_data: `ct_edit_price_${walletAddress}` },
+              { text: '⚡ Slippage', callback_data: `ct_edit_slip_${walletAddress}` }
+            ],
+            [
+              { text: '📅 Daily Limit', callback_data: `ct_edit_daily_${walletAddress}` },
+              { text: '📐 Single Trade Limit', callback_data: `ct_edit_single_${walletAddress}` }
+            ],
+            [
+              { text: isActive ? '⏸ Pause' : '▶️ Resume', callback_data: `ct_toggle_${walletAddress}` },
+              { text: notificationsEnabled ? '🔕 Mute' : '🔔 Unmute', callback_data: `ct_notif_${walletAddress}` },
+              { text: '🗑 Delete', callback_data: `ct_delete_${walletAddress}` }
+            ],
+            [
+              { text: '⬅️ Back', callback_data: 'menu_copytrade' },
+              { text: '🏠 Main Menu', callback_data: 'menu_main' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - toggle pause/resume
+      if (callbackData.startsWith('ct_toggle_')) {
+        const walletAddress = callbackData.replace('ct_toggle_', '')
+        await answerCallbackQuery(callbackQuery.id, 'Coming soon!')
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - toggle notifications
+      if (callbackData.startsWith('ct_notif_')) {
+        const walletAddress = callbackData.replace('ct_notif_', '')
+        await answerCallbackQuery(callbackQuery.id, 'Coming soon!')
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - edit mode
+      if (callbackData.startsWith('ct_edit_mode_')) {
+        const walletAddress = callbackData.replace('ct_edit_mode_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        
+        await sendTelegramMessage(chatId, [
+          `⚙️ <b>Change Mode</b>`,
+          ``,
+          `Select a new copy trading mode:`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: '💵 Fixed Amount', callback_data: `ct_setmode_fixed_${walletAddress}` }],
+            [{ text: '💰 Percentage', callback_data: `ct_setmode_percentage_${walletAddress}` }],
+            [{ text: '📊 Portfolio-Weighted', callback_data: `ct_setmode_portfolio_${walletAddress}` }],
+            [{ text: '⬅️ Back', callback_data: `ct_view_${walletAddress}` }]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - edit price range
+      if (callbackData.startsWith('ct_edit_price_')) {
+        const walletAddress = callbackData.replace('ct_edit_price_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        
+        await sendTelegramMessage(chatId, [
+          `📊 <b>Price Range</b>`,
+          ``,
+          `Set a price range for trades to copy:`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [
+              { text: '2c-98c', callback_data: `ct_setprice_2_98_${walletAddress}` },
+              { text: '5c-95c', callback_data: `ct_setprice_5_95_${walletAddress}` }
+            ],
+            [
+              { text: '10c-90c', callback_data: `ct_setprice_10_90_${walletAddress}` },
+              { text: '30c-70c', callback_data: `ct_setprice_30_70_${walletAddress}` }
+            ],
+            [{ text: '🚫 No Filter', callback_data: `ct_setprice_none_${walletAddress}` }],
+            [{ text: '⬅️ Back', callback_data: `ct_view_${walletAddress}` }]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - edit slippage
+      if (callbackData.startsWith('ct_edit_slip_')) {
+        const walletAddress = callbackData.replace('ct_edit_slip_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        
+        await sendTelegramMessage(chatId, [
+          `⚡ <b>Slippage Tolerance</b>`,
+          ``,
+          `Set how much price movement to accept:`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [
+              { text: '1%', callback_data: `ct_setslip_1_${walletAddress}` },
+              { text: '2%', callback_data: `ct_setslip_2_${walletAddress}` },
+              { text: '5%', callback_data: `ct_setslip_5_${walletAddress}` },
+              { text: '10%', callback_data: `ct_setslip_10_${walletAddress}` }
+            ],
+            [
+              { text: '🎯 Exact Price', callback_data: `ct_setslip_0_${walletAddress}` },
+              { text: '⚡ Any Price', callback_data: `ct_setslip_100_${walletAddress}` }
+            ],
+            [{ text: '⬅️ Back', callback_data: `ct_view_${walletAddress}` }]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - edit daily limit
+      if (callbackData.startsWith('ct_edit_daily_')) {
+        const walletAddress = callbackData.replace('ct_edit_daily_', '')
+        await answerCallbackQuery(callbackQuery.id, 'Coming soon!')
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade - edit single trade limit
+      if (callbackData.startsWith('ct_edit_single_')) {
+        const walletAddress = callbackData.replace('ct_edit_single_', '')
+        await answerCallbackQuery(callbackQuery.id)
+        
+        await sendTelegramMessage(chatId, [
+          `📐 <b>Single Trade Limit</b>`,
+          ``,
+          `Set max amount per trade:`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [
+              { text: '$10', callback_data: `ct_setsingle_10_${walletAddress}` },
+              { text: '$25', callback_data: `ct_setsingle_25_${walletAddress}` },
+              { text: '$50', callback_data: `ct_setsingle_50_${walletAddress}` },
+              { text: '$100', callback_data: `ct_setsingle_100_${walletAddress}` }
+            ],
+            [{ text: '∞ No Limit', callback_data: `ct_setsingle_none_${walletAddress}` }],
+            [{ text: '⬅️ Back', callback_data: `ct_view_${walletAddress}` }]
           ]
         })
         return NextResponse.json({ ok: true })
@@ -1330,7 +1501,7 @@ export async function POST(req: NextRequest) {
           `Give this trader a nickname:`,
           ``,
           `📝 <i>Example:</i>`,
-          `<i>"Smart Whale", "Alpha Caller"</i>`,
+          `<i>"Top Trader", "Degen King"</i>`,
         ].join('\n'), 'HTML', {
           inline_keyboard: [
             [{ text: '⏭️ Skip', callback_data: 'ct_step2_skip' }],
