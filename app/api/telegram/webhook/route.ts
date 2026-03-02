@@ -138,15 +138,33 @@ async function getCopytradeSubscriptions(chatId: string) {
   return data || []
 }
 
-// Helper: add copytrade subscription
-async function addCopytradeSubscription(chatId: string, walletAddress: string, name?: string) {
+// Copytrade settings interface
+interface CopytradeSettings {
+  walletAddress: string
+  nickname?: string
+  mode: 'fixed' | 'percentage' | 'portfolio' // Fixed $, Percentage, Portfolio-Weighted
+  tradeSize: number // $ amount for fixed, % for percentage/portfolio
+  singleTradeLimit?: number // Max $ per trade (null = no limit)
+  priceRangeMin?: number // Min price in cents (null = no filter)
+  priceRangeMax?: number // Max price in cents (null = no filter)
+  slippage: number // Slippage tolerance %
+}
+
+// Helper: add copytrade subscription with full settings
+async function addCopytradeSubscription(chatId: string, settings: CopytradeSettings) {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('telegram_copytrade_subscriptions')
     .insert({
       telegram_chat_id: chatId,
-      wallet_address: walletAddress.toLowerCase(),
-      name: name || null,
+      wallet_address: settings.walletAddress.toLowerCase(),
+      name: settings.nickname || null,
+      mode: settings.mode,
+      trade_size: settings.tradeSize,
+      single_trade_limit: settings.singleTradeLimit || null,
+      price_range_min: settings.priceRangeMin || null,
+      price_range_max: settings.priceRangeMax || null,
+      slippage: settings.slippage,
     })
     .select()
     .single()
@@ -511,27 +529,44 @@ export async function POST(req: NextRequest) {
         
         const subscriptions = await getCopytradeSubscriptions(chatId)
         
-        const lines = [`<b>Copy Trading</b>`, ``, `Your subscriptions:`]
+        const lines: string[] = []
+        lines.push(`🎯 <b>Copy Trading</b>`)
+        lines.push(``)
         
         // Build keyboard with subscriptions
         const keyboard: { text: string; callback_data: string }[][] = []
         
         if (subscriptions.length === 0) {
-          lines.push(``, `<i>No subscriptions yet.</i>`)
+          lines.push(`You are not copying any traders yet.`)
         } else {
+          lines.push(`You are currently copying <b>${subscriptions.length}</b> trader${subscriptions.length > 1 ? 's' : ''}.`)
+          lines.push(``)
+          
           for (const sub of subscriptions) {
             const displayName = sub.name || formatWalletAddress(sub.wallet_address)
+            const modeText = sub.mode === 'fixed' 
+              ? `$${sub.trade_size || 0} Fixed` 
+              : sub.mode === 'percentage' 
+                ? `${sub.trade_size || 0}% of leader's amount`
+                : `${sub.trade_size || 0}% Portfolio`
+            
+            lines.push(`• <code>${formatWalletAddress(sub.wallet_address)}</code>`)
+            lines.push(`├ Mode: <b>${modeText}</b>`)
+            lines.push(`├ <a href="tg://user?id=${chatId}">Manage</a>`)
+            lines.push(`├ Share`)
+            lines.push(`├ Daily PnL: +$0.00`)
+            lines.push(`└ Total PnL: +$0.00`)
             lines.push(``)
-            lines.push(`Active <code>${formatWalletAddress(sub.wallet_address)}</code>`)
-            keyboard.push([{ text: displayName, callback_data: `ct_view_${sub.wallet_address}` }])
+            
+            // Green dot for active subscription
+            keyboard.push([{ text: `🟢 ${displayName}`, callback_data: `ct_view_${sub.wallet_address}` }])
           }
         }
         
-        keyboard.push([{ text: '+ Add address', callback_data: 'ct_add' }])
-        keyboard.push([{ text: 'Settings', callback_data: 'ct_global_settings' }])
+        keyboard.push([{ text: '+ Add Copy Trade', callback_data: 'ct_add_step1' }])
         keyboard.push([
-          { text: 'Back', callback_data: 'menu_main' },
-          { text: 'Refresh', callback_data: 'refresh_copytrade' }
+          { text: 'Activity', callback_data: 'ct_activity' },
+          { text: 'Main Menu', callback_data: 'menu_main' }
         ])
         
         if (isRefresh && messageId) {
@@ -586,18 +621,488 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
       
-      // Copy Trade - add address
-      if (callbackData === 'ct_add') {
+      // Copy Trade - Activity
+      if (callbackData === 'ct_activity') {
         await answerCallbackQuery(callbackQuery.id)
-        userStates.set(chatId, { action: 'copytrade_add' })
-        
-        await sendTelegramPhoto(chatId, COPYTRADE_IMAGE_URL, [
-          `<b>Add Copy Trade Address</b>`,
+        await sendTelegramMessage(chatId, [
+          `<b>Copy Trade Activity</b>`,
           ``,
-          `Enter the wallet address you want to copy (0x...):`,
+          `<i>No recent activity.</i>`,
         ].join('\n'), 'HTML', {
-          inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu_copytrade' }]]
+          inline_keyboard: [[{ text: 'Back', callback_data: 'menu_copytrade' }]]
         })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // ============ 7-STEP COPYTRADE FLOW ============
+      
+      // Step 1: Enter wallet address
+      if (callbackData === 'ct_add_step1' || callbackData === 'ct_add') {
+        await answerCallbackQuery(callbackQuery.id)
+        userStates.set(chatId, { action: 'ct_step1_address' })
+        
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 1/7</b>`,
+          ``,
+          `Enter the wallet address of the trader you want to copy:`,
+          ``,
+          `🔑 <i>Example:</i>`,
+          `<code>0x4F21cD98A72b0Eb634f1D3a6C980e5B92C7A1F44</code>`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [
+              { text: '⬅️ Back', callback_data: 'menu_copytrade' },
+              { text: '🏠 Menu', callback_data: 'menu_main' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Step 2: Skip nickname
+      if (callbackData === 'ct_step2_skip') {
+        await answerCallbackQuery(callbackQuery.id)
+        const state = userStates.get(chatId)
+        if (!state?.data?.walletAddress) {
+          await sendTelegramMessage(chatId, 'Session expired. Please start again.', 'HTML', {
+            inline_keyboard: [[{ text: 'Start Over', callback_data: 'ct_add_step1' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        // Skip to step 3
+        userStates.set(chatId, { 
+          action: 'ct_step3_mode', 
+          data: { ...state.data, nickname: null } 
+        })
+        
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 3/7</b>`,
+          ``,
+          `How should your copy-trades be sized?`,
+          ``,
+          `💵 <b>Fixed Amount</b>`,
+          `Enter a fixed USDC amount to buy on every copied trade.`,
+          `<i>Example: Enter 10 USDC to always buy 10 USDC, regardless of trade size.</i>`,
+          ``,
+          `💰 <b>Percentage</b>`,
+          `Enter the percentage of the leader's buy you want to copy.`,
+          `<i>Example: If set to 50% and the leader buys 100 USDC, you'll buy 50 USDC.</i>`,
+          ``,
+          `📊 <b>Portfolio-Weighted</b>`,
+          `Copy trades based on how large the position is relative to the leader's total portfolio.`,
+          `<i>Example: If the leader uses 10% of their portfolio on a trade, you'll also use 10% of your portfolio, regardless of account size.</i>`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: '💵 Fixed', callback_data: 'ct_step3_fixed' }],
+            [{ text: '💰 Percentage', callback_data: 'ct_step3_percentage' }],
+            [{ text: '📊 Portfolio-Weighted', callback_data: 'ct_step3_portfolio' }],
+            [
+              { text: '⬅️ Back', callback_data: 'ct_add_step1' },
+              { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Step 3: Mode selection
+      if (callbackData.startsWith('ct_step3_')) {
+        await answerCallbackQuery(callbackQuery.id)
+        const mode = callbackData.replace('ct_step3_', '') as 'fixed' | 'percentage' | 'portfolio'
+        
+        const state = userStates.get(chatId)
+        if (!state?.data?.walletAddress) {
+          await sendTelegramMessage(chatId, 'Session expired. Please start again.', 'HTML', {
+            inline_keyboard: [[{ text: 'Start Over', callback_data: 'ct_add_step1' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        userStates.set(chatId, { 
+          action: 'ct_step3b_amount', 
+          data: { ...state.data, mode } 
+        })
+        
+        if (mode === 'fixed') {
+          await sendTelegramMessage(chatId, [
+            `➕ <b>Add Copytrade | Step 3/7</b>`,
+            ``,
+            `Enter a fixed USDC amount to buy on every copied trade:`,
+            ``,
+            `<i>Example: If you enter $50, you will spend $50 on each individual market.</i>`,
+            ``,
+            `<i>(You can also type your own amount, for example $200 or $500)</i>`,
+          ].join('\n'), 'HTML', {
+            inline_keyboard: [
+              [
+                { text: '$10', callback_data: 'ct_step3b_10' },
+                { text: '$25', callback_data: 'ct_step3b_25' },
+                { text: '$50', callback_data: 'ct_step3b_50' },
+                { text: '$100', callback_data: 'ct_step3b_100' }
+              ],
+              [
+                { text: '⬅️ Back', callback_data: 'ct_step2_skip' },
+                { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+              ]
+            ]
+          })
+        } else {
+          await sendTelegramMessage(chatId, [
+            `➕ <b>Add Copytrade | Step 3/7</b>`,
+            ``,
+            `What percentage of the leader's trade amount do you want to copy?`,
+            ``,
+            `<b>Examples:</b>`,
+            `• 50% → Leader trades $100, you trade $50`,
+            `• 100% → Leader trades $100, you trade $100`,
+            `• 200% → Leader trades $100, you trade $200`,
+            ``,
+            `<b>Range:</b> 1% to 1000%`,
+            ``,
+            `<i>(You can also type your own percentage, for example 75 or 150)</i>`,
+          ].join('\n'), 'HTML', {
+            inline_keyboard: [
+              [
+                { text: '10%', callback_data: 'ct_step3b_10' },
+                { text: '25%', callback_data: 'ct_step3b_25' }
+              ],
+              [
+                { text: '50%', callback_data: 'ct_step3b_50' },
+                { text: '100%', callback_data: 'ct_step3b_100' }
+              ],
+              [
+                { text: '⬅️ Back', callback_data: 'ct_step2_skip' },
+                { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+              ]
+            ]
+          })
+        }
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Step 3b: Amount/Percentage value
+      if (callbackData.startsWith('ct_step3b_')) {
+        await answerCallbackQuery(callbackQuery.id)
+        const value = parseInt(callbackData.replace('ct_step3b_', ''))
+        
+        const state = userStates.get(chatId)
+        if (!state?.data?.walletAddress) {
+          await sendTelegramMessage(chatId, 'Session expired. Please start again.', 'HTML', {
+            inline_keyboard: [[{ text: 'Start Over', callback_data: 'ct_add_step1' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        userStates.set(chatId, { 
+          action: 'ct_step4_limit', 
+          data: { ...state.data, tradeSize: value } 
+        })
+        
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 4/7</b>`,
+          ``,
+          `Set your Max Copy $ Amount per Trade`,
+          ``,
+          `<i>Example: If you set $50, you will spend up to $50 on each individual market.</i>`,
+          ``,
+          `<i>You can also type your own limit, for example $200 or $500.</i>`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [
+              { text: '$10', callback_data: 'ct_step4_10' },
+              { text: '$25', callback_data: 'ct_step4_25' },
+              { text: '$50', callback_data: 'ct_step4_50' },
+              { text: '$100', callback_data: 'ct_step4_100' }
+            ],
+            [{ text: '∞ No Limit', callback_data: 'ct_step4_nolimit' }],
+            [
+              { text: '⬅️ Back', callback_data: `ct_step3_${state.data.mode}` },
+              { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Step 4: Single trade limit
+      if (callbackData.startsWith('ct_step4_')) {
+        await answerCallbackQuery(callbackQuery.id)
+        const limitStr = callbackData.replace('ct_step4_', '')
+        const limit = limitStr === 'nolimit' ? null : parseInt(limitStr)
+        
+        const state = userStates.get(chatId)
+        if (!state?.data?.walletAddress) {
+          await sendTelegramMessage(chatId, 'Session expired. Please start again.', 'HTML', {
+            inline_keyboard: [[{ text: 'Start Over', callback_data: 'ct_add_step1' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        userStates.set(chatId, { 
+          action: 'ct_step5_price', 
+          data: { ...state.data, singleTradeLimit: limit } 
+        })
+        
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 5/7</b>`,
+          ``,
+          `Set a price range for the trades you want to copy:`,
+          ``,
+          `📝 <i>Example:</i>`,
+          `<i>Type a range like 40¢-80¢, or pick one below.</i>`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [
+              { text: '2¢–98¢', callback_data: 'ct_step5_2_98' },
+              { text: '5¢–95¢', callback_data: 'ct_step5_5_95' }
+            ],
+            [
+              { text: '10¢–90¢', callback_data: 'ct_step5_10_90' },
+              { text: '30¢–70¢', callback_data: 'ct_step5_30_70' }
+            ],
+            [{ text: '🚫 No Filter', callback_data: 'ct_step5_nofilter' }],
+            [
+              { text: '⬅️ Back', callback_data: 'ct_step4_back' },
+              { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Step 4 back button
+      if (callbackData === 'ct_step4_back') {
+        await answerCallbackQuery(callbackQuery.id)
+        const state = userStates.get(chatId)
+        if (state?.data?.mode) {
+          // Go back to step 3b
+          userStates.set(chatId, { action: 'ct_step3b_amount', data: state.data })
+        }
+        // Trigger step 3 mode selection
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Step 5: Price range
+      if (callbackData.startsWith('ct_step5_')) {
+        await answerCallbackQuery(callbackQuery.id)
+        const rangeStr = callbackData.replace('ct_step5_', '')
+        let priceRangeMin: number | null = null
+        let priceRangeMax: number | null = null
+        
+        if (rangeStr !== 'nofilter') {
+          const parts = rangeStr.split('_')
+          priceRangeMin = parseInt(parts[0])
+          priceRangeMax = parseInt(parts[1])
+        }
+        
+        const state = userStates.get(chatId)
+        if (!state?.data?.walletAddress) {
+          await sendTelegramMessage(chatId, 'Session expired. Please start again.', 'HTML', {
+            inline_keyboard: [[{ text: 'Start Over', callback_data: 'ct_add_step1' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        userStates.set(chatId, { 
+          action: 'ct_step6_slippage', 
+          data: { ...state.data, priceRangeMin, priceRangeMax } 
+        })
+        
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 6/7</b>`,
+          ``,
+          `Set slippage tolerance:`,
+          ``,
+          `<i>How much price movement to accept when executing trades.</i>`,
+          ``,
+          `<i>(You can also type your own, for example 12 or 12%)</i>`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [
+              { text: '1%', callback_data: 'ct_step6_1' },
+              { text: '2%', callback_data: 'ct_step6_2' },
+              { text: '5%', callback_data: 'ct_step6_5' },
+              { text: '10%', callback_data: 'ct_step6_10' }
+            ],
+            [
+              { text: '🎯 Exact Price', callback_data: 'ct_step6_0' },
+              { text: '⚡ Any Price', callback_data: 'ct_step6_100' }
+            ],
+            [
+              { text: '⬅️ Back', callback_data: 'ct_step5_back' },
+              { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Step 5 back button
+      if (callbackData === 'ct_step5_back') {
+        await answerCallbackQuery(callbackQuery.id)
+        const state = userStates.get(chatId)
+        if (state?.data) {
+          userStates.set(chatId, { action: 'ct_step4_limit', data: state.data })
+        }
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Step 6: Slippage
+      if (callbackData.startsWith('ct_step6_')) {
+        await answerCallbackQuery(callbackQuery.id)
+        const slippage = parseInt(callbackData.replace('ct_step6_', ''))
+        
+        const state = userStates.get(chatId)
+        if (!state?.data?.walletAddress) {
+          await sendTelegramMessage(chatId, 'Session expired. Please start again.', 'HTML', {
+            inline_keyboard: [[{ text: 'Start Over', callback_data: 'ct_add_step1' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        const data = { ...state.data, slippage }
+        userStates.set(chatId, { action: 'ct_step7_confirm', data })
+        
+        // Build review message
+        const modeText = data.mode === 'fixed' 
+          ? 'Fixed Amount' 
+          : data.mode === 'percentage' 
+            ? 'Percentage'
+            : 'Portfolio-Weighted'
+        
+        const tradeSizeText = data.mode === 'fixed'
+          ? `$${data.tradeSize}`
+          : `${data.tradeSize}% of leader's amount`
+        
+        const limitText = data.singleTradeLimit ? `$${data.singleTradeLimit}` : 'No limit'
+        
+        const priceRangeText = data.priceRangeMin && data.priceRangeMax
+          ? `${data.priceRangeMin}¢–${data.priceRangeMax}¢`
+          : 'No filter'
+        
+        const slippageText = slippage === 0 
+          ? 'Exact Price' 
+          : slippage >= 100 
+            ? 'Any Price'
+            : `${slippage}%`
+        
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 7/7</b>`,
+          ``,
+          `Review your settings before confirming:`,
+          ``,
+          `🏷️ <b>Nickname:</b> ${data.nickname || formatWalletAddress(data.walletAddress as string)}`,
+          `📍 <b>Address:</b>`,
+          `<code>${data.walletAddress}</code>`,
+          ``,
+          `⚙️ <b>Mode:</b> ${modeText}`,
+          `📐 <b>Trade Size:</b> ${tradeSizeText}`,
+          `📏 <b>Single Trade Limit:</b> ${limitText}`,
+          `💰 <b>Price Range:</b> ${priceRangeText}`,
+          `⚡ <b>Slippage:</b> ${slippageText}`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: '✅ Confirm', callback_data: 'ct_step7_confirm' }],
+            [
+              { text: '⬅️ Back', callback_data: 'ct_step6_back' },
+              { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Step 6 back button
+      if (callbackData === 'ct_step6_back') {
+        await answerCallbackQuery(callbackQuery.id)
+        const state = userStates.get(chatId)
+        if (state?.data) {
+          userStates.set(chatId, { action: 'ct_step5_price', data: state.data })
+        }
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Step 7: Confirm and create
+      if (callbackData === 'ct_step7_confirm') {
+        await answerCallbackQuery(callbackQuery.id)
+        const state = userStates.get(chatId)
+        
+        if (!state?.data?.walletAddress) {
+          await sendTelegramMessage(chatId, 'Session expired. Please start again.', 'HTML', {
+            inline_keyboard: [[{ text: 'Start Over', callback_data: 'ct_add_step1' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        const settings: CopytradeSettings = {
+          walletAddress: state.data.walletAddress as string,
+          nickname: state.data.nickname as string | undefined,
+          mode: (state.data.mode as 'fixed' | 'percentage' | 'portfolio') || 'fixed',
+          tradeSize: (state.data.tradeSize as number) || 50,
+          singleTradeLimit: state.data.singleTradeLimit as number | undefined,
+          priceRangeMin: state.data.priceRangeMin as number | undefined,
+          priceRangeMax: state.data.priceRangeMax as number | undefined,
+          slippage: (state.data.slippage as number) || 5,
+        }
+        
+        userStates.delete(chatId)
+        const { error } = await addCopytradeSubscription(chatId, settings)
+        
+        if (error) {
+          await sendTelegramMessage(chatId, [
+            `<b>Error</b>`,
+            ``,
+            `This address is already in your subscriptions.`,
+          ].join('\n'), 'HTML', {
+            inline_keyboard: [[{ text: 'Back to Copy Trading', callback_data: 'menu_copytrade' }]]
+          })
+        } else {
+          const modeText = settings.mode === 'fixed' 
+            ? 'Fixed Amount' 
+            : settings.mode === 'percentage' 
+              ? 'Percentage'
+              : 'Portfolio-Weighted'
+          
+          const tradeSizeText = settings.mode === 'fixed'
+            ? `$${settings.tradeSize}`
+            : `${settings.tradeSize}% of leader's amount`
+          
+          const limitText = settings.singleTradeLimit ? `$${settings.singleTradeLimit}` : 'No limit'
+          
+          const priceRangeText = settings.priceRangeMin && settings.priceRangeMax
+            ? `${settings.priceRangeMin}¢–${settings.priceRangeMax}¢`
+            : 'No filter'
+          
+          const slippageText = settings.slippage === 0 
+            ? 'Exact Price' 
+            : settings.slippage >= 100 
+              ? 'Any Price'
+              : `${settings.slippage}%`
+          
+          await sendTelegramMessage(chatId, [
+            `✅ <b>Copytrade Created</b>`,
+            ``,
+            `Your copytrade with <code>${formatWalletAddress(settings.walletAddress)}</code> is now live!`,
+            ``,
+            `📐 <b>Trade Size:</b> ${tradeSizeText}`,
+            `📏 <b>Single Trade Limit:</b> ${limitText}`,
+            `💰 <b>Price Range:</b> ${priceRangeText}`,
+            `⚡ <b>Slippage:</b> ${slippageText}`,
+          ].join('\n'), 'HTML', {
+            inline_keyboard: [
+              [{ text: '🔄 Mirror this Copy Trade', callback_data: 'ct_mirror' }],
+              [{ text: '⚙️ Manage Copytrade', callback_data: `ct_view_${settings.walletAddress}` }],
+              [{ text: '👁️ View All', callback_data: 'menu_copytrade' }]
+            ]
+          })
+        }
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Mirror copytrade (placeholder)
+      if (callbackData === 'ct_mirror') {
+        await answerCallbackQuery(callbackQuery.id, 'Coming soon!')
         return NextResponse.json({ ok: true })
       }
       
@@ -774,33 +1279,242 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
       
-      // Copy Trade - add address
-      if (userState.action === 'copytrade_add') {
+      // Copy Trade Step 1 - Enter wallet address
+      if (userState.action === 'ct_step1_address') {
         if (!text.startsWith('0x') || text.length !== 42) {
-          await sendTelegramMessage(chatId, 'Invalid address. Please enter a valid Ethereum address (0x...)', 'HTML', {
-            inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu_copytrade' }]]
+          await sendTelegramMessage(chatId, [
+            `Invalid address format.`,
+            ``,
+            `Please enter a valid Ethereum address starting with 0x (42 characters).`,
+          ].join('\n'), 'HTML', {
+            inline_keyboard: [
+              [
+                { text: '⬅️ Back', callback_data: 'menu_copytrade' },
+                { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+              ]
+            ]
           })
           return NextResponse.json({ ok: true })
         }
         
-        userStates.delete(chatId)
-        const { error } = await addCopytradeSubscription(chatId, text)
+        // Move to step 2 - nickname
+        userStates.set(chatId, { 
+          action: 'ct_step2_nickname', 
+          data: { walletAddress: text.toLowerCase() } 
+        })
         
-        if (error) {
-          await sendTelegramMessage(chatId, 'This address is already in your subscriptions.', 'HTML', {
-            inline_keyboard: [[{ text: 'Back to Copy Trading', callback_data: 'menu_copytrade' }]]
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 2/7</b>`,
+          ``,
+          `<b>Wallet:</b>`,
+          `<code>${text}</code>`,
+          ``,
+          `Give this trader a nickname:`,
+          ``,
+          `📝 <i>Example:</i>`,
+          `<i>"Smart Whale", "Alpha Caller"</i>`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: '⏭️ Skip', callback_data: 'ct_step2_skip' }],
+            [
+              { text: '⬅️ Back', callback_data: 'ct_add_step1' },
+              { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade Step 2 - Enter nickname
+      if (userState.action === 'ct_step2_nickname') {
+        const walletAddress = userState.data?.walletAddress as string
+        if (!walletAddress) {
+          await sendTelegramMessage(chatId, 'Session expired. Please start again.', 'HTML', {
+            inline_keyboard: [[{ text: 'Start Over', callback_data: 'ct_add_step1' }]]
           })
-        } else {
-          await sendTelegramMessage(chatId, [
-            `<b>Address Added</b>`,
-            ``,
-            `<code>${text}</code>`,
-            ``,
-            `You will now copy trades from this wallet.`,
-          ].join('\n'), 'HTML', {
-            inline_keyboard: [[{ text: 'Back to Copy Trading', callback_data: 'menu_copytrade' }]]
-          })
+          return NextResponse.json({ ok: true })
         }
+        
+        // Move to step 3 - mode selection
+        userStates.set(chatId, { 
+          action: 'ct_step3_mode', 
+          data: { walletAddress, nickname: text } 
+        })
+        
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 3/7</b>`,
+          ``,
+          `How should your copy-trades be sized?`,
+          ``,
+          `💵 <b>Fixed Amount</b>`,
+          `Enter a fixed USDC amount to buy on every copied trade.`,
+          `<i>Example: Enter 10 USDC to always buy 10 USDC, regardless of trade size.</i>`,
+          ``,
+          `💰 <b>Percentage</b>`,
+          `Enter the percentage of the leader's buy you want to copy.`,
+          `<i>Example: If set to 50% and the leader buys 100 USDC, you'll buy 50 USDC.</i>`,
+          ``,
+          `📊 <b>Portfolio-Weighted</b>`,
+          `Copy trades based on how large the position is relative to the leader's total portfolio.`,
+          `<i>Example: If the leader uses 10% of their portfolio on a trade, you'll also use 10% of your portfolio, regardless of account size.</i>`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: '💵 Fixed', callback_data: 'ct_step3_fixed' }],
+            [{ text: '💰 Percentage', callback_data: 'ct_step3_percentage' }],
+            [{ text: '📊 Portfolio-Weighted', callback_data: 'ct_step3_portfolio' }],
+            [
+              { text: '⬅️ Back', callback_data: 'ct_add_step1' },
+              { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade Step 3b - Custom amount/percentage input
+      if (userState.action === 'ct_step3b_amount') {
+        const value = parseInt(text.replace(/[^0-9]/g, ''))
+        if (isNaN(value) || value <= 0) {
+          await sendTelegramMessage(chatId, 'Please enter a valid number.', 'HTML', {
+            inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'menu_copytrade' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        // Move to step 4
+        userStates.set(chatId, { 
+          action: 'ct_step4_limit', 
+          data: { ...userState.data, tradeSize: value } 
+        })
+        
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 4/7</b>`,
+          ``,
+          `Set your Max Copy $ Amount per Trade`,
+          ``,
+          `<i>Example: If you set $50, you will spend up to $50 on each individual market.</i>`,
+          ``,
+          `<i>You can also type your own limit, for example $200 or $500.</i>`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [
+              { text: '$10', callback_data: 'ct_step4_10' },
+              { text: '$25', callback_data: 'ct_step4_25' },
+              { text: '$50', callback_data: 'ct_step4_50' },
+              { text: '$100', callback_data: 'ct_step4_100' }
+            ],
+            [{ text: '∞ No Limit', callback_data: 'ct_step4_nolimit' }],
+            [
+              { text: '⬅️ Back', callback_data: `ct_step3_${userState.data?.mode}` },
+              { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade Step 4 - Custom limit input
+      if (userState.action === 'ct_step4_limit') {
+        const value = parseInt(text.replace(/[^0-9]/g, ''))
+        if (isNaN(value) || value <= 0) {
+          await sendTelegramMessage(chatId, 'Please enter a valid number or use "No Limit".', 'HTML', {
+            inline_keyboard: [[{ text: '∞ No Limit', callback_data: 'ct_step4_nolimit' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        // Move to step 5
+        userStates.set(chatId, { 
+          action: 'ct_step5_price', 
+          data: { ...userState.data, singleTradeLimit: value } 
+        })
+        
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 5/7</b>`,
+          ``,
+          `Set a price range for the trades you want to copy:`,
+          ``,
+          `📝 <i>Example:</i>`,
+          `<i>Type a range like 40¢-80¢, or pick one below.</i>`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [
+              { text: '2¢–98¢', callback_data: 'ct_step5_2_98' },
+              { text: '5¢–95¢', callback_data: 'ct_step5_5_95' }
+            ],
+            [
+              { text: '10¢–90¢', callback_data: 'ct_step5_10_90' },
+              { text: '30¢–70¢', callback_data: 'ct_step5_30_70' }
+            ],
+            [{ text: '🚫 No Filter', callback_data: 'ct_step5_nofilter' }],
+            [
+              { text: '⬅️ Back', callback_data: 'ct_step4_back' },
+              { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+            ]
+          ]
+        })
+        return NextResponse.json({ ok: true })
+      }
+      
+      // Copy Trade Step 6 - Custom slippage input
+      if (userState.action === 'ct_step6_slippage') {
+        const value = parseInt(text.replace(/[^0-9]/g, ''))
+        if (isNaN(value) || value < 0 || value > 100) {
+          await sendTelegramMessage(chatId, 'Please enter a valid slippage percentage (0-100).', 'HTML', {
+            inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'menu_copytrade' }]]
+          })
+          return NextResponse.json({ ok: true })
+        }
+        
+        const data = { ...userState.data, slippage: value }
+        userStates.set(chatId, { action: 'ct_step7_confirm', data })
+        
+        // Build review message
+        const modeText = data.mode === 'fixed' 
+          ? 'Fixed Amount' 
+          : data.mode === 'percentage' 
+            ? 'Percentage'
+            : 'Portfolio-Weighted'
+        
+        const tradeSizeText = data.mode === 'fixed'
+          ? `$${data.tradeSize}`
+          : `${data.tradeSize}% of leader's amount`
+        
+        const limitText = data.singleTradeLimit ? `$${data.singleTradeLimit}` : 'No limit'
+        
+        const priceRangeText = data.priceRangeMin && data.priceRangeMax
+          ? `${data.priceRangeMin}¢–${data.priceRangeMax}¢`
+          : 'No filter'
+        
+        const slippageText = value === 0 
+          ? 'Exact Price' 
+          : value >= 100 
+            ? 'Any Price'
+            : `${value}%`
+        
+        await sendTelegramMessage(chatId, [
+          `➕ <b>Add Copytrade | Step 7/7</b>`,
+          ``,
+          `Review your settings before confirming:`,
+          ``,
+          `🏷️ <b>Nickname:</b> ${data.nickname || formatWalletAddress(data.walletAddress as string)}`,
+          `📍 <b>Address:</b>`,
+          `<code>${data.walletAddress}</code>`,
+          ``,
+          `⚙️ <b>Mode:</b> ${modeText}`,
+          `📐 <b>Trade Size:</b> ${tradeSizeText}`,
+          `📏 <b>Single Trade Limit:</b> ${limitText}`,
+          `💰 <b>Price Range:</b> ${priceRangeText}`,
+          `⚡ <b>Slippage:</b> ${slippageText}`,
+        ].join('\n'), 'HTML', {
+          inline_keyboard: [
+            [{ text: '✅ Confirm', callback_data: 'ct_step7_confirm' }],
+            [
+              { text: '⬅️ Back', callback_data: 'ct_step6_back' },
+              { text: '❌ Cancel', callback_data: 'menu_copytrade' }
+            ]
+          ]
+        })
         return NextResponse.json({ ok: true })
       }
       
