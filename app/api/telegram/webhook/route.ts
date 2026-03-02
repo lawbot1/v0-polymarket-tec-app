@@ -665,7 +665,7 @@ export async function POST(req: NextRequest) {
           `Enter the wallet address of the trader you want to copy:`,
           ``,
           `🔑 <i>Example:</i>`,
-          `<code>0x4F21cD98A72b0Eb634f1D3a6C980e5B92C7A1F44</code>`,
+          `<code>0x07b8e44b90cc3e91b8d5fe60ea810d2534638e25</code>`,
         ].join('\n'), 'HTML', {
           inline_keyboard: [
             [
