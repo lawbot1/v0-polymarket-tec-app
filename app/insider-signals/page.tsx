@@ -248,9 +248,6 @@ const MIN_SIGNAL_VALUE_TOP100 = 5000 // $5k for Top100 Vantake traders
 const MIN_SIGNAL_VALUE_OTHER = 40000 // $40k for other traders
 const MAX_SIGNALS = 150 // Maximum signals to load
 
-// Polymarket profile API
-const GAMMA_API_BASE = 'https://gamma-api.polymarket.com'
-
 // Cache for trader profiles to avoid repeated requests
 const profileCache = new Map<string, { userName?: string; profileImage?: string } | null>()
 
@@ -261,18 +258,19 @@ async function fetchTraderProfile(walletAddress: string): Promise<{ userName?: s
   }
   
   try {
-    const res = await fetch(`${GAMMA_API_BASE}/profiles/${walletAddress}`, { cache: 'no-store' })
+    // Use internal API to avoid CORS issues
+    const res = await fetch(`/api/polymarket/profile?address=${walletAddress}`)
     if (!res.ok) {
       profileCache.set(cacheKey, null)
       return null
     }
-    const profile = await res.json()
-    const data = {
-      userName: profile.name || profile.username,
-      profileImage: profile.profileImage || profile.pfp,
+    const data = await res.json()
+    if (data.userName || data.profileImage) {
+      profileCache.set(cacheKey, data)
+      return data
     }
-    profileCache.set(cacheKey, data)
-    return data
+    profileCache.set(cacheKey, null)
+    return null
   } catch {
     profileCache.set(cacheKey, null)
     return null
