@@ -342,8 +342,15 @@ export default function VantakeTop100Page() {
     )
   }, [traders, search])
 
+  const [visibleCount, setVisibleCount] = useState(30)
+  const LOAD_INCREMENT = 30
+  const MAX_VISIBLE = 100
+
   const topThree = filtered.slice(0, 3)
   const rest = filtered.slice(3)
+  // When searching, show all results; otherwise limit to visibleCount
+  const visibleRest = search.trim() ? rest : rest.slice(0, Math.max(0, visibleCount - 3))
+  const hasMore = !search.trim() && filtered.length > visibleCount && visibleCount < MAX_VISIBLE
 
   return (
     <AppShell title="Vantake Top 100" subtitle="Best Traders on Polymarket">
@@ -397,7 +404,7 @@ export default function VantakeTop100Page() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(search.trim() ? filtered : rest).map((trader) => {
+                    {(search.trim() ? filtered : visibleRest).map((trader) => {
                       const rank = parseInt(trader.rank)
                       const name = trader.userName || formatAddress(trader.proxyWallet)
                       const displayName = name.length > 24 && name.startsWith('0x') ? formatAddress(name) : name
@@ -468,6 +475,18 @@ export default function VantakeTop100Page() {
               {filtered.length === 0 && search.trim() && (
                 <div className="py-12 text-center text-muted-foreground text-sm">
                   {'No traders found matching "'}{search}{'"'}
+                </div>
+              )}
+
+              {/* Load More Button */}
+              {hasMore && (
+                <div className="flex justify-center py-6">
+                  <button
+                    onClick={() => setVisibleCount(prev => Math.min(prev + LOAD_INCREMENT, MAX_VISIBLE))}
+                    className="px-6 py-2.5 bg-secondary/50 hover:bg-secondary border border-border rounded-lg text-sm font-medium text-foreground transition-colors"
+                  >
+                    Load More ({Math.min(visibleCount, filtered.length)} / {Math.min(filtered.length, MAX_VISIBLE)})
+                  </button>
                 </div>
               )}
             </div>
