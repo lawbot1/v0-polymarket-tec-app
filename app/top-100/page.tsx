@@ -178,10 +178,10 @@ function PodiumCard({
         style={{ height: pedestalHeight }}
       >
         {/* Top face (perspective illusion) */}
-        <div className="absolute top-0 left-0 right-0 h-4 bg-[#2a3a2e] rounded-t-lg border-t border-x border-[#3a5040]/80" />
+        <div className="absolute top-0 left-0 right-0 h-4 bg-[#2a2a2e] rounded-t-lg border-t border-x border-[#3a3a40]/80" />
 
         {/* Front face */}
-        <div className="absolute top-4 left-0 right-0 bottom-0 bg-gradient-to-b from-[#1f2d23] to-[#171f1a] border-x border-b border-[#2a3a2e]/80 flex flex-col items-center justify-start pt-10 px-5">
+        <div className="absolute top-4 left-0 right-0 bottom-0 bg-gradient-to-b from-[#1f1f23] to-[#17171a] border-x border-b border-[#2a2a2e]/80 flex flex-col items-center justify-start pt-10 px-5">
           {/* Trophy + Name + X + Copy */}
           <div className="flex items-center gap-2 mb-4 max-w-full">
             <Trophy className="h-5 w-5 text-yellow-500 flex-shrink-0" />
@@ -216,9 +216,9 @@ function PodiumCard({
         </div>
 
         {/* Left edge shadow (3D effect) */}
-        <div className="absolute top-4 left-0 w-1.5 bottom-0 bg-[#141c16]" />
+        <div className="absolute top-4 left-0 w-1.5 bottom-0 bg-[#141416]" />
         {/* Right edge highlight */}
-        <div className="absolute top-4 right-0 w-[2px] bottom-0 bg-[#3a5040]/40" />
+        <div className="absolute top-4 right-0 w-[2px] bottom-0 bg-[#3a3a40]/40" />
       </div>
     </Link>
   )
