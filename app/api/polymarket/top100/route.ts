@@ -1,40 +1,36 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { VANTAKE_TOP_100_WALLETS } from '@/lib/top100-wallets'
 
 const DATA_API = 'https://data-api.polymarket.com'
 
-async function tryFetch(url: string) {
+// Fetch profile data for a single wallet
+async function fetchWalletProfile(wallet: string) {
   try {
-    const res = await fetch(url)
-    if (!res.ok) return []
+    const res = await fetch(`${DATA_API}/v1/profile/${wallet}`, {
+      next: { revalidate: 300 }, // Cache for 5 minutes
+    })
+    if (!res.ok) return null
     return await res.json()
   } catch {
-    return []
+    return null
   }
 }
 
-// Fetch fresh top 100 from Polymarket leaderboard API
+// Fetch fresh data for Vantake Top 100 wallets
 async function fetchFreshTop100() {
-  // Fetch 2 pages of 50 by PNL + 2 pages by VOL, merge & dedupe
-  const [pnl1, pnl2, vol1, vol2] = await Promise.all([
-    tryFetch(`${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=50&offset=0`),
-    tryFetch(`${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=50&offset=50`),
-    tryFetch(`${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=50&offset=0`),
-    tryFetch(`${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=50&offset=50`),
-  ])
-
-  const walletMap = new Map<string, Record<string, unknown>>()
-  for (const page of [pnl1, pnl2, vol1, vol2]) {
-    if (!Array.isArray(page)) continue
-    for (const entry of page) {
-      const wallet = String(entry.proxyWallet || '').toLowerCase()
-      if (wallet && !walletMap.has(wallet)) {
-        walletMap.set(wallet, entry)
-      }
-    }
+  // Fetch all wallet profiles in parallel (batched to avoid rate limits)
+  const batchSize = 20
+  const allProfiles: Record<string, unknown>[] = []
+  
+  for (let i = 0; i < VANTAKE_TOP_100_WALLETS.length; i += batchSize) {
+    const batch = VANTAKE_TOP_100_WALLETS.slice(i, i + batchSize)
+    const results = await Promise.all(batch.map(fetchWalletProfile))
+    allProfiles.push(...results.filter(Boolean) as Record<string, unknown>[])
   }
 
-  const traders = Array.from(walletMap.values())
+  // Map to trader format and sort by PNL
+  const traders = allProfiles
     .map((t) => ({
       rank: '0',
       proxyWallet: String(t.proxyWallet || ''),
@@ -48,8 +44,8 @@ async function fetchFreshTop100() {
       marketsTraded: Number(t.marketsTraded || 0),
     }))
     .sort((a, b) => b.pnl - a.pnl)
-    .slice(0, 100)
 
+  // Assign ranks
   traders.forEach((t, i) => {
     t.rank = String(i + 1)
   })
