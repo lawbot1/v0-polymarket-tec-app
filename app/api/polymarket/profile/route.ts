@@ -10,7 +10,9 @@ export async function GET(request: Request) {
   }
   
   try {
+    console.log('[v0] Fetching profile for:', address.slice(0, 10))
     const profile = await getProfile(address)
+    console.log('[v0] Profile result:', address.slice(0, 10), profile?.name || profile?.username, profile?.profileImage ? 'has img' : 'no img')
     
     if (!profile) {
       return NextResponse.json({ userName: null, profileImage: null })
@@ -21,7 +23,7 @@ export async function GET(request: Request) {
       profileImage: profile.profileImage || null,
     })
   } catch (error) {
-    console.error('Error fetching profile:', error)
+    console.error('[v0] Error fetching profile:', address.slice(0, 10), error)
     return NextResponse.json({ userName: null, profileImage: null })
   }
 }

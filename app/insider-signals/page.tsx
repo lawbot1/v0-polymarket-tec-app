@@ -47,6 +47,7 @@ type SignalEntry = UserTrade & {
   traderName?: string
   confidence: 'High' | 'Medium' | 'Low'
   isWhale: boolean
+  isTop100: boolean
 }
 
 const sortOptions = ['Recent', 'Size', 'Confidence'] as const
@@ -149,10 +150,10 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
 
   const ts = signal.timestamp < 1e12 ? signal.timestamp * 1000 : signal.timestamp
 
-  const rawName = signal.traderName || signal.proxyWallet || ''
-  const displayName = rawName.length > 18 && rawName.startsWith('0x')
-    ? formatAddress(rawName)
-    : rawName
+  // For display: use trader name if available, otherwise format address
+  const displayName = signal.traderName 
+    ? signal.traderName 
+    : formatAddress(signal.proxyWallet || '')
 
   const category = getTradeCategory(signal)
 
@@ -173,7 +174,22 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
             <WalletAvatar wallet={signal.proxyWallet || ''} size={28} />
           )}
           <span className="text-sm font-medium text-foreground group-hover:underline truncate">{displayName}</span>
-          {signal.isWhale && (
+          {/* Top 100 Vantake badge */}
+          {signal.isTop100 && (
+            <div className="flex items-center gap-1 flex-shrink-0" title="This trader is in Vantake Top 100 human traders">
+              <Image
+                src="/vantake-main-logo.png"
+                alt="Vantake"
+                width={14}
+                height={14}
+                className="h-3.5 w-3.5 rounded-sm"
+              />
+              <Badge variant="outline" className="text-[10px] border-primary/50 text-primary px-1.5 py-0">
+                Top 100
+              </Badge>
+            </div>
+          )}
+          {signal.isWhale && !signal.isTop100 && (
             <Badge variant="outline" className="text-[10px] border-yellow-500/30 text-yellow-500 flex-shrink-0">
               Whale
             </Badge>
@@ -254,29 +270,23 @@ const profileCache = new Map<string, { userName?: string; profileImage?: string 
 async function fetchTraderProfile(walletAddress: string): Promise<{ userName?: string; profileImage?: string } | null> {
   const cacheKey = walletAddress.toLowerCase()
   if (profileCache.has(cacheKey)) {
-    console.log('[v0] Profile cache hit for:', walletAddress.slice(0, 8))
     return profileCache.get(cacheKey) || null
   }
   
   try {
-    // Use internal API to avoid CORS issues
-    console.log('[v0] Fetching profile for:', walletAddress.slice(0, 8))
     const res = await fetch(`/api/polymarket/profile?address=${walletAddress}`)
     if (!res.ok) {
-      console.log('[v0] Profile fetch failed:', walletAddress.slice(0, 8), res.status)
       profileCache.set(cacheKey, null)
       return null
     }
     const data = await res.json()
-    console.log('[v0] Profile fetched:', walletAddress.slice(0, 8), data)
     if (data.userName || data.profileImage) {
       profileCache.set(cacheKey, data)
       return data
     }
     profileCache.set(cacheKey, null)
     return null
-  } catch (err) {
-    console.log('[v0] Profile fetch error:', walletAddress.slice(0, 8), err)
+  } catch {
     profileCache.set(cacheKey, null)
     return null
   }
@@ -306,10 +316,10 @@ async function signalsFetcher() {
     const signals: SignalEntry[] = []
     
     try {
-      // Fetch trades and profile in parallel
+      // Always fetch trades and profile in parallel
       const [tradesRes, profile] = await Promise.all([
         fetch(`/api/polymarket/trades?user=${walletAddress}&limit=100`),
-        !traderInfo?.profileImage ? fetchTraderProfile(walletAddress) : Promise.resolve(null)
+        fetchTraderProfile(walletAddress)
       ])
       
       if (!tradesRes.ok) return signals
@@ -320,10 +330,9 @@ async function signalsFetcher() {
       const finalTraderInfo = {
         pnl: traderInfo?.pnl || 0,
         rank: traderInfo?.rank,
-        profileImage: traderInfo?.profileImage || profile?.profileImage,
-        userName: traderInfo?.userName || profile?.userName,
+        profileImage: profile?.profileImage || traderInfo?.profileImage,
+        userName: profile?.userName || traderInfo?.userName,
       }
-      console.log('[v0] Final trader info for', walletAddress.slice(0, 8), ':', finalTraderInfo.userName, finalTraderInfo.profileImage ? 'has image' : 'no image')
       
       // Group trades by conditionId to aggregate into positions
       const tradesByMarket = new Map<string, UserTrade[]>()
@@ -364,6 +373,7 @@ async function signalsFetcher() {
           traderName: finalTraderInfo.userName,
           confidence: (isTop100 ? 'High' : totalValue >= 100000 ? 'High' : totalValue >= 50000 ? 'Medium' : 'Low') as 'High' | 'Medium' | 'Low',
           isWhale: totalValue >= 100000,
+          isTop100: isTop100,
         })
       }
     } catch {}
