@@ -254,24 +254,29 @@ const profileCache = new Map<string, { userName?: string; profileImage?: string 
 async function fetchTraderProfile(walletAddress: string): Promise<{ userName?: string; profileImage?: string } | null> {
   const cacheKey = walletAddress.toLowerCase()
   if (profileCache.has(cacheKey)) {
+    console.log('[v0] Profile cache hit for:', walletAddress.slice(0, 8))
     return profileCache.get(cacheKey) || null
   }
   
   try {
     // Use internal API to avoid CORS issues
+    console.log('[v0] Fetching profile for:', walletAddress.slice(0, 8))
     const res = await fetch(`/api/polymarket/profile?address=${walletAddress}`)
     if (!res.ok) {
+      console.log('[v0] Profile fetch failed:', walletAddress.slice(0, 8), res.status)
       profileCache.set(cacheKey, null)
       return null
     }
     const data = await res.json()
+    console.log('[v0] Profile fetched:', walletAddress.slice(0, 8), data)
     if (data.userName || data.profileImage) {
       profileCache.set(cacheKey, data)
       return data
     }
     profileCache.set(cacheKey, null)
     return null
-  } catch {
+  } catch (err) {
+    console.log('[v0] Profile fetch error:', walletAddress.slice(0, 8), err)
     profileCache.set(cacheKey, null)
     return null
   }
@@ -318,6 +323,7 @@ async function signalsFetcher() {
         profileImage: traderInfo?.profileImage || profile?.profileImage,
         userName: traderInfo?.userName || profile?.userName,
       }
+      console.log('[v0] Final trader info for', walletAddress.slice(0, 8), ':', finalTraderInfo.userName, finalTraderInfo.profileImage ? 'has image' : 'no image')
       
       // Group trades by conditionId to aggregate into positions
       const tradesByMarket = new Map<string, UserTrade[]>()
