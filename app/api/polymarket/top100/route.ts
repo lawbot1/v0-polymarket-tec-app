@@ -1,30 +1,41 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { VANTAKE_TOP_100_WALLETS } from '@/lib/top100-wallets'
-import { getProfile } from '@/lib/polymarket-api'
+import { getLeaderboard, type LeaderboardTrader } from '@/lib/polymarket-api'
 
-// Fetch fresh data for Vantake Top 100 wallets using profile API (same as trader page)
+// Fetch fresh data for Vantake Top 100 wallets using leaderboard API with user param
+// This is the same method the trader profile page uses
 async function fetchFreshTop100() {
-  // Fetch all profiles in parallel batches using the working getProfile function
-  const batchSize = 10
-  const allProfiles: (Record<string, unknown> | null)[] = []
+  const batchSize = 5 // Smaller batches to avoid rate limits
+  const allProfiles: (LeaderboardTrader | null)[] = []
   
   for (let i = 0; i < VANTAKE_TOP_100_WALLETS.length; i += batchSize) {
     const batch = VANTAKE_TOP_100_WALLETS.slice(i, i + batchSize)
     const results = await Promise.all(
-      batch.map(wallet => getProfile(wallet).catch(() => null))
+      batch.map(async (wallet) => {
+        try {
+          const data = await getLeaderboard({ 
+            user: wallet, 
+            limit: 1,
+            timePeriod: 'ALL'
+          })
+          return data?.[0] || null
+        } catch {
+          return null
+        }
+      })
     )
     allProfiles.push(...results)
     
-    // Small delay between batches to avoid rate limiting
+    // Delay between batches to avoid rate limiting
     if (i + batchSize < VANTAKE_TOP_100_WALLETS.length) {
-      await new Promise(r => setTimeout(r, 50))
+      await new Promise(r => setTimeout(r, 100))
     }
   }
   
   // Build traders array in ORIGINAL order from VANTAKE_TOP_100_WALLETS
   const traders = VANTAKE_TOP_100_WALLETS.map((wallet, index) => {
-    const profile = allProfiles[index] as Record<string, unknown> | null
+    const profile = allProfiles[index]
     
     if (!profile) {
       return {
@@ -43,15 +54,15 @@ async function fetchFreshTop100() {
     
     return {
       rank: String(index + 1),
-      proxyWallet: String(profile.proxyWallet || profile.address || wallet),
-      userName: String(profile.username || profile.userName || ''),
-      vol: Number(profile.volume || profile.vol || 0),
-      pnl: Number(profile.pnl || profile.profit || 0),
-      profileImage: String(profile.profileImage || profile.pfp || ''),
-      xUsername: String(profile.twitterUsername || profile.xUsername || ''),
-      verifiedBadge: Boolean(profile.verifiedBadge || false),
-      numTrades: Number(profile.numTrades || profile.tradesCount || 0),
-      marketsTraded: Number(profile.marketsTraded || profile.markets || 0),
+      proxyWallet: profile.proxyWallet || wallet,
+      userName: profile.userName || '',
+      vol: profile.vol || 0,
+      pnl: profile.pnl || 0,
+      profileImage: profile.profileImage || '',
+      xUsername: profile.xUsername || '',
+      verifiedBadge: profile.verifiedBadge || false,
+      numTrades: profile.numTrades || 0,
+      marketsTraded: profile.marketsTraded || 0,
     }
   })
 
@@ -93,11 +104,14 @@ export async function GET(req: Request) {
       .eq('id', 1)
       .single()
 
-    // Check if cache is valid - must have traders with userNames
+    // Check if cache is valid - most traders should have userNames or pnl data
+    const tradersWithData = cache?.data?.filter((t: Record<string, unknown>) => 
+      t.userName || (typeof t.pnl === 'number' && t.pnl !== 0)
+    )?.length || 0
     const cacheValid = cache && 
       Array.isArray(cache.data) && 
       cache.data.length > 0 &&
-      cache.data.some((t: Record<string, unknown>) => t.userName || t.pnl)
+      tradersWithData > 50 // At least half should have data
 
     if (cacheValid) {
       return NextResponse.json(cache.data, {
