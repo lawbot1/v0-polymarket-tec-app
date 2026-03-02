@@ -19,8 +19,12 @@ async function fetchFreshTop100() {
             limit: 1,
             timePeriod: 'ALL'
           })
+          if (i === 0) {
+            console.log(`[v0] Leaderboard response for ${wallet.slice(0,10)}:`, JSON.stringify(data).slice(0, 300))
+          }
           return data?.[0] || null
-        } catch {
+        } catch (e) {
+          console.log(`[v0] Error fetching ${wallet.slice(0,10)}:`, e)
           return null
         }
       })
@@ -32,6 +36,10 @@ async function fetchFreshTop100() {
       await new Promise(r => setTimeout(r, 100))
     }
   }
+  
+  // Log success rate
+  const successCount = allProfiles.filter(p => p !== null).length
+  console.log(`[v0] Successfully fetched ${successCount}/${VANTAKE_TOP_100_WALLETS.length} trader profiles`)
   
   // Build traders array in ORIGINAL order from VANTAKE_TOP_100_WALLETS
   const traders = VANTAKE_TOP_100_WALLETS.map((wallet, index) => {
@@ -108,16 +116,21 @@ export async function GET(req: Request) {
     const tradersWithData = cache?.data?.filter((t: Record<string, unknown>) => 
       t.userName || (typeof t.pnl === 'number' && t.pnl !== 0)
     )?.length || 0
+    
+    console.log(`[v0] Cache has ${tradersWithData} traders with data out of ${cache?.data?.length || 0}`)
+    
     const cacheValid = cache && 
       Array.isArray(cache.data) && 
       cache.data.length > 0 &&
-      tradersWithData > 50 // At least half should have data
+      tradersWithData > 80 // Need at least 80 traders with data
 
     if (cacheValid) {
       return NextResponse.json(cache.data, {
         headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
       })
     }
+    
+    console.log(`[v0] Cache invalid, fetching fresh data...`)
 
     // Cache empty -- live fetch and populate
     const traders = await fetchFreshTop100()
