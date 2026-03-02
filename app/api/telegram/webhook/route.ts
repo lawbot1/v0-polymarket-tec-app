@@ -240,13 +240,16 @@ export async function POST(req: NextRequest) {
           
           const walletText = [
             `Your wallet "<code>${formatWalletAddress(wallet.wallet_address)}</code>"`,
+            ``,
             `USDC: <b>$${parseFloat(usdcBalance).toFixed(2)}</b>`,
             `Polygon: <b>${parseFloat(polBalance).toFixed(6)} POL</b>`,
+            ``,
             `📈 Current Positions: <b>$${positionsValue.toFixed(2)}</b>`,
             `💰 Available Balance: <b>$${availableBalance.toFixed(2)}</b>`,
             `📝 Active Orders: <b>$0.00</b>`,
             ``,
             `<b>Your Polymarket active</b>`,
+            ``,
             positions.length > 0 
               ? positions.slice(0, 5).map(p => `• ${p.market.slice(0, 30)}... - $${(p.size * p.currentPrice).toFixed(2)}`).join('\n')
               : `<i>No active bids.</i>`,
@@ -331,13 +334,16 @@ export async function POST(req: NextRequest) {
           
           const walletText = [
             `Your wallet "<code>${formatWalletAddress(wallet.wallet_address)}</code>"`,
+            ``,
             `USDC: <b>$${parseFloat(usdcBalance).toFixed(2)}</b>`,
             `Polygon: <b>${parseFloat(polBalance).toFixed(6)} POL</b>`,
+            ``,
             `📈 Current Positions: <b>$${positionsValue.toFixed(2)}</b>`,
             `💰 Available Balance: <b>$${availableBalance.toFixed(2)}</b>`,
             `📝 Active Orders: <b>$0.00</b>`,
             ``,
             `<b>Your Polymarket active</b>`,
+            ``,
             positions.length > 0 
               ? positions.slice(0, 5).map(p => `• ${p.market.slice(0, 30)}... - $${(p.size * p.currentPrice).toFixed(2)}`).join('\n')
               : `<i>No active bids.</i>`,
