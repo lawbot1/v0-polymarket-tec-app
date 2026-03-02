@@ -3,94 +3,69 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { VANTAKE_TOP_100_WALLETS } from '@/lib/top100-wallets'
 
 const DATA_API = 'https://data-api.polymarket.com'
-const GAMMA_API = 'https://gamma-api.polymarket.com'
 
-// Fetch individual wallet profile from Polymarket using multiple endpoints
-async function fetchWalletData(wallet: string): Promise<Record<string, unknown> | null> {
-  // Try data-api profile endpoint first (most reliable for stats)
-  try {
-    const res = await fetch(`${DATA_API}/profile/${wallet}`, {
-      headers: { 'Accept': 'application/json' },
-    })
-    if (res.ok) {
-      const data = await res.json()
-      if (data && typeof data === 'object') {
-        return data
-      }
-    }
-  } catch {}
-  
-  // Try Gamma API users endpoint  
-  try {
-    const res = await fetch(`${GAMMA_API}/users/${wallet}`, {
-      headers: { 'Accept': 'application/json' },
-    })
-    if (res.ok) {
-      const data = await res.json()
-      if (data && typeof data === 'object') {
-        return data
-      }
-    }
-  } catch {}
-  
-  return null
-}
-
-// Fetch fresh data for Vantake Top 100 wallets
+// Fetch fresh data for Vantake Top 100 wallets from leaderboard
 async function fetchFreshTop100() {
-  // Fetch all wallet profiles in parallel batches
-  const batchSize = 10
-  const allProfiles = new Map<string, Record<string, unknown>>()
+  // Polymarket API uses /v1/leaderboard with max limit=50
+  // Need to paginate extensively to find all our wallets
+  const urls: string[] = []
   
-  for (let i = 0; i < VANTAKE_TOP_100_WALLETS.length; i += batchSize) {
-    const batch = VANTAKE_TOP_100_WALLETS.slice(i, i + batchSize)
-    const results = await Promise.all(batch.map(fetchWalletData))
-    
-    batch.forEach((wallet, idx) => {
-      if (results[idx]) {
-        allProfiles.set(wallet.toLowerCase(), results[idx]!)
-      }
-    })
+  // Fetch by PNL and VOL with ALL time period (max coverage)
+  for (let offset = 0; offset <= 5000; offset += 50) {
+    urls.push(`${DATA_API}/v1/leaderboard?timePeriod=ALL&orderBy=PNL&limit=50&offset=${offset}`)
+  }
+  for (let offset = 0; offset <= 5000; offset += 50) {
+    urls.push(`${DATA_API}/v1/leaderboard?timePeriod=ALL&orderBy=VOL&limit=50&offset=${offset}`)
   }
   
-  // Also fetch from leaderboard to supplement data (get more pages)
-  const leaderboardUrls = [
-    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=0`,
-    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=500`,
-    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=1000`,
-    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=1500`,
-    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=0`,
-    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=500`,
-    `${DATA_API}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=1000`,
-  ]
+  // Fetch in batches to avoid rate limits
+  const batchSize = 20
+  const allResults: Record<string, unknown>[][] = []
   
-  const leaderboardResults = await Promise.all(leaderboardUrls.map(async (url) => {
-    try {
-      const res = await fetch(url)
-      if (!res.ok) return []
-      return await res.json()
-    } catch {
-      return []
+  for (let i = 0; i < urls.length; i += batchSize) {
+    const batch = urls.slice(i, i + batchSize)
+    const batchResults = await Promise.all(batch.map(async (url) => {
+      try {
+        const res = await fetch(url, { 
+          headers: { 'Accept': 'application/json' },
+        })
+        if (!res.ok) return []
+        const data = await res.json()
+        return Array.isArray(data) ? data : []
+      } catch {
+        return []
+      }
+    }))
+    allResults.push(...batchResults)
+    // Small delay between batches to avoid rate limiting
+    if (i + batchSize < urls.length) {
+      await new Promise(r => setTimeout(r, 100))
     }
-  }))
+  }
   
-  // Merge leaderboard data with profiles
-  for (const page of leaderboardResults) {
-    if (!Array.isArray(page)) continue
+  // Build map of all traders by wallet address (lowercase for matching)
+  // Check both 'address' and 'proxyWallet' fields
+  const traderMap = new Map<string, Record<string, unknown>>()
+  for (const page of allResults) {
     for (const entry of page) {
-      const wallet = String(entry.proxyWallet || '').toLowerCase()
-      if (wallet && VANTAKE_TOP_100_WALLETS.some(w => w.toLowerCase() === wallet)) {
-        // Merge with existing or add new
-        const existing = allProfiles.get(wallet) || {}
-        allProfiles.set(wallet, { ...existing, ...entry })
+      // API can return 'address' or 'proxyWallet'
+      const wallet = String(entry.address || entry.proxyWallet || '').toLowerCase()
+      if (wallet && !traderMap.has(wallet)) {
+        traderMap.set(wallet, entry)
       }
     }
   }
+  
+  console.log(`[v0] Loaded ${traderMap.size} traders from leaderboard`)
+  
+  // Count how many of our wallets were found
+  const foundCount = VANTAKE_TOP_100_WALLETS.filter(w => traderMap.has(w.toLowerCase())).length
+  console.log(`[v0] Found ${foundCount}/${VANTAKE_TOP_100_WALLETS.length} Vantake wallets in leaderboard`)
   
   // Build traders array in ORIGINAL order from VANTAKE_TOP_100_WALLETS
   const traders = VANTAKE_TOP_100_WALLETS
     .map((wallet, index) => {
-      const t = allProfiles.get(wallet.toLowerCase())
+      const t = traderMap.get(wallet.toLowerCase())
       if (!t) {
         return {
           rank: String(index + 1),
@@ -107,15 +82,15 @@ async function fetchFreshTop100() {
       }
       return {
         rank: String(index + 1),
-        proxyWallet: String(t.proxyWallet || t.address || wallet),
-        userName: String(t.userName || t.username || t.name || t.displayName || ''),
-        vol: Number(t.vol || t.volume || t.totalVolume || 0),
-        pnl: Number(t.pnl || t.profit || t.totalPnl || t.netPnl || 0),
-        profileImage: String(t.profileImage || t.pfp || t.image || t.avatar || t.avatarUrl || ''),
-        xUsername: String(t.xUsername || t.twitterUsername || t.twitterHandle || t.twitter || ''),
-        verifiedBadge: Boolean(t.verifiedBadge || t.verified || false),
-        numTrades: Number(t.numTrades || t.tradesCount || t.totalTrades || 0),
-        marketsTraded: Number(t.marketsTraded || t.markets || t.numMarkets || 0),
+        proxyWallet: String(t.address || t.proxyWallet || wallet),
+        userName: String(t.userName || t.username || ''),
+        vol: Number(t.vol || t.volume || 0),
+        pnl: Number(t.pnl || 0),
+        profileImage: String(t.profileImage || t.pfp || ''),
+        xUsername: String(t.xUsername || t.twitterUsername || ''),
+        verifiedBadge: Boolean(t.verifiedBadge || false),
+        numTrades: Number(t.numTrades || t.tradesCount || 0),
+        marketsTraded: Number(t.marketsTraded || t.markets || 0),
       }
     })
 
