@@ -542,20 +542,37 @@ export async function POST(req: NextRequest) {
           lines.push(`You are currently copying <b>${subscriptions.length}</b> trader${subscriptions.length > 1 ? 's' : ''}.`)
           lines.push(``)
           
-          for (const sub of subscriptions) {
+          // Fetch PnL data for all subscribed wallets in parallel
+          const pnlPromises = subscriptions.map(sub => 
+            getLeaderboard({ user: sub.wallet_address, limit: 1, timePeriod: 'ALL' }).catch(() => null)
+          )
+          const pnlResults = await Promise.all(pnlPromises)
+          
+          for (let i = 0; i < subscriptions.length; i++) {
+            const sub = subscriptions[i]
+            const traderData = pnlResults[i]?.[0]
             const displayName = sub.name || formatWalletAddress(sub.wallet_address)
-            const modeText = sub.mode === 'fixed' 
-              ? `$${sub.trade_size || 0} Fixed` 
-              : sub.mode === 'percentage' 
-                ? `${sub.trade_size || 0}% of leader's amount`
-                : `${sub.trade_size || 0}% Portfolio`
+            
+            // Mode shows Single Trade Limit
+            const limitText = sub.single_trade_limit 
+              ? `$${sub.single_trade_limit} Fixed` 
+              : 'No Limit'
+            
+            // Get real PnL from trader data
+            const totalPnl = traderData?.pnl || 0
+            const pnlSign = totalPnl >= 0 ? '+' : ''
+            const formattedPnl = totalPnl >= 1000000 
+              ? `${pnlSign}$${(totalPnl / 1000000).toFixed(2)}M`
+              : totalPnl >= 1000 
+                ? `${pnlSign}$${(totalPnl / 1000).toFixed(1)}K`
+                : `${pnlSign}$${totalPnl.toFixed(2)}`
             
             lines.push(`• <code>${formatWalletAddress(sub.wallet_address)}</code>`)
-            lines.push(`├ Mode: <b>${modeText}</b>`)
-            lines.push(`├ <a href="tg://user?id=${chatId}">Manage</a>`)
+            lines.push(`├ Mode: <b>${limitText}</b>`)
+            lines.push(`├ Manage`)
             lines.push(`├ Share`)
-            lines.push(`├ Daily PnL: +$0.00`)
-            lines.push(`└ Total PnL: +$0.00`)
+            lines.push(`├ Daily PnL: <i>N/A</i>`)
+            lines.push(`└ Total PnL: <b>${formattedPnl}</b>`)
             lines.push(``)
             
             // Green dot for active subscription
