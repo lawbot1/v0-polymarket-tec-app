@@ -228,20 +228,28 @@ export async function POST(req: NextRequest) {
           const noWalletText = `You do not have a wallet linked`
           await sendTelegramPhoto(chatId, WALLET_IMAGE_URL, noWalletText, 'HTML', getWalletMenuKeyboard(false))
         } else {
-          const [usdcBalance, polBalance] = await Promise.all([
+          const [usdcBalance, polBalance, positions] = await Promise.all([
             getUSDCBalance(wallet.wallet_address),
             getPOLBalance(wallet.wallet_address),
+            getPolymarketPositions(wallet.wallet_address),
           ])
           
+          // Calculate positions value
+          const positionsValue = positions.reduce((sum, pos) => sum + (pos.size * pos.currentPrice), 0)
+          const availableBalance = parseFloat(usdcBalance)
+          
           const walletText = [
-            `<b>Your wallet</b> <code>${formatWalletAddress(wallet.wallet_address)}</code>`,
-            ``,
-            `USDC: <b>$${usdcBalance}</b>`,
+            `Your wallet "<code>${formatWalletAddress(wallet.wallet_address)}</code>"`,
+            `USDC: <b>$${parseFloat(usdcBalance).toFixed(2)}</b>`,
             `Polygon: <b>${parseFloat(polBalance).toFixed(6)} POL</b>`,
+            `📈 Current Positions: <b>$${positionsValue.toFixed(2)}</b>`,
+            `💰 Available Balance: <b>$${availableBalance.toFixed(2)}</b>`,
+            `📝 Active Orders: <b>$0.00</b>`,
             ``,
             `<b>Your Polymarket active</b>`,
-            ``,
-            `<i>No active bids.</i>`,
+            positions.length > 0 
+              ? positions.slice(0, 5).map(p => `• ${p.market.slice(0, 30)}... - $${(p.size * p.currentPrice).toFixed(2)}`).join('\n')
+              : `<i>No active bids.</i>`,
           ].join('\n')
           await sendTelegramPhoto(chatId, WALLET_IMAGE_URL, walletText, 'HTML', getWalletMenuKeyboard(true))
         }
@@ -311,20 +319,28 @@ export async function POST(req: NextRequest) {
         await answerCallbackQuery(callbackQuery.id, 'Refreshing...')
         const wallet = await getWalletByChatId(chatId)
         if (wallet) {
-          const [usdcBalance, polBalance] = await Promise.all([
+          const [usdcBalance, polBalance, positions] = await Promise.all([
             getUSDCBalance(wallet.wallet_address),
             getPOLBalance(wallet.wallet_address),
+            getPolymarketPositions(wallet.wallet_address),
           ])
           
+          // Calculate positions value
+          const positionsValue = positions.reduce((sum, pos) => sum + (pos.size * pos.currentPrice), 0)
+          const availableBalance = parseFloat(usdcBalance)
+          
           const walletText = [
-            `<b>🟢 Your wallet</b> <code>${formatWalletAddress(wallet.wallet_address)}</code>`,
+            `Your wallet "<code>${formatWalletAddress(wallet.wallet_address)}</code>"`,
+            `USDC: <b>$${parseFloat(usdcBalance).toFixed(2)}</b>`,
+            `Polygon: <b>${parseFloat(polBalance).toFixed(6)} POL</b>`,
+            `📈 Current Positions: <b>$${positionsValue.toFixed(2)}</b>`,
+            `💰 Available Balance: <b>$${availableBalance.toFixed(2)}</b>`,
+            `📝 Active Orders: <b>$0.00</b>`,
             ``,
-            `💵 USDC: <b>$${usdcBalance}</b>`,
-            `💎 Polygon: <b>${parseFloat(polBalance).toFixed(6)} POL</b>`,
-            ``,
-            `<b>⚙️ Your Polymarket active</b>`,
-            ``,
-            `<i>No active bids.</i>`,
+            `<b>Your Polymarket active</b>`,
+            positions.length > 0 
+              ? positions.slice(0, 5).map(p => `• ${p.market.slice(0, 30)}... - $${(p.size * p.currentPrice).toFixed(2)}`).join('\n')
+              : `<i>No active bids.</i>`,
           ].join('\n')
           await sendTelegramMessage(chatId, walletText, 'HTML', getWalletMenuKeyboard(true))
         }
