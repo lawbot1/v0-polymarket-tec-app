@@ -19,6 +19,7 @@ import {
   sendUSDC,
   getTraderStats
 } from '@/lib/wallet'
+import { getLeaderboard } from '@/lib/polymarket-api'
 
 const WELCOME_IMAGE_URL = 'https://app.vantake.trade/telegram-welcome.png'
 const WALLET_IMAGE_URL = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-5ZjBkRTp9vW4km5vzyvp5JPVeGBq8B.png'
