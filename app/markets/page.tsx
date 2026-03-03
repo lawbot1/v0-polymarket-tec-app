@@ -206,7 +206,7 @@ export default function MarketsPage() {
   const apiUrl = useMemo(() => {
     const params = new URLSearchParams({
       endpoint: 'events',
-      limit: '50',
+      limit: '30', // Reduced for faster initial load
       active: 'true',
       closed: 'false',
       order: sortBy,
@@ -226,7 +226,7 @@ export default function MarketsPage() {
     fetcher,
     {
       revalidateOnFocus: false,
-      dedupingInterval: 30000,
+      dedupingInterval: 60000, // Cache for 1 minute
       keepPreviousData: true,
     }
   )
@@ -313,11 +313,25 @@ export default function MarketsPage() {
           </div>
         </div>
 
-        {/* Loading State */}
+        {/* Loading State - Skeleton Grid */}
         {isLoading && !events && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-foreground" />
-            <span className="ml-3 text-sm text-muted-foreground uppercase tracking-wider">Loading markets...</span>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="sharp-panel p-4 animate-pulse">
+                <div className="flex items-start gap-3">
+                  <div className="h-12 w-12 rounded-lg bg-secondary" />
+                  <div className="flex-1 space-y-3">
+                    <div className="h-4 w-16 bg-secondary rounded" />
+                    <div className="h-4 w-full bg-secondary rounded" />
+                    <div className="h-4 w-3/4 bg-secondary rounded" />
+                    <div className="flex gap-4 pt-2">
+                      <div className="h-8 w-12 bg-secondary rounded" />
+                      <div className="h-8 w-12 bg-secondary rounded" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

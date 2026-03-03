@@ -1,245 +1,151 @@
 import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { VANTAKE_TOP_100_WALLETS } from '@/lib/top100-wallets'
+import { getLeaderboard, type LeaderboardTrader } from '@/lib/polymarket-api'
 
-const DATA_API_BASE = 'https://data-api.polymarket.com'
-
-// Curated list of 100 verified human traders (no bots)
-const CURATED_WALLETS = [
-  '0x17db3fcd93ba12d38382a0cade24b200185c5f6d',
-  '0xf2f6af4f27ec2dcf4072095ab804016e14cd5817',
-  '0x06ecb7e739f5455922ce57e83284f132c7f0f845',
-  '0x3b4484b6c8cbfdaa383ba337ab3f0d71055e264e',
-  '0x44c1dfe43260c94ed4f1d00de2e1f80fb113ebc1',
-  '0x06dcaa14f57d8a0573f5dc5940565e6de667af59',
-  '0x843a6da3886cf889435cf0920659a00a68db8070',
-  '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b',
-  '0x9256dc04d6a9af8410c253bb5c52a8ff6eb62e8b',
-  '0x7744bfd749a70020d16a1fcbac1d064761c9999e',
-  '0xe6c9eee27de792a9fdcdd322822452625d0f975e',
-  '0x83a296505eb520c9d35823571204ced41fd69452',
-  '0xf4165309a3b551ebb1a12edb0a0510bf62be6ec9',
-  '0x6828e04b468e17d92fa1e5d60d59290278a81056',
-  '0x33e073440d9ac43e2e190e910f0b02b2fbd17d46',
-  '0x7177a7f5c216809c577c50c77b12aae81f81ddef',
-  '0xdd225a03cd7ed89e3931906c67c75ab31cf89ef1',
-  '0xbad26fe5458e6219cec3e40272760e275e835296',
-  '0x3c593aeb73ebdadbc9ce76d4264a6a2af4011766',
-  '0xa4b366ad22fc0d06f1e934ff468e8922431a87b8',
-  '0x27b820e5203aa114acc2712e0e1d0ad758abb68c',
-  '0x43440ab002eaac9fede6f9d21bea96d84228f90d',
-  '0x68c24bf4a8ad4d79a6fe4b8eec6f93a02dfd1711',
-  '0xd42f6a1634a3707e27cbae14ca966068e5d1047d',
-  '0x9d84ce0306f8551e02efef1680475fc0f1dc1344',
-  '0xb4f2f0c858566fef705edf8efc1a5e9fba307862',
-  '0x8f7a4b414417911e7e9bd738399874792cdbdb40',
-  '0x8f42ae0a01c0383c7ca8bd060b86a645ee74b88f',
-  '0xc8ab97a9089a9ff7e6ef0688e6e591a066946418',
-  '0x4d3e59470cd241c4382cabbd2bfd10037cce58c7',
-  '0x1f0a343513aa6060488fabe96960e6d1e177f7aa',
-  '0x241f846866c2de4fb67cdb0ca6b963d85e56ef50',
-  '0x4d73a91d2434a6041011283931b788946266bae7',
-  '0xf0d8d8c22d1e80257deebd45706c4c4ec7f168ca',
-  '0xce66940dfe6dc18bc151d66d52a66eb2121bcc64',
-  '0x24c8cf69a0e0a17eee21f69d29752bfa32e823e1',
-  '0x57b00c3ccef1b6bd6962fb9ca463c4e0b38e76f4',
-  '0x0cb10c40b0776e9ee8cef970af85724654dda76c',
-  '0x68c9623b8224c66632aded8159b7111614404c60',
-  '0x5ecde7348ea5100af4360dd7a6e0a3fb1d420787',
-  '0x05ab749a8554fb7c852238c271d384bae6798145',
-  '0x25dcf4635fe93082e0849fbbf81c95680cf5e33b',
-  '0x4c2da46b289847e3e8377c6f4ca3d520c620f8ae',
-  '0xc25427ea224b8f9fa2df801233f944006ed33f73',
-  '0x2a019dc0089ea8c6edbbafc8a7cc9ba77b4b6397',
-  '0x430ed984671d00ba19f97524083f655bc70ded6d',
-  '0x41583f2efc720b8e2682750fffb67f2806fece9f',
-  '0xc851cd9bee7d262afd78674f861f9f576a12cd2a',
-  '0x993f451b6d5c21996b1bf688493cea9c4c823ee3',
-  '0x098eddabb2d388f31e79aaf525e49588f22a6fa2',
-  '0x805a922574d7d6b158b7bbb49a6fa8925eb60635',
-  '0x2853240a0f4e9e11a949a5cfa6e0fe953a293482',
-  '0x22e4248bdb066f65c9f11cd66cdd3719a28eef1c',
-  '0x71edffd0d70a1da823ff07a3c6fc81457294d338',
-  '0xacc8e9dcabf9d65a5c78e3bec6941ed53a2b7d08',
-  '0xcf0d7f69cf162918b33fc1ea7449583fa537132d',
-  '0xc9b6227a295985591fe576ff2e054267a78a9b6a',
-  '0x53a4f5be7d64abd9c49835374b5686cb86454447',
-  '0x43372356634781eea88d61bbdd7824cdce958882',
-  '0x8190816855b676a5efd8c5b344135a72337bb247',
-  '0x39d0f1dca6fb7e5514858c1a337724a426764fe8',
-  '0x5188fa0e8a77e87bc6a58e6781fdfc4e165cc804',
-  '0x5bffcf561bcae83af680ad600cb99f1184d6ffbe',
-  '0xa2f1fecf1cc7db65a46588f764b6691533052d22',
-  '0xdfe3fedc5c7679be42c3d393e99d4b55247b73c4',
-  '0x8a4c788f043023b8b28a762216d037e9f148532b',
-  '0xd1acd3925d895de9aec98ff95f3a30c5279d08d5',
-  '0x8795bcb2fe129d1ea3e3d73bc13a3d8078047544',
-  '0x090a0d3fc9d68d3e16db70e3460e3e4b510801b4',
-  '0xdf6da574f8b0c0ce5e01ddb1c5a49b87993e9c5c',
-  '0x1c1e841584db14084e10e7dca2ad0ab7b60dbfe7',
-  '0x75acf1aa88a3f5c613f2214486b91fa9fc1f33d7',
-  '0x57e4bd0fa030e6a6fdde7ee0b58aa497b4f6835e',
-  '0x220ce36c47fa467152b3bd8d431af74f232243c8',
-  '0xbacd00c9080a82ded56f504ee8810af732b0ab35',
-  '0x7ac83882979ccb5665cea83cb269e558b55077cd',
-  '0x47f5552f4a63666606d7fbc15f9a66e4d7d2934d',
-  '0x000d257d2dc7616feaef4ae0f14600fdf50a758e',
-  '0x57c5de7efafb020e589f80e0da6e16e9b5c907aa',
-  '0xa0bac72021f5d8fb959d7965c65d7a213c38e7eb',
-  '0xfacd5eb6566d469f71fb42415177c74eb27d9109',
-  '0xd0394bd0de8d901c3fde039a86bf08e6aa4a2532',
-  '0x9238743eeba8bbfe9e85ac7ba2e1e3d77877b73e',
-  '0xb10047d6a254b2ebb306d7a7d13bf59171ab6461',
-  '0xdc9ca7e8803ef19fd0e4b867da14f4793b7ffb00',
-  '0x614dc8d3542c12103d2c6a3553fd761e391d1546',
-  '0x96c6740f9b58c5a38c9172147cd6266da06c34a2',
-  '0x2b15b1cab8917d786e44765002a07a78ee8c9b08',
-  '0x9aeb26fffc9ce02d02390ffc6035bfb809542f31',
-  '0xf797d4d1c038d1eb0593edae0e66bf8e4b2e0bf2',
-  '0xecb14ac6e9ca447ce2f2912e6217b43d7b655da3',
-  '0xb74711992caf6d04fa55eecc46b8efc95311b050',
-  '0x7c156bb0dbb44dcb7387a78778e0da313bf3c9db',
-  '0x889e7f0464c72eb8cda1525ebc12b6aaba9d09e0',
-  '0x16bd7cc71f6da1e77d1d8255677abc75b9bae288',
-  '0x509587cbb541251c74f261df3421f1fcc9fdc97c',
-  '0xedc0f2cd1743914c4533368e15489c1a7a3d99f3',
-  '0x24ded84d901a743cfee095f8082b0f9f647183cb',
-  '0x71ca04d689bc38c5e4dcda8a4d743f279c5a3501',
-  '0xd5ccdf772f795547e299de57f47966e24de8dea4',
-]
-
-const CURATED_SET = new Set(CURATED_WALLETS.map((w) => w.toLowerCase()))
-
-// Sleep helper
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-// Fetch a single trader with retry
-async function fetchTraderWithRetry(
-  wallet: string,
-  maxRetries = 2
-): Promise<Record<string, unknown> | null> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const url = `${DATA_API_BASE}/v1/leaderboard?user=${wallet}&timePeriod=ALL`
-      const res = await fetch(url)
-      if (res.status === 429) {
-        // Rate limited -- wait and retry
-        await sleep(1000 * (attempt + 1))
-        continue
-      }
-      if (!res.ok) return null
-      const data = await res.json()
-      if (Array.isArray(data) && data.length > 0) return data[0]
-      return null
-    } catch {
-      if (attempt < maxRetries) {
-        await sleep(500 * (attempt + 1))
-      }
-    }
-  }
-  return null
-}
-
-export async function GET() {
-  try {
-    // Strategy: First try bulk leaderboard fetch (much faster),
-    // then individually fetch any missing wallets
-
-    // Step 1: Fetch large leaderboard pages to find as many curated wallets as possible
-    const bulkUrls = [
-      `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=0`,
-      `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=500`,
-      `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=PNL&limit=500&offset=1000`,
-      `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=0`,
-      `${DATA_API_BASE}/v1/leaderboard?timePeriod=ALL&sortBy=VOL&limit=500&offset=500`,
-    ]
-
-    const bulkResults = await Promise.all(
-      bulkUrls.map(async (url) => {
+// Fetch fresh data for Vantake Top 100 wallets using leaderboard API with user param
+// This is the same method the trader profile page uses
+async function fetchFreshTop100() {
+  const batchSize = 5 // Smaller batches to avoid rate limits
+  const allProfiles: (LeaderboardTrader | null)[] = []
+  
+  for (let i = 0; i < VANTAKE_TOP_100_WALLETS.length; i += batchSize) {
+    const batch = VANTAKE_TOP_100_WALLETS.slice(i, i + batchSize)
+    const results = await Promise.all(
+      batch.map(async (wallet) => {
         try {
-          const res = await fetch(url)
-          if (!res.ok) return []
-          return await res.json()
-        } catch {
-          return []
+          const data = await getLeaderboard({ 
+            user: wallet, 
+            limit: 1,
+            timePeriod: 'ALL'
+          })
+          if (i === 0) {
+            console.log(`[v0] Leaderboard response for ${wallet.slice(0,10)}:`, JSON.stringify(data).slice(0, 300))
+          }
+          return data?.[0] || null
+        } catch (e) {
+          console.log(`[v0] Error fetching ${wallet.slice(0,10)}:`, e)
+          return null
         }
       })
     )
-
-    // Collect all found traders by wallet
-    const foundMap = new Map<string, Record<string, unknown>>()
-    for (const page of bulkResults) {
-      if (!Array.isArray(page)) continue
-      for (const entry of page) {
-        const wallet = String(entry.proxyWallet || '').toLowerCase()
-        if (CURATED_SET.has(wallet) && !foundMap.has(wallet)) {
-          foundMap.set(wallet, entry)
-        }
+    allProfiles.push(...results)
+    
+    // Delay between batches to avoid rate limiting
+    if (i + batchSize < VANTAKE_TOP_100_WALLETS.length) {
+      await new Promise(r => setTimeout(r, 100))
+    }
+  }
+  
+  // Log success rate
+  const successCount = allProfiles.filter(p => p !== null).length
+  console.log(`[v0] Successfully fetched ${successCount}/${VANTAKE_TOP_100_WALLETS.length} trader profiles`)
+  
+  // Build traders array in ORIGINAL order from VANTAKE_TOP_100_WALLETS
+  const traders = VANTAKE_TOP_100_WALLETS.map((wallet, index) => {
+    const profile = allProfiles[index]
+    
+    if (!profile) {
+      return {
+        rank: String(index + 1),
+        proxyWallet: wallet,
+        userName: '',
+        vol: 0,
+        pnl: 0,
+        profileImage: '',
+        xUsername: '',
+        verifiedBadge: false,
+        numTrades: 0,
+        marketsTraded: 0,
       }
     }
+    
+    return {
+      rank: String(index + 1),
+      proxyWallet: profile.proxyWallet || wallet,
+      userName: profile.userName || '',
+      vol: profile.vol || 0,
+      pnl: profile.pnl || 0,
+      profileImage: profile.profileImage || '',
+      xUsername: profile.xUsername || '',
+      verifiedBadge: profile.verifiedBadge || false,
+      numTrades: profile.numTrades || 0,
+      marketsTraded: profile.marketsTraded || 0,
+    }
+  })
 
-    console.log(`[Top100] Bulk fetch found ${foundMap.size} / ${CURATED_WALLETS.length} wallets`)
+  return traders
+}
 
-    // Step 2: Individually fetch any missing wallets
-    const missingWallets = CURATED_WALLETS.filter(
-      (w) => !foundMap.has(w.toLowerCase())
-    )
+// GET: Serve from cache instantly, fallback to live fetch
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const refresh = searchParams.get('refresh')
+    const supabase = createAdminClient()
 
-    if (missingWallets.length > 0) {
-      console.log(`[Top100] Fetching ${missingWallets.length} missing wallets individually`)
-
-      // Batch in groups of 5 with delays to avoid rate limits
-      const batchSize = 5
-      for (let i = 0; i < missingWallets.length; i += batchSize) {
-        const batch = missingWallets.slice(i, i + batchSize)
-        const results = await Promise.all(
-          batch.map((w) => fetchTraderWithRetry(w))
-        )
-        for (let j = 0; j < batch.length; j++) {
-          if (results[j]) {
-            foundMap.set(batch[j].toLowerCase(), results[j]!)
-          }
-        }
-        // Small delay between batches
-        if (i + batchSize < missingWallets.length) {
-          await sleep(300)
-        }
+    // Cron refresh: fetch fresh data and update cache
+    if (refresh === 'true') {
+      const authHeader = req.headers.get('authorization')
+      const cronSecret = process.env.CRON_SECRET
+      if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
+
+      const traders = await fetchFreshTop100()
+      if (traders.length > 0) {
+        await supabase
+          .from('top100_cache')
+          .update({ data: traders, updated_at: new Date().toISOString() })
+          .eq('id', 1)
+      }
+
+      return NextResponse.json(traders, {
+        headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+      })
     }
 
-    console.log(`[Top100] Total found: ${foundMap.size} / ${CURATED_WALLETS.length}`)
+    // Serve from cache (instant) - but check if cache has valid data with usernames
+    const { data: cache } = await supabase
+      .from('top100_cache')
+      .select('data, updated_at')
+      .eq('id', 1)
+      .single()
 
-    // Build final sorted list
-    const traders = Array.from(foundMap.values())
-      .map((t) => ({
-        rank: '0',
-        proxyWallet: String(t.proxyWallet || ''),
-        userName: String(t.userName || ''),
-        vol: Number(t.vol || 0),
-        pnl: Number(t.pnl || 0),
-        profileImage: String(t.profileImage || ''),
-        xUsername: String(t.xUsername || ''),
-        verifiedBadge: Boolean(t.verifiedBadge || false),
-        numTrades: Number(t.numTrades || 0),
-        marketsTraded: Number(t.marketsTraded || 0),
-      }))
+    // Check if cache is valid - most traders should have userNames or pnl data
+    const tradersWithData = cache?.data?.filter((t: Record<string, unknown>) => 
+      t.userName || (typeof t.pnl === 'number' && t.pnl !== 0)
+    )?.length || 0
+    
+    console.log(`[v0] Cache has ${tradersWithData} traders with data out of ${cache?.data?.length || 0}`)
+    
+    const cacheValid = cache && 
+      Array.isArray(cache.data) && 
+      cache.data.length > 0 &&
+      tradersWithData > 80 // Need at least 80 traders with data
 
-    // Sort by PNL descending and assign rank
-    traders.sort((a, b) => b.pnl - a.pnl)
-    traders.forEach((t, i) => {
-      t.rank = String(i + 1)
-    })
+    if (cacheValid) {
+      return NextResponse.json(cache.data, {
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+      })
+    }
+    
+    console.log(`[v0] Cache invalid, fetching fresh data...`)
+
+    // Cache empty -- live fetch and populate
+    const traders = await fetchFreshTop100()
+    if (traders.length > 0) {
+      await supabase
+        .from('top100_cache')
+        .update({ data: traders, updated_at: new Date().toISOString() })
+        .eq('id', 1)
+    }
 
     return NextResponse.json(traders, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-      },
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     })
   } catch (error) {
     console.error('Top 100 API error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch top 100' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch top 100' }, { status: 500 })
   }
 }

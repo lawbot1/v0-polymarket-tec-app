@@ -1,82 +1,59 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { generateLinkingCode } from '@/lib/telegram'
+import { createAdminClient } from '@/lib/supabase/admin'
 
-// POST -- generate a new linking code for the authenticated user
-export async function POST() {
+// Helper to get user ID from either server session or request body/query
+async function getUserId(req?: NextRequest): Promise<string | null> {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user?.id) return user.id
+  } catch {}
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  if (req) {
+    try {
+      const url = new URL(req.url)
+      const queryUserId = url.searchParams.get('userId')
+      if (queryUserId) return queryUserId
 
-    // Invalidate any existing unused codes for this user
-    await supabase
-      .from('telegram_linking_codes')
-      .update({ used: true })
-      .eq('user_id', user.id)
-      .eq('used', false)
-
-    // Generate new code
-    const code = generateLinkingCode()
-
-    const { error: insertError } = await supabase
-      .from('telegram_linking_codes')
-      .insert({
-        user_id: user.id,
-        code,
-        expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min
-      })
-
-    if (insertError) {
-      console.error('[Telegram Link] Insert error:', insertError)
-      return NextResponse.json({ error: 'Failed to generate code' }, { status: 500 })
-    }
-
-    return NextResponse.json({
-      code,
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-    })
-  } catch (error) {
-    console.error('[Telegram Link] Error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+      const body = await req.clone().json().catch(() => null)
+      if (body?.userId) return body.userId
+    } catch {}
   }
+
+  return null
 }
 
-// GET -- check current telegram connection status
-export async function GET() {
+// GET -- get user's permanent linking code and telegram status
+export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
+    const userId = await getUserId(req)
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const supabase = createAdminClient()
+
+    // Get permanent linking code from profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('telegram_linking_code, telegram_chat_id')
+      .eq('id', userId)
+      .single()
+
+    // Get notification settings
     const { data: settings } = await supabase
       .from('notification_settings')
       .select('telegram_chat_id, telegram_notifications_enabled')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
-    // Check for any active (unused, not expired) code
-    const { data: activeCode } = await supabase
-      .from('telegram_linking_codes')
-      .select('code, expires_at')
-      .eq('user_id', user.id)
-      .eq('used', false)
-      .gte('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+    const chatId = profile?.telegram_chat_id || settings?.telegram_chat_id || null
 
     return NextResponse.json({
-      connected: !!settings?.telegram_chat_id,
+      connected: !!chatId,
       enabled: settings?.telegram_notifications_enabled || false,
-      activeCode: activeCode?.code || null,
-      codeExpiresAt: activeCode?.expires_at || null,
+      linkingCode: profile?.telegram_linking_code || null,
     })
   } catch (error) {
     console.error('[Telegram Link] Status error:', error)
@@ -85,14 +62,14 @@ export async function GET() {
 }
 
 // DELETE -- unlink telegram account
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
+    const userId = await getUserId(req)
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const supabase = createAdminClient()
 
     await supabase
       .from('notification_settings')
@@ -100,12 +77,12 @@ export async function DELETE() {
         telegram_chat_id: null,
         telegram_notifications_enabled: false,
       })
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     await supabase
       .from('profiles')
       .update({ telegram_chat_id: null })
-      .eq('id', user.id)
+      .eq('id', userId)
 
     return NextResponse.json({ ok: true })
   } catch (error) {

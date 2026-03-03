@@ -428,8 +428,8 @@ export function CategoryBadge({ category, size = 'sm', className }: CategoryBadg
       </span>
 
       {showTooltip && (
-        <div className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-card border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
-          <div className="absolute -top-[6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-card border-l border-t border-border/60 rotate-45" />
+        <div className="absolute z-50 top-full left-0 mt-2 w-52 bg-card border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
+          <div className="absolute -top-[6px] left-4 w-3 h-3 bg-card border-l border-t border-border/60 rotate-45" />
           <div className="relative">
             <div className="flex items-center gap-1.5 mb-1.5">
               <CategoryIcon category={category} size="md" />
@@ -465,7 +465,7 @@ export function CategoriesRow({ categories, maxVisible = 3, size = 'sm', classNa
   const overflow = categories.slice(maxVisible)
 
   return (
-    <div className={cn('flex items-center gap-1.5 overflow-visible', className)}>
+    <div className={cn('flex items-center gap-1.5 flex-wrap', className)}>
       {visible.map((cat) => (
         <CategoryBadge key={cat.id} category={cat} size={size} />
       ))}
@@ -478,15 +478,15 @@ export function CategoriesRow({ categories, maxVisible = 3, size = 'sm', classNa
           <span
             className={cn(
               'inline-flex items-center border border-border/40 bg-transparent rounded-full cursor-default transition-all hover:bg-white/[0.03]',
-              size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
+              size === 'sm' ? 'px-2 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
             )}
           >
             <span className="font-medium text-muted-foreground">+{overflow.length}</span>
           </span>
 
           {showOverflowTooltip && (
-            <div className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-card border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
-              <div className="absolute -top-[6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-card border-l border-t border-border/60 rotate-45" />
+            <div className="absolute z-50 top-full right-0 mt-2 w-52 bg-card border border-border/60 rounded-xl shadow-2xl shadow-black/50 p-3 pointer-events-none">
+              <div className="absolute -top-[6px] right-4 w-3 h-3 bg-card border-l border-t border-border/60 rotate-45" />
               <div className="relative space-y-2">
                 {overflow.map((cat) => (
                   <div key={cat.id}>

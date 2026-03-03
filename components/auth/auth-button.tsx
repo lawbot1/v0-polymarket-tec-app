@@ -8,7 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
+  DropdownMenuSeparator, 
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { LogIn, User, Settings, LogOut, LayoutDashboard } from 'lucide-react'
@@ -25,18 +25,21 @@ export function AuthButton() {
 
     const getUser = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session }, error } = await supabase.auth.getSession()
+        console.log('[v0] AuthButton getSession:', { user: session?.user?.email, error: error?.message })
         if (mounted) {
           setUser(session?.user ?? null)
           setLoading(false)
         }
-      } catch {
+      } catch (e) {
+        console.log('[v0] AuthButton getSession error:', e)
         if (mounted) setLoading(false)
       }
     }
     getUser()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[v0] AuthButton onAuthStateChange:', event, session?.user?.email)
       if (mounted) setUser(session?.user ?? null)
     })
 

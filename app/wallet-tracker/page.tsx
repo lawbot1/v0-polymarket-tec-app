@@ -429,31 +429,72 @@ export default function WalletTrackerPage() {
   return (
     <AppShell title="Wallet Tracker">
       <div className="space-y-6">
-        {/* Title */}
-        <div>
-          <h1 className="text-3xl font-bold text-foreground font-mono">Watchlist</h1>
-          <p className="text-sm text-muted-foreground mt-1 font-mono">Traders you follow and their recent trades</p>
+        {/* Title + Add Wallet Button */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-mono">Watchlist</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-mono">Traders you follow and their recent trades</p>
+          </div>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 flex-shrink-0">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Wallet</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="text-foreground">Add Wallet to Track</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label className="text-foreground">Wallet Address</Label>
+                  <Input 
+                    placeholder="0x..." 
+                    value={newAddress} 
+                    onChange={(e) => setNewAddress(e.target.value)} 
+                    className="bg-secondary border-border font-mono" 
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter any Polymarket wallet address to track their trades
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-foreground">Label (optional)</Label>
+                  <Input 
+                    placeholder="e.g., Whale Alpha" 
+                    value={newLabel} 
+                    onChange={(e) => setNewLabel(e.target.value)} 
+                    className="bg-secondary border-border" 
+                  />
+                </div>
+                <Button onClick={handleAddWallet} className="w-full" disabled={!newAddress}>
+                  Add Wallet
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Combined stats bar */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div className="sharp-panel p-4">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Tracked Wallets</div>
-            <div className="text-2xl font-bold text-foreground tabular-nums mt-1">{wallets.length}</div>
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
+          <div className="sharp-panel p-3 sm:p-4">
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted-foreground truncate">Tracked</div>
+            <div className="text-xl sm:text-2xl font-bold text-foreground tabular-nums mt-1">{wallets.length}</div>
           </div>
-          <div className="sharp-panel p-4">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Combined PnL</div>
-            <div className={cn('text-2xl font-bold tabular-nums mt-1', totalPnl >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>
+          <div className="sharp-panel p-3 sm:p-4">
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted-foreground truncate">PnL</div>
+            <div className={cn('text-xl sm:text-2xl font-bold tabular-nums mt-1', totalPnl >= 0 ? 'text-[#22c55e]' : 'text-red-500')}>
               {formatPnl(totalPnl)}
             </div>
           </div>
-          <div className="sharp-panel p-4">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Combined Volume</div>
-            <div className="text-2xl font-bold text-foreground tabular-nums mt-1">{formatVolume(totalVolume)}</div>
+          <div className="sharp-panel p-3 sm:p-4">
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted-foreground truncate">Volume</div>
+            <div className="text-xl sm:text-2xl font-bold text-foreground tabular-nums mt-1">{formatVolume(totalVolume)}</div>
           </div>
-          <div className="sharp-panel p-4">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Recent Trades</div>
-            <div className="text-2xl font-bold text-foreground tabular-nums mt-1">{feedItems.length}</div>
+          <div className="sharp-panel p-3 sm:p-4">
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted-foreground truncate">Trades</div>
+            <div className="text-xl sm:text-2xl font-bold text-foreground tabular-nums mt-1">{feedItems.length}</div>
           </div>
         </div>
 

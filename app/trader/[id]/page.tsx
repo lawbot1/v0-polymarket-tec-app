@@ -1,7 +1,8 @@
 'use client'
 
 import React from 'react'
-import { useEffect, useState, useMemo, use } from 'react'
+import { useState, useMemo, use } from 'react'
+import useSWR from 'swr'
 import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -33,6 +34,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+
+// SWR fetcher
+const fetcher = (url: string) => fetch(url).then(res => res.ok ? res.json() : Promise.reject('Failed to fetch'))
 
 interface TraderPageProps {
   params: Promise<{ id: string }>
@@ -108,38 +112,37 @@ function calcSmartScore(profile: LeaderboardTrader | null, winRate: number, posi
 
 export default function TraderPage({ params }: TraderPageProps) {
   const { id } = use(params)
-  const [profile, setProfile] = useState<LeaderboardTrader | null>(null)
-  const [positions, setPositions] = useState<UserPosition[]>([])
-  const [trades, setTrades] = useState<UserTrade[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [chartTf, setChartTf] = useState<ChartTimeframe>('ALL')
 
-  const fetchTraderData = async () => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const [leaderboardRes, positionsRes, tradesRes] = await Promise.all([
-        fetch(`/api/polymarket/leaderboard?user=${id}&limit=1&timePeriod=ALL`),
-        fetch(`/api/polymarket/positions?user=${id}&limit=100&sortBy=CASHPNL&sortDirection=DESC`),
-        fetch(`/api/polymarket/trades?user=${id}&limit=500`),
-      ])
-      if (leaderboardRes.ok) {
-        const d = await leaderboardRes.json()
-        setProfile(d[0] || null)
-      }
-      if (positionsRes.ok) setPositions(await positionsRes.json())
-      if (tradesRes.ok) setTrades(await tradesRes.json())
-    } catch (err) {
-      console.error('Error fetching trader data:', err)
-      setError('Failed to load trader data')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // Parallel SWR requests with caching
+  const { data: profileData, error: profileError, mutate: mutateProfile } = useSWR<LeaderboardTrader[]>(
+    `/api/polymarket/leaderboard?user=${id}&limit=1&timePeriod=ALL`,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60000 }
+  )
+  
+  const { data: positions = [], error: positionsError, mutate: mutatePositions } = useSWR<UserPosition[]>(
+    `/api/polymarket/positions?user=${id}&limit=100&sortBy=CASHPNL&sortDirection=DESC`,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60000 }
+  )
+  
+  const { data: trades = [], error: tradesError, mutate: mutateTrades } = useSWR<UserTrade[]>(
+    `/api/polymarket/trades?user=${id}&limit=500`,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60000 }
+  )
 
-  useEffect(() => { fetchTraderData() }, [id])
+  const profile = profileData?.[0] || null
+  const isLoading = !profileData && !profileError
+  const error = profileError || positionsError || tradesError ? 'Failed to load trader data' : null
+
+  const fetchTraderData = () => {
+    mutateProfile()
+    mutatePositions()
+    mutateTrades()
+  }
 
   const copyWallet = () => {
     navigator.clipboard.writeText(id)
@@ -200,12 +203,17 @@ export default function TraderPage({ params }: TraderPageProps) {
     solana: 'Crypto', sol: 'Crypto', crypto: 'Crypto', defi: 'Crypto',
     token: 'Crypto', xrp: 'Crypto', doge: 'Crypto', memecoin: 'Crypto',
     nft: 'Crypto', web3: 'Crypto', stablecoin: 'Crypto', altcoin: 'Crypto',
-    // Politics
+    // Politics & Political figures
     trump: 'Politics', biden: 'Politics', election: 'Elections', vote: 'Elections',
     president: 'Politics', congress: 'Politics', senate: 'Politics', governor: 'Politics',
     democrat: 'Politics', republican: 'Politics', gop: 'Politics', primary: 'Elections',
     political: 'Politics', politics: 'Politics', harris: 'Politics', desantis: 'Politics',
     vance: 'Politics', newsom: 'Politics', midterm: 'Elections', ballot: 'Elections',
+    // World leaders & political figures -> Geopolitics
+    khamenei: 'Geopolitics', putin: 'Geopolitics', xi: 'Geopolitics', zelensky: 'Geopolitics',
+    netanyahu: 'Geopolitics', macron: 'Geopolitics', scholz: 'Geopolitics', modi: 'Geopolitics',
+    erdogan: 'Geopolitics', kim: 'Geopolitics', lula: 'Geopolitics', milei: 'Geopolitics',
+    sunak: 'Geopolitics', starmer: 'Geopolitics', trudeau: 'Geopolitics',
     // Tech
     ai: 'Tech', apple: 'Tech', google: 'Tech', openai: 'Tech', spacex: 'Tech',
     tesla: 'Tech', meta: 'Tech', microsoft: 'Tech', nvidia: 'Tech', tech: 'Tech',
@@ -222,12 +230,13 @@ export default function TraderPage({ params }: TraderPageProps) {
     nato: 'Geopolitics', iran: 'Geopolitics', israel: 'Geopolitics', gaza: 'Geopolitics',
     taiwan: 'Geopolitics', korea: 'Geopolitics', sanctions: 'Geopolitics',
     india: 'Geopolitics', syria: 'Geopolitics', eu: 'Geopolitics', brexit: 'Geopolitics',
+    successor: 'Geopolitics', leader: 'Geopolitics', regime: 'Geopolitics',
     // Pop Culture
     oscar: 'Pop Culture', emmy: 'Pop Culture', grammy: 'Pop Culture',
     movie: 'Pop Culture', film: 'Pop Culture', celebrity: 'Pop Culture',
     music: 'Pop Culture', superbowl: 'Pop Culture', culture: 'Pop Culture',
     kanye: 'Pop Culture', taylor: 'Pop Culture', drake: 'Pop Culture', netflix: 'Pop Culture',
-    disney: 'Pop Culture', youtube: 'Pop Culture', twitch: 'Pop Culture', tiktok: 'Pop Culture',
+    disney: 'Pop Culture', youtube: 'Pop Culture', twitch: 'Pop Culture',
     // World
     weather: 'World', covid: 'World', climate: 'World', earthquake: 'World',
     who: 'World', un: 'World', world: 'World', pandemic: 'World', hurricane: 'World',
@@ -240,7 +249,8 @@ export default function TraderPage({ params }: TraderPageProps) {
     const catPnl = new Map<string, number>()
     positions.forEach(p => {
       const rawSlug = p.eventSlug?.split('-')[0]?.toLowerCase() || 'other'
-      const categoryName = SLUG_TO_CATEGORY[rawSlug] || rawSlug.charAt(0).toUpperCase() + rawSlug.slice(1)
+      // Only use mapped categories, fallback to 'World' if not found
+      const categoryName = SLUG_TO_CATEGORY[rawSlug] || 'World'
       catPnl.set(categoryName, (catPnl.get(categoryName) || 0) + (p.cashPnl || 0))
     })
     let best = 'N/A'
@@ -304,8 +314,22 @@ export default function TraderPage({ params }: TraderPageProps) {
   }, [trades, profile])
 
   const filteredCurve = filterByTimeframe(equityCurve, chartTf)
+  
+  // Calculate PnL for selected timeframe
+  const filteredPnl = useMemo(() => {
+    if (filteredCurve.length === 0) return 0
+    if (chartTf === 'ALL') return profile?.pnl || 0
+    // For filtered timeframes, calculate the change within that period
+    const startValue = filteredCurve.length > 0 ? filteredCurve[0].value : 0
+    const endValue = filteredCurve.length > 0 ? filteredCurve[filteredCurve.length - 1].value : 0
+    // Get the value before the start of the filtered period
+    const startIdx = equityCurve.findIndex(d => d.date === filteredCurve[0]?.date)
+    const prevValue = startIdx > 0 ? equityCurve[startIdx - 1].value : 0
+    return endValue - prevValue
+  }, [filteredCurve, equityCurve, chartTf, profile?.pnl])
+  
   const lastValue = filteredCurve.length > 0 ? filteredCurve[filteredCurve.length - 1].value : 0
-  const chartColor = lastValue >= 0 ? '#22c55e' : '#ef4444'
+  const chartColor = filteredPnl >= 0 ? '#22c55e' : '#ef4444'
 
   return (
     <AppShell
@@ -333,13 +357,13 @@ export default function TraderPage({ params }: TraderPageProps) {
         )}
 
         {/* ===== HEADER with avatar, name, wallet, badges, follow ===== */}
-        <div className="sharp-panel p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
+        <div className="sharp-panel p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start justify-between gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               {isLoading ? (
-                <Skeleton className="h-16 w-16 rounded-full" />
+                <Skeleton className="h-12 w-12 sm:h-16 sm:w-16 rounded-full" />
               ) : profile?.profileImage ? (
-                <div className="h-16 w-16 rounded-full overflow-hidden flex-shrink-0 bg-secondary border-2 border-border">
+                <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full overflow-hidden flex-shrink-0 bg-secondary border-2 border-border">
                   <Image
                     src={profile.profileImage || '/placeholder.svg'}
                     alt={profile.userName || 'Trader'}
@@ -349,75 +373,81 @@ export default function TraderPage({ params }: TraderPageProps) {
                   />
                 </div>
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center bg-secondary text-foreground text-xl font-mono rounded-full flex-shrink-0 border-2 border-border">
+                <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center bg-secondary text-foreground text-lg sm:text-xl font-mono rounded-full flex-shrink-0 border-2 border-border">
                   {(profile?.userName || id.slice(2, 4)).toUpperCase().slice(0, 2)}
                 </div>
               )}
-              <div>
+              <div className="min-w-0 flex-1">
                 {isLoading ? (
-                  <Skeleton className="h-7 w-48" />
+                  <Skeleton className="h-6 sm:h-7 w-32 sm:w-48" />
                 ) : (
-                  <h2 className="text-2xl font-semibold text-foreground tracking-tight">
+                  <h2 className="text-lg sm:text-2xl font-semibold text-foreground tracking-tight truncate">
                     {profile?.userName || formatAddress(id)}
                   </h2>
                 )}
-                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                  {formatAddress(id)}
-                  <button onClick={copyWallet} className="hover:text-foreground transition-colors">
-                    {copied ? <span className="text-[#22c55e] text-[10px] uppercase">Copied</span> : <Copy className="h-3.5 w-3.5" />}
+                <div className="mt-1 flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground font-mono">
+                  <span className="truncate">{formatAddress(id)}</span>
+                  <button onClick={copyWallet} className="hover:text-foreground transition-colors flex-shrink-0">
+                    {copied ? <span className="text-[#22c55e] text-[10px] uppercase">Copied</span> : <Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
                   </button>
-                  <a href={`https://polymarket.com/profile/${id}`} target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
-                    <ExternalLink className="h-3.5 w-3.5" />
+                  <a href={`https://polymarket.com/profile/${id}`} target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors flex-shrink-0">
+                    <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   </a>
                 </div>
-                {/* Category Badges with tooltips */}
-                {!isLoading && traderCategories.length > 0 && (
-                  <div className="mt-3">
-                    <CategoriesRow categories={traderCategories} maxVisible={5} size="md" />
-                  </div>
-                )}
+              </div>
+              {/* Follow button - mobile position */}
+              <div className="sm:hidden flex-shrink-0">
+                <FollowButton traderAddress={id} traderName={profile?.userName} variant="follow" />
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            {/* Category Badges with tooltips */}
+            {!isLoading && traderCategories.length > 0 && (
+              <div className="w-full sm:w-auto order-last sm:order-none">
+                <CategoriesRow categories={traderCategories} maxVisible={3} size="sm" className="sm:hidden" />
+                <CategoriesRow categories={traderCategories} maxVisible={5} size="md" className="hidden sm:flex" />
+              </div>
+            )}
+            {/* Follow button - desktop position */}
+            <div className="hidden sm:flex items-center gap-2">
               <FollowButton traderAddress={id} traderName={profile?.userName} variant="follow" />
             </div>
           </div>
         </div>
 
         {/* ===== 3 BIG STAT CARDS ===== */}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {/* Total Volume */}
-          <div className="sharp-panel p-5">
-            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">
-              Total Volume
+          <div className="sharp-panel p-3 sm:p-5">
+            <div className="text-[9px] sm:text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1 sm:mb-2 truncate">
+              Volume
             </div>
-            {isLoading ? <Skeleton className="h-9 w-32" /> : (
-              <div className="text-3xl font-semibold font-mono text-foreground tracking-tight">
+            {isLoading ? <Skeleton className="h-6 sm:h-9 w-16 sm:w-32" /> : (
+              <div className="text-lg sm:text-3xl font-semibold font-mono text-foreground tracking-tight">
                 {formatVolume(profile?.vol || 0)}
               </div>
             )}
           </div>
-          {/* Total P&L */}
-          <div className="sharp-panel p-5">
-            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">
-              Total P&L
+          {/* Total P&L - changes based on selected timeframe */}
+          <div className="sharp-panel p-3 sm:p-5">
+            <div className="text-[9px] sm:text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1 sm:mb-2 truncate">
+              P&L {chartTf !== 'ALL' && `(${chartTf})`}
             </div>
-            {isLoading ? <Skeleton className="h-9 w-32" /> : (
+            {isLoading ? <Skeleton className="h-6 sm:h-9 w-16 sm:w-32" /> : (
               <div className={cn(
-                'text-3xl font-semibold font-mono tracking-tight',
-                (profile?.pnl || 0) >= 0 ? 'text-[#22c55e]' : 'text-destructive'
+                'text-lg sm:text-3xl font-semibold font-mono tracking-tight',
+                filteredPnl >= 0 ? 'text-[#22c55e]' : 'text-destructive'
               )}>
-                {formatPnl(profile?.pnl || 0)}
+                {formatPnl(filteredPnl)}
               </div>
             )}
           </div>
           {/* Total Account Balance */}
-          <div className="sharp-panel p-5">
-            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">
-              Total Account Balance
+          <div className="sharp-panel p-3 sm:p-5">
+            <div className="text-[9px] sm:text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1 sm:mb-2 truncate">
+              Balance
             </div>
-            {isLoading ? <Skeleton className="h-9 w-32" /> : (
-              <div className="text-3xl font-semibold font-mono text-foreground tracking-tight">
+            {isLoading ? <Skeleton className="h-6 sm:h-9 w-16 sm:w-32" /> : (
+              <div className="text-lg sm:text-3xl font-semibold font-mono text-foreground tracking-tight">
                 {formatVolume(Math.abs(totalAccountBalance))}
               </div>
             )}
@@ -573,20 +603,60 @@ export default function TraderPage({ params }: TraderPageProps) {
             <TabsList className="w-full justify-start border-b border-border bg-transparent p-0">
               <TabsTrigger
                 value="positions"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent px-6 py-3 text-xs uppercase tracking-wider"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent px-3 sm:px-6 py-3 text-[10px] sm:text-xs uppercase tracking-wider"
               >
                 Positions ({positions.length})
               </TabsTrigger>
               <TabsTrigger
                 value="history"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent px-6 py-3 text-xs uppercase tracking-wider"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent px-3 sm:px-6 py-3 text-[10px] sm:text-xs uppercase tracking-wider"
               >
                 History ({trades.length})
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="positions" className="p-0">
-              <div className="overflow-x-auto">
+              {/* Mobile: Card layout */}
+              <div className="sm:hidden divide-y divide-border">
+                {isLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="p-3 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  ))
+                ) : positions.length === 0 ? (
+                  <div className="px-4 py-12 text-center text-muted-foreground text-sm">No open positions</div>
+                ) : (
+                  positions.map((pos) => (
+                    <div key={`${pos.conditionId}-${pos.outcomeIndex}`} className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {pos.icon && <Image src={pos.icon || '/placeholder.svg'} alt="" width={20} height={20} className="h-5 w-5 flex-shrink-0" />}
+                          <p className="text-sm text-foreground line-clamp-2">{pos.title}</p>
+                        </div>
+                        <span className={cn('flex-shrink-0 inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', pos.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : pos.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
+                          {pos.outcome}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex gap-3 text-muted-foreground">
+                          <span>Size: <span className="text-foreground font-mono">{pos.size?.toFixed(2)}</span></span>
+                          <span>Avg: <span className="text-foreground font-mono">{((pos.avgPrice || 0) * 100).toFixed(0)}c</span></span>
+                          <span>Now: <span className="text-foreground font-mono">{((pos.curPrice || 0) * 100).toFixed(0)}c</span></span>
+                        </div>
+                        <div className="text-right">
+                          <span className={cn('font-mono font-medium', (pos.cashPnl || 0) >= 0 ? 'text-[#22c55e]' : 'text-destructive')}>
+                            {formatPnl(pos.cashPnl || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              {/* Desktop: Table layout */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-secondary/30">
@@ -627,8 +697,8 @@ export default function TraderPage({ params }: TraderPageProps) {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-center">
-<span className={cn('inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', pos.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : pos.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
-{pos.outcome}
+                            <span className={cn('inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', pos.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : pos.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
+                              {pos.outcome}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right text-sm font-mono text-foreground">{pos.size?.toFixed(2)}</td>
@@ -651,7 +721,47 @@ export default function TraderPage({ params }: TraderPageProps) {
             </TabsContent>
 
             <TabsContent value="history" className="p-0">
-              <div className="overflow-x-auto">
+              {/* Mobile: Card layout */}
+              <div className="sm:hidden divide-y divide-border">
+                {isLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="p-3 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  ))
+                ) : trades.length === 0 ? (
+                  <div className="px-4 py-12 text-center text-muted-foreground text-sm">No trade history</div>
+                ) : (
+                  trades.slice(0, 50).map((trade, i) => (
+                    <div key={`${trade.transactionHash}-${i}`} className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {trade.icon && <Image src={trade.icon || '/placeholder.svg'} alt="" width={20} height={20} className="h-5 w-5 flex-shrink-0" />}
+                          <p className="text-sm text-foreground line-clamp-2">{trade.title}</p>
+                        </div>
+                        <span className={cn('flex-shrink-0 inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', trade.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : trade.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
+                          {trade.outcome || trade.side}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{timeAgo(trade.timestamp)}</span>
+                        <div className="flex gap-3">
+                          <span>Size: <span className="text-foreground font-mono">{trade.size?.toFixed(2)}</span></span>
+                          <span>@ <span className="text-foreground font-mono">{((trade.price || 0) * 100).toFixed(0)}c</span></span>
+                          {trade.transactionHash && (
+                            <a href={`https://polygonscan.com/tx/${trade.transactionHash}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              {/* Desktop: Table layout */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-secondary/30">
@@ -693,8 +803,8 @@ export default function TraderPage({ params }: TraderPageProps) {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-center">
-<span className={cn('inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', trade.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : trade.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
-{trade.outcome || trade.side}
+                            <span className={cn('inline-flex border px-2 py-0.5 text-[10px] font-medium uppercase', trade.outcome?.toLowerCase() === 'yes' ? 'border-[#22c55e]/50 text-[#22c55e]' : trade.outcome?.toLowerCase() === 'no' ? 'border-destructive/50 text-destructive' : 'border-yellow-500/50 text-yellow-500')}>
+                              {trade.outcome || trade.side}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right text-sm font-mono text-foreground">{trade.size?.toFixed(2)}</td>

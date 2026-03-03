@@ -17,11 +17,10 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Vantake - Polymarket Trader Analytics',
   description: 'Advanced analytics dashboard for Polymarket traders',
-  generator: 'v0.app',
   icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon.ico',
-    apple: '/vantake-logo-white.png',
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/favicon.png',
   },
 }
 

@@ -52,7 +52,7 @@ async function main() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: 'https://app.vantake.trade/api/telegram/webhook',
-      allowed_updates: ['message']
+      allowed_updates: ['message', 'callback_query']
     })
   });
   const setResult = await setRes.json();
@@ -60,8 +60,7 @@ async function main() {
   
   console.log('\n=== SUMMARY ===');
   console.log(`Bot: @${me.result.username} - WORKING`);
-  console.log('Webhook: registered but deployment returns 404');
-  console.log('FIX NEEDED: Go to Vercel -> Deployments -> find deploy from branch v0/lawbot1-1228-4b4033d2 -> click ... -> Promote to Production');
+  console.log('Webhook: registered at https://app.vantake.trade/api/telegram/webhook');
 }
 
 main().catch(console.error);

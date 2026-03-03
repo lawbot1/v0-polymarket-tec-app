@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -11,6 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WalletAvatar } from '@/components/trader/wallet-avatar'
+import { createClient } from '@/lib/supabase/client'
 import {
   type UserTrade,
   type LeaderboardTrader,
@@ -27,6 +29,7 @@ import {
   Sparkles,
   RefreshCw,
   Users,
+  ExternalLink,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -44,6 +47,7 @@ type SignalEntry = UserTrade & {
   traderName?: string
   confidence: 'High' | 'Medium' | 'Low'
   isWhale: boolean
+  isTop100: boolean
 }
 
 const sortOptions = ['Recent', 'Size', 'Confidence'] as const
@@ -146,10 +150,10 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
 
   const ts = signal.timestamp < 1e12 ? signal.timestamp * 1000 : signal.timestamp
 
-  const rawName = signal.traderName || signal.proxyWallet || ''
-  const displayName = rawName.length > 18 && rawName.startsWith('0x')
-    ? formatAddress(rawName)
-    : rawName
+  // For display: use trader name if available, otherwise format address
+  const displayName = signal.traderName 
+    ? signal.traderName 
+    : formatAddress(signal.proxyWallet || '')
 
   const category = getTradeCategory(signal)
 
@@ -170,7 +174,22 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
             <WalletAvatar wallet={signal.proxyWallet || ''} size={28} />
           )}
           <span className="text-sm font-medium text-foreground group-hover:underline truncate">{displayName}</span>
-          {signal.isWhale && (
+          {/* Top 100 Vantake badge */}
+          {signal.isTop100 && (
+            <div className="flex items-center gap-1 flex-shrink-0" title="This trader is in Vantake Top 100 human traders">
+              <Image
+                src="/vantake-main-logo.png"
+                alt="Vantake"
+                width={14}
+                height={14}
+                className="h-3.5 w-3.5 rounded-sm"
+              />
+              <Badge variant="outline" className="text-[10px] border-primary/50 text-primary px-1.5 py-0">
+                Top 100
+              </Badge>
+            </div>
+          )}
+          {signal.isWhale && !signal.isTop100 && (
             <Badge variant="outline" className="text-[10px] border-yellow-500/30 text-yellow-500 flex-shrink-0">
               Whale
             </Badge>
@@ -181,12 +200,14 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
 
       {/* Market title + outcome badge */}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <Link
-          href={`/markets/${signal.conditionId}`}
+        <a
+          href={signal.eventSlug ? `https://polymarket.com/event/${signal.eventSlug}` : `https://polymarket.com`}
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-sm text-foreground leading-snug hover:underline line-clamp-2"
         >
           {signal.title || 'Unknown Market'}
-        </Link>
+        </a>
         <span className={cn(
           'flex-shrink-0 inline-flex px-2.5 py-0.5 rounded text-xs font-semibold',
           badgeColor
@@ -195,19 +216,13 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
         </span>
       </div>
 
-      {/* Trade details */}
+      {/* Position details */}
       <div className="space-y-1.5 border-t border-border pt-3">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Date & Time</span>
-          <span className="text-foreground tabular-nums">
-            {new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
-          </span>
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Amount</span>
+          <span className="text-muted-foreground">Position Value</span>
           <span className="text-foreground font-semibold tabular-nums">
             ${signal.size * signal.price >= 1000
-              ? ((signal.size * signal.price) / 1000).toFixed(1) + 'k'
+              ? ((signal.size * signal.price) / 1000).toFixed(0) + 'k'
               : (signal.size * signal.price).toFixed(2)}
           </span>
         </div>
@@ -218,65 +233,242 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
           </span>
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Category</span>
-          <span className="text-foreground font-medium">{category}</span>
+          <span className="text-muted-foreground">Shares</span>
+          <span className="text-foreground font-semibold tabular-nums">
+            {signal.size >= 1000 ? (signal.size / 1000).toFixed(1) + 'k' : signal.size.toFixed(0)}
+          </span>
+        </div>
+        <div className="pt-2 mt-2 border-t border-border">
+          <a
+            href={signal.eventSlug ? `https://polymarket.com/event/${signal.eventSlug}` : `https://polymarket.com`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 text-xs text-primary hover:text-primary/80 transition-colors"
+          >
+            <ExternalLink className="h-3 w-3" />
+            View on Polymarket
+          </a>
         </div>
       </div>
     </div>
   )
 }
 
+import { VANTAKE_TOP_100_WALLETS } from '@/lib/top100-wallets'
+
+// Convert to Set for O(1) lookup
+const TOP100_SET = new Set(VANTAKE_TOP_100_WALLETS.map(w => w.toLowerCase()))
+
+// Min thresholds
+const MIN_SIGNAL_VALUE_TOP100 = 5000 // $5k for Top100 Vantake traders
+const MIN_SIGNAL_VALUE_OTHER = 40000 // $40k for other traders
+const MAX_SIGNALS = 150 // Maximum signals to load
+
+// Cache for trader profiles to avoid repeated requests
+const profileCache = new Map<string, { userName?: string; profileImage?: string } | null>()
+
+async function fetchTraderProfile(walletAddress: string): Promise<{ userName?: string; profileImage?: string } | null> {
+  const cacheKey = walletAddress.toLowerCase()
+  if (profileCache.has(cacheKey)) {
+    return profileCache.get(cacheKey) || null
+  }
+  
+  try {
+    const res = await fetch(`/api/polymarket/profile?address=${walletAddress}`)
+    if (!res.ok) {
+      profileCache.set(cacheKey, null)
+      return null
+    }
+    const data = await res.json()
+    if (data.userName || data.profileImage) {
+      profileCache.set(cacheKey, data)
+      return data
+    }
+    profileCache.set(cacheKey, null)
+    return null
+  } catch {
+    profileCache.set(cacheKey, null)
+    return null
+  }
+}
+
 // ---- Main page ----
-// SWR fetcher that loads leaderboard + trades in one shot, returns { traders, signals }
+// SWR fetcher that loads leaderboard + trades, returns { traders, signals }
 async function signalsFetcher() {
-  const leaderboardRes = await fetch('/api/polymarket/leaderboard?window=day&limit=50')
+  // Fetch leaderboard and Top100 Vantake traders trades in parallel
+  const [leaderboardRes] = await Promise.all([
+    fetch('/api/polymarket/leaderboard?window=day&limit=30'),
+  ])
+  
   let traders: LeaderboardTrader[] = []
   if (leaderboardRes.ok) traders = await leaderboardRes.json()
 
   const allSignals: SignalEntry[] = []
-  const tradePromises = traders.slice(0, 10).map(async (trader) => {
+  const processedWallets = new Set<string>()
+  
+  // Helper function to process trades for a wallet
+  const processTradesForWallet = async (
+    walletAddress: string, 
+    isTop100: boolean,
+    traderInfo?: { pnl?: number; rank?: number; profileImage?: string; userName?: string }
+  ): Promise<SignalEntry[]> => {
+    const minValue = isTop100 ? MIN_SIGNAL_VALUE_TOP100 : MIN_SIGNAL_VALUE_OTHER
+    const signals: SignalEntry[] = []
+    
     try {
-      const tradesRes = await fetch(`/api/polymarket/trades?user=${trader.proxyWallet}&limit=5`)
-      if (tradesRes.ok) {
-        const trades: UserTrade[] = await tradesRes.json()
-        return trades.map(trade => {
-          const tradeValue = trade.size * trade.price
-          const confidence: 'High' | 'Medium' | 'Low' =
-            trader.rank && trader.rank <= 10 && tradeValue >= 1000 ? 'High' :
-            trader.rank && trader.rank <= 50 && tradeValue >= 500 ? 'Medium' : 'Low'
-          return {
-            ...trade,
-            traderPnl: trader.pnl || 0,
-            traderRank: trader.rank,
-            traderProfileImage: trader.profileImage,
-            traderName: trader.userName,
-            confidence,
-            isWhale: tradeValue >= 5000,
-          }
+      // Always fetch trades and profile in parallel
+      const [tradesRes, profile] = await Promise.all([
+        fetch(`/api/polymarket/trades?user=${walletAddress}&limit=100`),
+        fetchTraderProfile(walletAddress)
+      ])
+      
+      if (!tradesRes.ok) return signals
+      
+      const trades: UserTrade[] = await tradesRes.json()
+      
+      // Use profile data if we fetched it, otherwise use passed traderInfo
+      const finalTraderInfo = {
+        pnl: traderInfo?.pnl || 0,
+        rank: traderInfo?.rank,
+        profileImage: profile?.profileImage || traderInfo?.profileImage,
+        userName: profile?.userName || traderInfo?.userName,
+      }
+      
+      // Group trades by conditionId to aggregate into positions
+      const tradesByMarket = new Map<string, UserTrade[]>()
+      for (const trade of trades) {
+        const key = trade.conditionId || trade.title
+        if (!tradesByMarket.has(key)) tradesByMarket.set(key, [])
+        tradesByMarket.get(key)!.push(trade)
+      }
+      
+      // Aggregate each market's trades
+      for (const [, marketTrades] of tradesByMarket) {
+        const buyTrades = marketTrades.filter(t => t.side === 'BUY')
+        if (buyTrades.length === 0) continue
+        
+        const totalSize = buyTrades.reduce((sum, t) => sum + t.size, 0)
+        const totalValue = buyTrades.reduce((sum, t) => sum + t.size * t.price, 0)
+        const avgPrice = totalValue / totalSize
+        const latestTrade = buyTrades.reduce((latest, t) => 
+          normalizeTimestamp(t.timestamp) > normalizeTimestamp(latest.timestamp) ? t : latest
+        )
+        
+        if (totalValue < minValue) continue
+        if (avgPrice * 100 >= 99 || avgPrice * 100 <= 1) continue
+        
+        signals.push({
+          title: latestTrade.title || 'Unknown Market',
+          outcome: latestTrade.outcome || 'Yes',
+          side: 'BUY',
+          size: totalSize,
+          price: avgPrice,
+          timestamp: latestTrade.timestamp,
+          eventSlug: latestTrade.eventSlug,
+          conditionId: latestTrade.conditionId,
+          proxyWallet: walletAddress,
+          traderPnl: finalTraderInfo.pnl,
+          traderRank: finalTraderInfo.rank,
+          traderProfileImage: finalTraderInfo.profileImage,
+          traderName: finalTraderInfo.userName,
+          confidence: (isTop100 ? 'High' : totalValue >= 100000 ? 'High' : totalValue >= 50000 ? 'Medium' : 'Low') as 'High' | 'Medium' | 'Low',
+          isWhale: totalValue >= 100000,
+          isTop100: isTop100,
         })
       }
-      return []
-    } catch { return [] }
+    } catch {}
+    
+    return signals
+  }
+  
+  // Process Top100 Vantake traders (first 20 for speed)
+  const top100ToFetch = VANTAKE_TOP_100_WALLETS.slice(0, 20)
+  const top100Promises = top100ToFetch.map(async (wallet) => {
+    processedWallets.add(wallet.toLowerCase())
+    return processTradesForWallet(wallet, true)
   })
+  
+  // Process leaderboard traders that are NOT in Top100
+  const leaderboardPromises = traders.slice(0, 15).map(async (trader) => {
+    const walletLower = trader.proxyWallet.toLowerCase()
+    if (processedWallets.has(walletLower)) return []
+    processedWallets.add(walletLower)
+    
+    const isTop100 = TOP100_SET.has(walletLower)
+    return processTradesForWallet(trader.proxyWallet, isTop100, {
+      pnl: trader.pnl,
+      rank: trader.rank,
+      profileImage: trader.profileImage,
+      userName: trader.userName,
+    })
+  })
+  
+  // Run all in parallel
+  const [top100Results, leaderboardResults] = await Promise.all([
+    Promise.all(top100Promises),
+    Promise.all(leaderboardPromises),
+  ])
+  
+  top100Results.forEach(signals => allSignals.push(...signals))
+  leaderboardResults.forEach(signals => allSignals.push(...signals))
+  
+  // Deduplicate: keep only the largest position per market per trader
+  const deduped = new Map<string, SignalEntry>()
+  for (const signal of allSignals) {
+    const key = `${signal.proxyWallet}-${signal.conditionId || signal.eventSlug || signal.title}`
+    const existing = deduped.get(key)
+    if (!existing || (signal.size * signal.price) > (existing.size * existing.price)) {
+      deduped.set(key, signal)
+    }
+  }
+  
+  const finalSignals = Array.from(deduped.values())
+  // Sort by timestamp (newest first)
+  finalSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
 
-  const tradeResults = await Promise.all(tradePromises)
-  tradeResults.forEach(trades => allSignals.push(...trades))
-  allSignals.sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp))
-
-  return { traders, signals: allSignals }
+  // Limit to MAX_SIGNALS
+  return { traders: traders.slice(0, 10), signals: finalSignals.slice(0, MAX_SIGNALS) }
 }
 
 export default function InsiderSignalsPage() {
-  const { data, isLoading, mutate } = useSWR('insider-signals', signalsFetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 120000, // Cache for 2 minutes
-  })
+  const router = useRouter()
+  const [isAuthChecking, setIsAuthChecking] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  
+  // Check auth immediately on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.replace('/auth/login')
+        return
+      }
+      setIsAuthenticated(true)
+      setIsAuthChecking(false)
+    }
+    checkAuth()
+  }, [router])
+
+  const { data, isLoading, mutate } = useSWR(
+    isAuthenticated ? 'insider-signals' : null, // Only fetch when authenticated
+    signalsFetcher, 
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 300000, // Cache for 5 minutes
+      revalidateOnReconnect: false,
+    }
+  )
   const signals = data?.signals || []
   const topTraders = data?.traders || []
 
   const [sortBy, setSortBy] = useState<SortOption>('Recent')
   const [minSize, setMinSize] = useState('')
   const [whalesOnly, setWhalesOnly] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(30)
+  
+  const LOAD_INCREMENT = 30
+  const MAX_VISIBLE = 150
 
   const filteredSignals = useMemo(() => {
     let result = [...signals]
@@ -308,138 +500,168 @@ export default function InsiderSignalsPage() {
     return result
   }, [signals, minSize, whalesOnly, sortBy])
 
+  const visibleSignals = useMemo(() => {
+    return filteredSignals.slice(0, visibleCount)
+  }, [filteredSignals, visibleCount])
+
+  const hasMore = filteredSignals.length > visibleCount && visibleCount < MAX_VISIBLE
 
   const whaleCount = signals.filter((s) => s.isWhale).length
   const totalVolume = signals.reduce((acc, s) => acc + s.size * s.price, 0)
+
+  // Show loading while checking auth
+  if (isAuthChecking) {
+    return (
+      <AppShell title="Insider Signals" subtitle="Real-time trades from top Polymarket traders">
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </AppShell>
+    )
+  }
 
   return (
     <AppShell title="Insider Signals" subtitle="Real-time trades from top Polymarket traders">
       <div className="space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div className="sharp-panel p-4">
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
+          <div className="sharp-panel p-3 sm:p-4">
             <div className="flex items-center gap-2 text-primary">
               <img
                 src="/icon-lightning.png"
                 alt="Total Signals"
-                className="h-12 w-12 object-contain"
+                className="h-8 w-8 sm:h-12 sm:w-12 object-contain"
                 style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
               />
               {isLoading ? (
-                <Skeleton className="h-8 w-12" />
+                <Skeleton className="h-6 sm:h-8 w-10 sm:w-12" />
               ) : (
-                <span className="text-2xl font-bold">{signals.length}</span>
+                <span className="text-xl sm:text-2xl font-bold">{signals.length}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Total Signals</div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Total Signals</div>
           </div>
-          <div className="sharp-panel p-4">
+          <div className="sharp-panel p-3 sm:p-4">
             <div className="flex items-center gap-2 text-primary">
               <img
                 src="/icons/top-traders.png"
                 alt="Top Traders"
-                className="h-12 w-12 object-contain"
+                className="h-8 w-8 sm:h-12 sm:w-12 object-contain"
                 style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
               />
               {isLoading ? (
-                <Skeleton className="h-8 w-12" />
+                <Skeleton className="h-6 sm:h-8 w-10 sm:w-12" />
               ) : (
-                <span className="text-2xl font-bold">{topTraders.length}</span>
+                <span className="text-xl sm:text-2xl font-bold">{topTraders.length}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Top Traders</div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Top Traders</div>
           </div>
-          <div className="sharp-panel p-4">
+          <div className="sharp-panel p-3 sm:p-4">
             <div className="flex items-center gap-2 text-yellow-500">
               <img
                 src="/icon-whale.png"
                 alt="Whale Trades"
-                className="h-12 w-12 object-contain"
+                className="h-8 w-8 sm:h-12 sm:w-12 object-contain"
                 style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
               />
               {isLoading ? (
-                <Skeleton className="h-8 w-12" />
+                <Skeleton className="h-6 sm:h-8 w-10 sm:w-12" />
               ) : (
-                <span className="text-2xl font-bold">{whaleCount}</span>
+                <span className="text-xl sm:text-2xl font-bold">{whaleCount}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Whale Trades</div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Whale Trades</div>
           </div>
-          <div className="sharp-panel p-4">
+          <div className="sharp-panel p-3 sm:p-4">
             <div className="flex items-center gap-2 text-foreground">
               <img
                 src="/icon-volume.png"
                 alt="Total Volume"
-                className="h-12 w-12 object-contain"
+                className="h-8 w-8 sm:h-12 sm:w-12 object-contain"
                 style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
               />
               {isLoading ? (
-                <Skeleton className="h-8 w-20" />
+                <Skeleton className="h-6 sm:h-8 w-14 sm:w-20" />
               ) : (
-                <span className="text-2xl font-bold">{formatVolume(totalVolume)}</span>
+                <span className="text-xl sm:text-2xl font-bold">{formatVolume(totalVolume)}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Total Volume</div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Total Volume</div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="sharp-panel p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Filter className="h-4 w-4" />
-              <span className="text-sm font-medium">Filters</span>
+        <div className="sharp-panel p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+            <div className="flex items-center justify-between sm:justify-start gap-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Filter className="h-4 w-4" />
+                <span className="text-sm font-medium">Filters</span>
+              </div>
+              {/* Refresh - mobile position */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => mutate()}
+                disabled={isLoading}
+                className="gap-2 bg-transparent border-border sm:hidden"
+              >
+                <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+              </Button>
             </div>
 
-            {/* Sort */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 bg-transparent border-border">
-                  Sort: {sortBy}
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-card border-border">
-                {sortOptions.map((option) => (
-                  <DropdownMenuItem
-                    key={option}
-                    onClick={() => setSortBy(option)}
-                    className={cn(sortBy === option && 'bg-primary/10 text-primary')}
-                  >
-                    {option}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              {/* Sort */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2 bg-transparent border-border text-xs sm:text-sm">
+                    Sort: {sortBy}
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="bg-card border-border">
+                  {sortOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={option}
+                      onClick={() => setSortBy(option)}
+                      className={cn(sortBy === option && 'bg-primary/10 text-primary')}
+                    >
+                      {option}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-            {/* Min Size */}
-            <Input
-              type="number"
-              placeholder="Min size ($)"
-              value={minSize}
-              onChange={(e) => setMinSize(e.target.value)}
-              className="w-32 bg-secondary border-border text-sm"
-            />
-
-            {/* Whales Only */}
-            <div className="flex items-center gap-2">
-              <Switch
-                id="whales-only"
-                checked={whalesOnly}
-                onCheckedChange={setWhalesOnly}
+              {/* Min Size */}
+              <Input
+                type="number"
+                placeholder="Min $"
+                value={minSize}
+                onChange={(e) => setMinSize(e.target.value)}
+                className="w-20 sm:w-32 bg-secondary border-border text-sm"
               />
-              <Label htmlFor="whales-only" className="text-sm text-muted-foreground">
-                Whales only
-              </Label>
+
+              {/* Whales Only */}
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="whales-only"
+                  checked={whalesOnly}
+                  onCheckedChange={setWhalesOnly}
+                />
+                <Label htmlFor="whales-only" className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
+                  Whales
+                </Label>
+              </div>
             </div>
 
-            {/* Refresh */}
+            {/* Refresh - desktop position */}
             <Button
               variant="outline"
               size="sm"
               onClick={() => mutate()}
               disabled={isLoading}
-              className="gap-2 bg-transparent border-border ml-auto"
+              className="gap-2 bg-transparent border-border hidden sm:flex sm:ml-auto"
             >
               <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
               Refresh
@@ -479,17 +701,30 @@ export default function InsiderSignalsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredSignals.map((signal, i) => (
-              <SignalCard key={`${signal.transactionHash}-${i}`} signal={signal} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {visibleSignals.map((signal, i) => (
+                <SignalCard key={`${signal.transactionHash}-${i}`} signal={signal} />
+              ))}
+            </div>
+            
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="flex justify-center mt-6">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setVisibleCount(prev => Math.min(prev + LOAD_INCREMENT, MAX_VISIBLE))}
+                  className="gap-2 bg-transparent border-border"
+                >
+                  Load More ({filteredSignals.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
-        {/* Data Source */}
-        <div className="text-center text-xs text-muted-foreground">
-          Real-time data from top {topTraders.length} Polymarket traders
-        </div>
+
       </div>
     </AppShell>
   )
