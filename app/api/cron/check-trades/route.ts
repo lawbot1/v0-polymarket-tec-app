@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendTelegramMessage, formatTradeNotification, createTradeInlineKeyboard } from '@/lib/telegram'
+import { processCopyTradesForTrade } from '@/lib/copytrade'
 
 const DATA_API_BASE = 'https://data-api.polymarket.com'
 
@@ -36,6 +37,8 @@ export async function GET(req: NextRequest) {
   let sent = 0
   let inApp = 0
   let errors = 0
+  let copyTradesExecuted = 0
+  let copyTradeErrors = 0
 
   try {
     // 1. Get all tracked wallets with their user info
@@ -160,6 +163,63 @@ export async function GET(req: NextRequest) {
                 trade_id: tradeId,
               })
 
+            // Execute copy trades for subscribers of this wallet
+            if (trade.conditionId && trade.outcome && trade.side) {
+              try {
+                // Get copy trade subscriptions for this wallet
+                const { data: copySubscriptions } = await supabase
+                  .from('telegram_copytrade_subscriptions')
+                  .select('telegram_user_id, encrypted_private_key, trade_size, slippage, mode')
+                  .eq('target_wallet', walletAddress.toLowerCase())
+                  .eq('is_active', true)
+                  .eq('mode', 'auto')
+                  .not('encrypted_private_key', 'is', null)
+
+                if (copySubscriptions && copySubscriptions.length > 0) {
+                  const copyResults = await processCopyTradesForTrade(
+                    {
+                      conditionId: trade.conditionId,
+                      outcome: trade.outcome,
+                      side: trade.side,
+                      price: trade.price,
+                      size: trade.size,
+                    },
+                    copySubscriptions.map(s => ({
+                      telegram_user_id: s.telegram_user_id,
+                      encrypted_private_key: s.encrypted_private_key!,
+                      trade_size: s.trade_size || 10,
+                      max_slippage: (s.slippage || 5) / 100, // Convert from % to decimal
+                      mode: s.mode || 'auto',
+                    }))
+                  )
+
+                  // Notify users about copy trade results
+                  for (const cr of copyResults) {
+                    if (cr.result.success) {
+                      copyTradesExecuted++
+                      // Send success notification to user
+                      await sendTelegramMessage(
+                        cr.userId,
+                        `Copy trade executed!\n\nMarket: ${trade.title}\nOutcome: ${trade.outcome}\nSide: ${trade.side}\nOrder ID: ${cr.result.orderId || 'N/A'}`,
+                        'HTML'
+                      )
+                    } else {
+                      copyTradeErrors++
+                      // Send error notification to user
+                      await sendTelegramMessage(
+                        cr.userId,
+                        `Copy trade failed: ${cr.result.error}`,
+                        'HTML'
+                      )
+                    }
+                  }
+                }
+              } catch (copyErr) {
+                console.error('[Cron] Copy trade error:', copyErr)
+                copyTradeErrors++
+              }
+            }
+
             // Rate limit
             await new Promise(resolve => setTimeout(resolve, 50))
           }
@@ -173,6 +233,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       telegramSent: sent,
       inAppCreated: inApp,
+      copyTradesExecuted,
+      copyTradeErrors,
       errors,
       walletsChecked: walletGroups.size,
       timestamp: new Date().toISOString(),
