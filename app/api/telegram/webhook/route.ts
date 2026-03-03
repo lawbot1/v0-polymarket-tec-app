@@ -208,12 +208,6 @@ export async function POST(req: NextRequest) {
       const chatId = String(callbackQuery.message?.chat?.id)
       const messageId = callbackQuery.message?.message_id
       
-      // Handle "Copytrade AI (Soon)" button
-      if (callbackData === 'copytrade_ai_soon') {
-        await answerCallbackQuery(callbackQuery.id, 'Copytrade AI is coming soon! Stay tuned.')
-        return NextResponse.json({ ok: true })
-      }
-      
       // Main menu (same as /start) - with photo
       if (callbackData === 'menu_main') {
         await answerCallbackQuery(callbackQuery.id)

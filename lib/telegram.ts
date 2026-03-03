@@ -50,14 +50,13 @@ export async function sendTelegramMessage(
 }
 
 // Create inline keyboard for trade notifications
-export function createTradeInlineKeyboard(slug?: string): InlineKeyboardMarkup | undefined {
-  if (!slug) return undefined
+export function createTradeInlineKeyboard(walletAddress?: string): InlineKeyboardMarkup | undefined {
+  if (!walletAddress) return undefined
   
   return {
     inline_keyboard: [
       [
-        { text: '📊 Copytrade', url: `https://polymarket.com/event/${slug}` },
-        { text: '🤖 Copytrade AI (Soon)', callback_data: 'copytrade_ai_soon' },
+        { text: '👤 Polymarket Profile', url: `https://polymarket.com/profile/${walletAddress}` },
       ]
     ]
   }
@@ -144,10 +143,12 @@ export function formatTradeNotification(trade: {
   size: number
   price: number
   slug?: string
+  transactionHash?: string
 }) {
   const displayName = trade.traderName || `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}`
   const value = (trade.size * trade.price).toFixed(2)
   const pricePercent = (trade.price * 100).toFixed(0)
+  const shares = trade.size.toLocaleString()
   
   const isBuy = trade.side?.toUpperCase() === 'BUY'
   
@@ -161,18 +162,24 @@ export function formatTradeNotification(trade: {
     ? `<a href="https://polymarket.com/event/${trade.slug}">${trade.market}</a>`
     : trade.market
 
+  // Build transaction link
+  const txLink = trade.transactionHash 
+    ? `<a href="https://polygonscan.com/tx/${trade.transactionHash}">Polygonscan</a>`
+    : null
+
   const lines = [
-    `<b>${isBuy ? 'BUY' : 'SELL'}</b> — "${trade.outcome}"`,
+    `🎯 <b>${isBuy ? 'BUY' : 'SELL'}</b> — "${trade.outcome}"`,
     ``,
-    `Smart Wallet: <b>${displayName}</b> (<code>${trade.walletAddress}</code>)`,
-    `Market: "${marketLink}"`,
+    `Smart Wallet: <b>${displayName}</b>`,
+    `Market: ${marketLink}`,
     ``,
-    `• Capital Deployed: <b>${formattedValue}</b>`,
+    `• Capital Deployed: <b>${formattedValue}</b> = <b>${shares}</b> Shares`,
     `• Entry: <b>${pricePercent}c</b>`,
-    `• Size: <b>${trade.size.toLocaleString()}</b> shares`,
-    ``,
-    `<i>Vantake — Real-time Capital Intelligence</i>`,
   ]
+
+  if (txLink) {
+    lines.push(`• Tx: ${txLink}`)
+  }
 
   return lines.join('\n')
 }

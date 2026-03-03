@@ -140,10 +140,11 @@ export async function GET(req: NextRequest) {
                 size: trade.size || 0,
                 price: trade.price || 0,
                 slug: trade.slug,
+                transactionHash: trade.transactionHash,
               })
 
-              // Create inline keyboard with Copytrade buttons
-              const inlineKeyboard = createTradeInlineKeyboard(trade.slug)
+              // Create inline keyboard with Polymarket Profile button
+              const inlineKeyboard = createTradeInlineKeyboard(walletAddress)
 
               const success = await sendTelegramMessage(settings.telegram_chat_id, message, 'HTML', inlineKeyboard)
               if (success) sent++
