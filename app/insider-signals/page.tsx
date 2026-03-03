@@ -158,58 +158,60 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
   const category = getTradeCategory(signal)
 
   return (
-    <div className="sharp-panel p-4 hover:border-primary/30 transition-colors">
+    <div className="sharp-panel p-3 sm:p-4 hover:border-primary/30 transition-colors">
       {/* Trader + time */}
-      <div className="flex items-center justify-between mb-3">
-        <Link href={`/trader/${signal.proxyWallet}`} className="flex items-center gap-2 group min-w-0">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <Link href={`/trader/${signal.proxyWallet}`} className="flex items-center gap-2 group min-w-0 flex-1">
           {signal.traderProfileImage ? (
             <Image
               src={signal.traderProfileImage}
               alt={displayName}
               width={28}
               height={28}
-              className="h-7 w-7 rounded-full object-cover flex-shrink-0"
+              className="h-6 w-6 sm:h-7 sm:w-7 rounded-full object-cover flex-shrink-0"
             />
           ) : (
-            <WalletAvatar wallet={signal.proxyWallet || ''} size={28} />
+            <WalletAvatar wallet={signal.proxyWallet || ''} size={24} className="sm:h-7 sm:w-7" />
           )}
-          <span className="text-sm font-medium text-foreground group-hover:underline truncate">{displayName}</span>
-          {/* Top 100 Vantake badge */}
-          {signal.isTop100 && (
-            <div className="flex items-center gap-1 flex-shrink-0" title="This trader is in Vantake Top 100 human traders">
-              <Image
-                src="/vantake-main-logo.png"
-                alt="Vantake"
-                width={14}
-                height={14}
-                className="h-3.5 w-3.5 rounded-sm"
-              />
-              <Badge variant="outline" className="text-[10px] border-primary/50 text-primary px-1.5 py-0">
-                Top 100
+          <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 min-w-0">
+            <span className="text-xs sm:text-sm font-medium text-foreground group-hover:underline truncate max-w-[120px] sm:max-w-none">{displayName}</span>
+            {/* Top 100 Vantake badge */}
+            {signal.isTop100 && (
+              <div className="flex items-center gap-1 flex-shrink-0" title="This trader is in Vantake Top 100 human traders">
+                <Image
+                  src="/vantake-main-logo.png"
+                  alt="Vantake"
+                  width={12}
+                  height={12}
+                  className="h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-sm"
+                />
+                <Badge variant="outline" className="text-[9px] sm:text-[10px] border-primary/50 text-primary px-1 sm:px-1.5 py-0">
+                  Top 100
+                </Badge>
+              </div>
+            )}
+            {signal.isWhale && !signal.isTop100 && (
+              <Badge variant="outline" className="text-[9px] sm:text-[10px] border-yellow-500/30 text-yellow-500 flex-shrink-0 px-1 sm:px-1.5">
+                Whale
               </Badge>
-            </div>
-          )}
-          {signal.isWhale && !signal.isTop100 && (
-            <Badge variant="outline" className="text-[10px] border-yellow-500/30 text-yellow-500 flex-shrink-0">
-              Whale
-            </Badge>
-          )}
+            )}
+          </div>
         </Link>
-        <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">{timeAgo(signal.timestamp)}</span>
+        <span className="text-[10px] sm:text-xs text-muted-foreground flex-shrink-0">{timeAgo(signal.timestamp)}</span>
       </div>
 
       {/* Market title + outcome badge */}
-      <div className="flex items-start justify-between gap-3 mb-3">
+      <div className="flex items-start justify-between gap-2 sm:gap-3 mb-3">
         <a
           href={signal.eventSlug ? `https://polymarket.com/event/${signal.eventSlug}` : `https://polymarket.com`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-foreground leading-snug hover:underline line-clamp-2"
+          className="text-xs sm:text-sm text-foreground leading-snug hover:underline line-clamp-2"
         >
           {signal.title || 'Unknown Market'}
         </a>
         <span className={cn(
-          'flex-shrink-0 inline-flex px-2.5 py-0.5 rounded text-xs font-semibold',
+          'flex-shrink-0 inline-flex px-2 sm:px-2.5 py-0.5 rounded text-[10px] sm:text-xs font-semibold',
           badgeColor
         )}>
           {outcomeText}
@@ -217,8 +219,8 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
       </div>
 
       {/* Position details */}
-      <div className="space-y-1.5 border-t border-border pt-3">
-        <div className="flex items-center justify-between text-xs">
+      <div className="space-y-1 sm:space-y-1.5 border-t border-border pt-2 sm:pt-3">
+        <div className="flex items-center justify-between text-[11px] sm:text-xs">
           <span className="text-muted-foreground">Position Value</span>
           <span className="text-foreground font-semibold tabular-nums">
             ${signal.size * signal.price >= 1000
@@ -226,24 +228,24 @@ function SignalCard({ signal }: { signal: SignalEntry }) {
               : (signal.size * signal.price).toFixed(2)}
           </span>
         </div>
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center justify-between text-[11px] sm:text-xs">
           <span className="text-muted-foreground">Entry Price</span>
           <span className="text-foreground font-semibold tabular-nums">
             {((signal.price || 0) * 100).toFixed(1)}c
           </span>
         </div>
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center justify-between text-[11px] sm:text-xs">
           <span className="text-muted-foreground">Shares</span>
           <span className="text-foreground font-semibold tabular-nums">
             {signal.size >= 1000 ? (signal.size / 1000).toFixed(1) + 'k' : signal.size.toFixed(0)}
           </span>
         </div>
-        <div className="pt-2 mt-2 border-t border-border">
+        <div className="pt-2 mt-1.5 sm:mt-2 border-t border-border">
           <a
             href={signal.eventSlug ? `https://polymarket.com/event/${signal.eventSlug}` : `https://polymarket.com`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 text-xs text-primary hover:text-primary/80 transition-colors"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-primary hover:text-primary/80 transition-colors"
           >
             <ExternalLink className="h-3 w-3" />
             View on Polymarket
@@ -671,38 +673,38 @@ export default function InsiderSignalsPage() {
 
         {/* Signals Feed */}
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="sharp-panel p-4">
+              <div key={i} className="sharp-panel p-3 sm:p-4">
                 <div className="flex items-center gap-3">
-                  <Skeleton className="h-7 w-7 rounded-full" />
+                  <Skeleton className="h-6 w-6 sm:h-7 sm:w-7 rounded-full" />
                   <div className="space-y-2">
                     <Skeleton className="h-4 w-24" />
                     <Skeleton className="h-3 w-16" />
                   </div>
                 </div>
-                <Skeleton className="mt-4 h-10 w-full" />
-                <div className="mt-4 space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="mt-3 sm:mt-4 h-8 sm:h-10 w-full" />
+                <div className="mt-3 sm:mt-4 space-y-2">
+                  <Skeleton className="h-3 sm:h-4 w-full" />
+                  <Skeleton className="h-3 sm:h-4 w-full" />
+                  <Skeleton className="h-3 sm:h-4 w-3/4" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredSignals.length === 0 ? (
-          <div className="sharp-panel p-12 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-              <Zap className="h-8 w-8 text-muted-foreground" />
+          <div className="sharp-panel p-8 sm:p-12 text-center">
+            <div className="mx-auto flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-muted">
+              <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
             </div>
-            <h3 className="mt-4 text-lg font-medium text-foreground">No signals found</h3>
-            <p className="mt-2 text-muted-foreground">
+            <h3 className="mt-3 sm:mt-4 text-base sm:text-lg font-medium text-foreground">No signals found</h3>
+            <p className="mt-2 text-sm sm:text-base text-muted-foreground">
               Try adjusting your filters or refresh to see more signals.
             </p>
           </div>
         ) : (
           <>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {visibleSignals.map((signal, i) => (
                 <SignalCard key={`${signal.transactionHash}-${i}`} signal={signal} />
               ))}
