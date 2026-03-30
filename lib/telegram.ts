@@ -6,18 +6,40 @@ function getToken(): string {
   return token
 }
 
-// Send a message to a specific chat
-export async function sendTelegramMessage(chatId: string, text: string, parseMode: 'HTML' | 'Markdown' = 'HTML') {
+// Inline keyboard button types
+type InlineKeyboardButton = {
+  text: string
+  url?: string
+  callback_data?: string
+}
+
+type InlineKeyboardMarkup = {
+  inline_keyboard: InlineKeyboardButton[][]
+}
+
+// Send a message to a specific chat with optional inline keyboard
+export async function sendTelegramMessage(
+  chatId: string, 
+  text: string, 
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  replyMarkup?: InlineKeyboardMarkup
+) {
   const token = getToken()
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    text,
+    parse_mode: parseMode,
+    disable_web_page_preview: true,
+  }
+  
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup
+  }
+  
   const res = await fetch(`${TELEGRAM_API}${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: parseMode,
-      disable_web_page_preview: true,
-    }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const err = await res.text()
@@ -25,6 +47,70 @@ export async function sendTelegramMessage(chatId: string, text: string, parseMod
     return false
   }
   return true
+}
+
+// Create inline keyboard for trade notifications
+export function createTradeInlineKeyboard(walletAddress?: string): InlineKeyboardMarkup | undefined {
+  if (!walletAddress) return undefined
+  
+  return {
+    inline_keyboard: [
+      [
+        { text: '👤 Polymarket Profile', url: `https://polymarket.com/profile/${walletAddress}` },
+      ]
+    ]
+  }
+}
+
+// Send a photo with caption and optional inline keyboard
+export async function sendTelegramPhoto(
+  chatId: string,
+  photoUrl: string,
+  caption?: string,
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  replyMarkup?: InlineKeyboardMarkup
+) {
+  const token = getToken()
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    photo: photoUrl,
+  }
+  
+  if (caption) {
+    body.caption = caption
+    body.parse_mode = parseMode
+  }
+  
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup
+  }
+  
+  const res = await fetch(`${TELEGRAM_API}${token}/sendPhoto`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    console.error('[Telegram] sendPhoto failed:', err)
+    return false
+  }
+  return true
+}
+
+// Answer callback query (for inline button clicks)
+export async function answerCallbackQuery(callbackQueryId: string, text?: string, showAlert = false) {
+  const token = getToken()
+  const res = await fetch(`${TELEGRAM_API}${token}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      callback_query_id: callbackQueryId,
+      text,
+      show_alert: showAlert,
+    }),
+  })
+  return res.ok
 }
 
 // Set webhook URL for the bot
@@ -56,22 +142,46 @@ export function formatTradeNotification(trade: {
   side: string
   size: number
   price: number
+  slug?: string
+  transactionHash?: string
 }) {
-  const name = trade.traderName || `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}`
+  const displayName = trade.traderName || `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}`
   const value = (trade.size * trade.price).toFixed(2)
-  const outcomeColor = trade.outcome?.toLowerCase() === 'yes' ? '🟢' : trade.outcome?.toLowerCase() === 'no' ? '🔴' : '🟡'
+  const pricePercent = (trade.price * 100).toFixed(0)
+  const shares = trade.size.toLocaleString()
+  
+  const isBuy = trade.side?.toUpperCase() === 'BUY'
+  
+  // Format value with K suffix for large amounts
+  const formattedValue = parseFloat(value) >= 1000 
+    ? `$${(parseFloat(value) / 1000).toFixed(1)}K` 
+    : `$${value}`
 
-  return [
-    `<b>🔔 New Trade Alert</b>`,
+  // Build market link
+  const marketLink = trade.slug 
+    ? `<a href="https://polymarket.com/event/${trade.slug}">${trade.market}</a>`
+    : trade.market
+
+  // Build transaction link
+  const txLink = trade.transactionHash 
+    ? `<a href="https://polygonscan.com/tx/${trade.transactionHash}">Polygonscan</a>`
+    : null
+
+  const lines = [
+    `🎯 <b>${isBuy ? 'BUY' : 'SELL'}</b> — "${trade.outcome}"`,
     ``,
-    `<b>Trader:</b> ${name}`,
-    `<b>Market:</b> ${trade.market}`,
-    `<b>Side:</b> ${trade.side} ${outcomeColor} <b>${trade.outcome}</b>`,
-    `<b>Value:</b> $${value}`,
-    `<b>Price:</b> ${(trade.price * 100).toFixed(1)}¢`,
+    `Smart Wallet: <b>${displayName}</b>`,
+    `Market: ${marketLink}`,
     ``,
-    `<i>via Vantake</i>`,
-  ].join('\n')
+    `• Capital Deployed: <b>${formattedValue}</b> = <b>${shares}</b> Shares`,
+    `• Entry: <b>${pricePercent}c</b>`,
+  ]
+
+  if (txLink) {
+    lines.push(`• Tx: ${txLink}`)
+  }
+
+  return lines.join('\n')
 }
 
 // Generate a random 8-character linking code
@@ -82,4 +192,132 @@ export function generateLinkingCode(): string {
     code += chars.charAt(Math.floor(Math.random() * chars.length))
   }
   return code
+}
+
+// Main menu inline keyboard
+export function getMainMenuKeyboard(): InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [
+        { text: '👛 Wallet', callback_data: 'menu_wallet' },
+        { text: '👤 Profile', callback_data: 'menu_profile' },
+      ],
+      [
+        { text: '📈 Positions', callback_data: 'menu_positions' },
+        { text: '🤖 Copy Trade', callback_data: 'menu_copytrade' },
+      ],
+      [
+        { text: '🎁 Referral', callback_data: 'menu_referral' },
+      ],
+    ]
+  }
+}
+
+// Wallet menu keyboard - backTo parameter for navigation history
+export function getWalletMenuKeyboard(hasWallet: boolean, backTo: string = 'menu_main'): InlineKeyboardMarkup {
+  if (!hasWallet) {
+    return {
+      inline_keyboard: [
+        [
+          { text: '+ Create a wallet', callback_data: 'wallet_create' },
+        ],
+        [
+          { text: 'Import', callback_data: 'wallet_import' },
+        ],
+        [
+          { text: 'Back', callback_data: backTo },
+        ],
+      ]
+    }
+  }
+  
+  return {
+    inline_keyboard: [
+      [
+        { text: '💸 Withdraw', callback_data: 'wallet_withdraw' },
+        { text: '➕ Deposit', callback_data: 'wallet_deposit' },
+      ],
+      [
+        { text: '📤 Export', callback_data: 'wallet_export' },
+        { text: '🔄 Refresh', callback_data: 'wallet_refresh' },
+      ],
+      [
+        { text: '⬅️ Back', callback_data: 'menu_main' },
+      ],
+    ]
+  }
+}
+
+// Edit message text with new text and keyboard
+export async function editTelegramMessage(
+  chatId: string,
+  messageId: number,
+  text: string,
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  replyMarkup?: InlineKeyboardMarkup
+) {
+  const token = getToken()
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: parseMode,
+    disable_web_page_preview: true,
+  }
+  
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup
+  }
+  
+  const res = await fetch(`${TELEGRAM_API}${token}/editMessageText`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.ok
+}
+
+// Edit message caption (for photo messages) with new text and keyboard
+export async function editMessageCaption(
+  chatId: string,
+  messageId: number,
+  caption: string,
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  replyMarkup?: InlineKeyboardMarkup
+) {
+  const token = getToken()
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+    caption,
+    parse_mode: parseMode,
+  }
+  
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup
+  }
+  
+  const res = await fetch(`${TELEGRAM_API}${token}/editMessageCaption`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.ok
+}
+
+// Smart edit - tries editMessageText first, falls back to editMessageCaption for photo messages
+export async function smartEditMessage(
+  chatId: string,
+  messageId: number,
+  text: string,
+  parseMode: 'HTML' | 'Markdown' = 'HTML',
+  replyMarkup?: InlineKeyboardMarkup
+) {
+  // Try editing as text first
+  const textSuccess = await editTelegramMessage(chatId, messageId, text, parseMode, replyMarkup)
+  if (textSuccess) return true
+  
+  // If failed, try editing as caption (for photo messages)
+  const captionSuccess = await editMessageCaption(chatId, messageId, text, parseMode, replyMarkup)
+  return captionSuccess
 }

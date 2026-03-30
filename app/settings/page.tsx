@@ -28,12 +28,12 @@ export default function SettingsPage() {
     polymarket_wallet: '',
   })
 
-  // Real DB columns from notification_settings
+  // DB columns: large_trade_alerts, portfolio_updates, market_signals, daily_digest
   const [notifications, setNotifications] = useState({
     large_trade_alerts: true,
-    new_market_alerts: false,
-    whale_alerts: true,
-    weekly_report: true,
+    portfolio_updates: false,
+    market_signals: true,
+    daily_digest: true,
   })
 
   // Telegram bot settings
@@ -41,8 +41,6 @@ export default function SettingsPage() {
   const [telegramEnabled, setTelegramEnabled] = useState(false)
   const [telegramLinked, setTelegramLinked] = useState(false)
   const [linkingCode, setLinkingCode] = useState('')
-  const [linkingCodeExpires, setLinkingCodeExpires] = useState('')
-  const [generatingCode, setGeneratingCode] = useState(false)
 
   useEffect(() => {
     const loadData = async () => {
@@ -67,7 +65,9 @@ export default function SettingsPage() {
           telegram_handle: profile.telegram_handle || '',
           polymarket_wallet: profile.polymarket_wallet || '',
         })
-        // Check if telegram is linked
+        if (profile.telegram_linking_code) {
+          setLinkingCode(profile.telegram_linking_code)
+        }
         if (profile.telegram_chat_id) {
           setTelegramChatId(profile.telegram_chat_id)
           setTelegramLinked(true)
@@ -79,17 +79,16 @@ export default function SettingsPage() {
       const { data: notifSettings } = await supabase
         .from('notification_settings')
         .select('*')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single()
 
       if (notifSettings) {
         setNotifications({
           large_trade_alerts: notifSettings.large_trade_alerts ?? true,
-          new_market_alerts: notifSettings.new_market_alerts ?? false,
-          whale_alerts: notifSettings.whale_alerts ?? true,
-          weekly_report: notifSettings.weekly_report ?? true,
+          portfolio_updates: notifSettings.portfolio_updates ?? false,
+          market_signals: notifSettings.market_signals ?? true,
+          daily_digest: notifSettings.daily_digest ?? true,
         })
-        // Also check telegram fields if they exist on notification_settings
         if (notifSettings.telegram_notifications_enabled !== undefined) {
           setTelegramEnabled(notifSettings.telegram_notifications_enabled)
         }
@@ -101,14 +100,13 @@ export default function SettingsPage() {
 
       // Load telegram connection status from API
       try {
-        const tgRes = await fetch('/api/telegram/link')
+        const tgRes = await fetch(`/api/telegram/link?userId=${user.id}`)
         if (tgRes.ok) {
           const tgData = await tgRes.json()
           setTelegramLinked(tgData.connected)
           setTelegramEnabled(tgData.enabled)
-          if (tgData.activeCode) {
-            setLinkingCode(tgData.activeCode)
-            setLinkingCodeExpires(tgData.codeExpiresAt)
+          if (tgData.linkingCode) {
+            setLinkingCode(tgData.linkingCode)
           }
         }
       } catch {}
@@ -122,7 +120,6 @@ export default function SettingsPage() {
     if (!userId) return
     setSaving(true)
 
-    // Update profile
     await supabase
       .from('profiles')
       .update({
@@ -133,32 +130,17 @@ export default function SettingsPage() {
       })
       .eq('id', userId)
 
-    // Upsert notification settings (use id = userId since PK is user id)
     await supabase
       .from('notification_settings')
       .upsert({
-        id: userId,
+        user_id: userId,
         ...notifications,
         telegram_notifications_enabled: telegramEnabled,
-        updated_at: new Date().toISOString(),
-      })
+      }, { onConflict: 'user_id' })
 
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
-  }
-
-  const handleGenerateCode = async () => {
-    setGeneratingCode(true)
-    try {
-      const res = await fetch('/api/telegram/link', { method: 'POST' })
-      if (res.ok) {
-        const data = await res.json()
-        setLinkingCode(data.code)
-        setLinkingCodeExpires(data.expiresAt)
-      }
-    } catch {}
-    setGeneratingCode(false)
   }
 
   const copyLinkingCode = () => {
@@ -166,8 +148,9 @@ export default function SettingsPage() {
   }
 
   const handleUnlinkTelegram = async () => {
+    if (!userId) return
     try {
-      const res = await fetch('/api/telegram/link', { method: 'DELETE' })
+      const res = await fetch(`/api/telegram/link?userId=${userId}`, { method: 'DELETE' })
       if (res.ok) {
         setTelegramLinked(false)
         setTelegramChatId('')
@@ -193,13 +176,12 @@ export default function SettingsPage() {
     <AppShell title="Settings">
       <div className="max-w-3xl space-y-6">
 
-        {/* ──── Profile Settings ──── */}
+        {/* Profile Settings */}
         <div className="sharp-panel p-6">
           <div className="mb-6">
             <h2 className="font-medium text-foreground">Profile Settings</h2>
             <p className="text-sm text-muted-foreground">Update your display name and contact info</p>
           </div>
-
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="displayName" className="text-foreground">Display Name</Label>
@@ -211,7 +193,6 @@ export default function SettingsPage() {
                 className="bg-secondary border-border"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="email" className="text-foreground">Email Address</Label>
               <Input
@@ -223,7 +204,6 @@ export default function SettingsPage() {
               />
               <p className="text-xs text-muted-foreground">Email is managed through your account</p>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="wallet" className="text-foreground">Polymarket Wallet</Label>
               <Input
@@ -235,7 +215,6 @@ export default function SettingsPage() {
               />
               <p className="text-xs text-muted-foreground">Your Polymarket wallet address for dashboard stats</p>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="telegram" className="text-foreground">Telegram Username</Label>
               <Input
@@ -249,7 +228,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* ──── Telegram Bot Notifications ──── */}
+        {/* Telegram Bot Notifications */}
         <div className="sharp-panel p-6">
           <div className="mb-6 flex items-start justify-between">
             <div>
@@ -270,14 +249,13 @@ export default function SettingsPage() {
 
           {!telegramLinked ? (
             <div className="space-y-4">
-              {/* Step-by-step guide */}
               <div className="bg-secondary/50 rounded-lg p-4 space-y-3">
                 <p className="text-sm font-medium text-foreground">How to connect:</p>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <div className="flex gap-2">
                     <span className="text-primary font-mono font-bold">1.</span>
                     <span>
-                      Open our Telegram bot:{' '}
+                      {'Open our Telegram bot: '}
                       <a
                         href="https://t.me/VantakeBot"
                         target="_blank"
@@ -295,7 +273,7 @@ export default function SettingsPage() {
                   <div className="flex gap-2">
                     <span className="text-primary font-mono font-bold">3.</span>
                     <div className="flex-1">
-                      <span>Generate a code and send it to the bot:</span>
+                      <span>Send your linking code to the bot:</span>
                       <div className="mt-2">
                         {linkingCode ? (
                           <div className="flex items-center gap-2">
@@ -305,26 +283,9 @@ export default function SettingsPage() {
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={copyLinkingCode}>
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
-                            {linkingCodeExpires && (
-                              <span className="text-[10px] text-muted-foreground">
-                                Expires in 30 min
-                              </span>
-                            )}
                           </div>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-[#26A5E4]/30 text-[#26A5E4] hover:bg-[#26A5E4]/10"
-                            onClick={handleGenerateCode}
-                            disabled={generatingCode}
-                          >
-                            {generatingCode ? (
-                              <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Generating...</>
-                            ) : (
-                              'Generate Linking Code'
-                            )}
-                          </Button>
+                          <span className="text-xs text-muted-foreground">Loading code...</span>
                         )}
                       </div>
                     </div>
@@ -364,25 +325,25 @@ export default function SettingsPage() {
 
                 <div className="flex items-center justify-between py-1.5">
                   <div>
-                    <div className="text-sm text-foreground">Whale Alerts</div>
-                    <div className="text-xs text-muted-foreground">Large trades from top traders</div>
+                    <div className="text-sm text-foreground">Portfolio Updates</div>
+                    <div className="text-xs text-muted-foreground">Updates on your tracked portfolios</div>
                   </div>
                   <Switch
-                    checked={telegramEnabled && notifications.whale_alerts}
+                    checked={telegramEnabled && notifications.portfolio_updates}
                     disabled={!telegramEnabled}
-                    onCheckedChange={(checked) => setNotifications({ ...notifications, whale_alerts: checked })}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, portfolio_updates: checked })}
                   />
                 </div>
 
                 <div className="flex items-center justify-between py-1.5">
                   <div>
-                    <div className="text-sm text-foreground">New Market Alerts</div>
-                    <div className="text-xs text-muted-foreground">Interesting new markets on Polymarket</div>
+                    <div className="text-sm text-foreground">Market Signals</div>
+                    <div className="text-xs text-muted-foreground">Interesting market movements on Polymarket</div>
                   </div>
                   <Switch
-                    checked={telegramEnabled && notifications.new_market_alerts}
+                    checked={telegramEnabled && notifications.market_signals}
                     disabled={!telegramEnabled}
-                    onCheckedChange={(checked) => setNotifications({ ...notifications, new_market_alerts: checked })}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, market_signals: checked })}
                   />
                 </div>
               </div>
@@ -405,7 +366,7 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* ──── In-App Notification Settings ──── */}
+        {/* In-App Notification Settings */}
         <div className="sharp-panel p-6">
           <div className="mb-6">
             <h2 className="font-medium text-foreground">In-App Notifications</h2>
@@ -431,13 +392,13 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-foreground">Whale Alerts</div>
-                  <div className="text-xs text-muted-foreground">Movements from top 1% traders</div>
+                  <div className="text-sm text-foreground">Portfolio Updates</div>
+                  <div className="text-xs text-muted-foreground">Updates on tracked trader portfolios</div>
                 </div>
               </div>
               <Switch
-                checked={notifications.whale_alerts}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, whale_alerts: checked })}
+                checked={notifications.portfolio_updates}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, portfolio_updates: checked })}
               />
             </div>
 
@@ -445,13 +406,13 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3">
                 <Bell className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-foreground">New Market Alerts</div>
-                  <div className="text-xs text-muted-foreground">Alerts when interesting new markets are created</div>
+                  <div className="text-sm text-foreground">Market Signals</div>
+                  <div className="text-xs text-muted-foreground">Alerts on interesting market movements</div>
                 </div>
               </div>
               <Switch
-                checked={notifications.new_market_alerts}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, new_market_alerts: checked })}
+                checked={notifications.market_signals}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, market_signals: checked })}
               />
             </div>
 
@@ -459,13 +420,13 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3">
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-foreground">Weekly Report</div>
-                  <div className="text-xs text-muted-foreground">Weekly summary of top performers and your portfolio</div>
+                  <div className="text-sm text-foreground">Daily Digest</div>
+                  <div className="text-xs text-muted-foreground">Daily summary of top performers and your portfolio</div>
                 </div>
               </div>
               <Switch
-                checked={notifications.weekly_report}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, weekly_report: checked })}
+                checked={notifications.daily_digest}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, daily_digest: checked })}
               />
             </div>
           </div>
@@ -478,9 +439,9 @@ export default function SettingsPage() {
           </Button>
           <Button onClick={handleSave} disabled={saving} className={cn(saved && 'bg-[#22c55e] hover:bg-[#22c55e]/90')}>
             {saving ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{'Saving...'}</>
             ) : saved ? (
-              <><Check className="mr-2 h-4 w-4" />Saved!</>
+              <><Check className="mr-2 h-4 w-4" />{'Saved!'}</>
             ) : (
               'Save Changes'
             )}

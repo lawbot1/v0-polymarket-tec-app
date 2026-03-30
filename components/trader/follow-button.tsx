@@ -314,17 +314,17 @@ export function FollowButton({
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-4 transition-all border',
                 allCategories
-                  ? 'bg-[#6b7a2f]/20 border-[#6b7a2f]/50 text-foreground'
+                  ? 'bg-foreground/10 border-foreground/50 text-foreground'
                   : 'bg-secondary/30 border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
               )}
             >
               <div className={cn(
                 'h-5 w-5 rounded flex items-center justify-center border-2 transition-all shrink-0',
                 allCategories
-                  ? 'bg-[#6b7a2f] border-[#6b7a2f]'
+                  ? 'bg-foreground border-foreground'
                   : 'border-muted-foreground/40'
               )}>
-                {allCategories && <Check className="h-3.5 w-3.5 text-white" />}
+                {allCategories && <Check className="h-3.5 w-3.5 text-background" />}
               </div>
               <span className="font-medium text-sm">Follow all categories</span>
             </button>
@@ -345,7 +345,7 @@ export function FollowButton({
                     className={cn(
                       'px-3 py-2.5 rounded-lg text-sm font-medium transition-all border text-center',
                       isSelected
-                        ? 'bg-[#6b7a2f]/20 border-[#6b7a2f]/50 text-foreground'
+                        ? 'bg-foreground/10 border-foreground/50 text-foreground'
                         : 'bg-secondary/30 border-border text-muted-foreground hover:text-foreground hover:border-foreground/20'
                     )}
                   >

@@ -193,13 +193,14 @@ interface TraderCardProps {
   trader: LeaderboardTrader
   rank: number
   onClick: () => void
+  onMouseEnter?: () => void
   userId: string | null
   followedSet: Set<string>
   trackedSet: Set<string>
   activeCategory?: string
 }
 
-function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet, activeCategory }: TraderCardProps) {
+function TraderCard({ trader, rank, onClick, onMouseEnter, userId, followedSet, trackedSet, activeCategory }: TraderCardProps) {
   const smartScore = calculateSmartScore(trader.pnl, trader.vol, rank)
   const sparklineData = generateSparkline(trader.pnl, trader.proxyWallet)
   const isPositive = trader.pnl >= 0
@@ -226,6 +227,7 @@ function TraderCard({ trader, rank, onClick, userId, followedSet, trackedSet, ac
   return (
     <div 
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
       className="relative bg-card border border-border rounded-xl p-5 hover:border-foreground/20 transition-all duration-300 cursor-pointer group"
     >
       {/* Row 1: Avatar + Name (left) | Smart Score badge (right) -- same line */}
@@ -388,19 +390,28 @@ export function TraderCards() {
     return () => clearTimeout(timeout)
   }, [search])
 
-  // Build SWR key from all filter params
+  // Pagination state - load 30 at a time, max 90
+  const [visibleCount, setVisibleCount] = useState(30)
+  const MAX_TRADERS = 90
+
+  // Reset visible count when filters change
+  React.useEffect(() => {
+    setVisibleCount(30)
+  }, [category, timeframe, activeFilter, debouncedSearch])
+
+  // Build SWR key from all filter params - always fetch max to enable client-side pagination
   const swrKey = React.useMemo(() => {
     const params = new URLSearchParams({
       category: mapCategoryToApi(category),
       timePeriod: mapTimeframeToApi(timeframe),
       orderBy: activeFilter === 'high-volume' ? 'VOL' : 'PNL',
-      limit: '24',
+      limit: String(MAX_TRADERS),
     })
     if (debouncedSearch) params.set('userName', debouncedSearch)
     return `/api/polymarket/leaderboard?${params}`
   }, [category, timeframe, activeFilter, debouncedSearch])
 
-  const { data: traders = [], error: swrError, isLoading, mutate } = useSWR<LeaderboardTrader[]>(
+  const { data: allTraders = [], error: swrError, isLoading, mutate } = useSWR<LeaderboardTrader[]>(
     swrKey,
     leaderboardFetcher,
     {
@@ -409,6 +420,10 @@ export function TraderCards() {
       keepPreviousData: true,     // show old data while loading new filters
     }
   )
+
+  // Slice traders based on visibleCount for pagination
+  const traders = allTraders.slice(0, visibleCount)
+  const hasMore = allTraders.length > visibleCount && visibleCount < MAX_TRADERS
 
   const error = swrError ? 'Failed to load trader data' : null
 
@@ -439,12 +454,17 @@ export function TraderCards() {
     router.push(`/trader/${wallet}`)
   }
 
+  // Prefetch trader data on hover for faster navigation
+  const prefetchTrader = (wallet: string) => {
+    router.prefetch(`/trader/${wallet}`)
+  }
+
   return (
     <div className="space-y-4">
       {/* Header Row - Title, Category, and Timeframe */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-foreground">Trader Profiles</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Trader Profiles</h1>
           
           {/* Category Dropdown */}
           <DropdownMenu>
@@ -473,13 +493,13 @@ export function TraderCards() {
         </div>
         
         {/* Timeframe Tabs */}
-        <div className="flex items-center border border-border rounded-lg overflow-hidden">
+        <div className="flex items-center border border-border rounded-lg overflow-hidden w-full sm:w-auto">
           {timeframes.map((tf) => (
             <button
               key={tf}
               onClick={() => setTimeframe(tf)}
               className={cn(
-                'px-4 py-2 text-sm font-medium transition-all',
+                'flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-all',
                 timeframe === tf 
                   ? 'bg-foreground text-background' 
                   : 'bg-secondary/30 text-muted-foreground hover:text-foreground hover:bg-secondary/50',
@@ -518,6 +538,7 @@ export function TraderCards() {
                 trader={trader}
                 rank={trader.rank || index + 1}
                 onClick={() => handleCardClick(trader.proxyWallet)}
+                onMouseEnter={() => prefetchTrader(trader.proxyWallet)}
                 userId={userId}
                 followedSet={followedSet}
                 trackedSet={trackedSet}
@@ -557,6 +578,7 @@ export function TraderCards() {
                     <tr
                       key={trader.proxyWallet}
                       onClick={() => handleCardClick(trader.proxyWallet)}
+                      onMouseEnter={() => prefetchTrader(trader.proxyWallet)}
                       className="border-b border-border/50 hover:bg-secondary/30 cursor-pointer"
                     >
                       <td className="px-4 py-3 font-mono text-sm text-muted-foreground">
@@ -610,6 +632,22 @@ export function TraderCards() {
         </div>
       )}
       
+      {/* Load More Button */}
+      {hasMore && !isLoading && (
+        <div className="flex justify-center pt-4">
+          <Button
+            variant="outline"
+            onClick={() => setVisibleCount(prev => Math.min(prev + 30, MAX_TRADERS))}
+            className="gap-2 bg-secondary/30 border-border hover:bg-secondary/50"
+          >
+            Load More
+            <span className="text-muted-foreground text-xs">
+              ({traders.length} / {Math.min(allTraders.length, MAX_TRADERS)})
+            </span>
+          </Button>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="text-center text-xs text-muted-foreground">
         Live data from Polymarket

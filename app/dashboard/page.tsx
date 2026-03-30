@@ -307,9 +307,9 @@ export default function MyDashboardPage() {
       <div className="space-y-6">
 
         {/* ===== HEADER ===== */}
-        <div className="sharp-panel p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
+        <div className="sharp-panel p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-start justify-between gap-4">
+            <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
               {isLoading ? (
                 <Skeleton className="h-16 w-16 rounded-full" />
               ) : profile?.profileImage ? (
@@ -329,7 +329,7 @@ export default function MyDashboardPage() {
                 {isLoading ? (
                   <Skeleton className="h-7 w-48" />
                 ) : (
-                  <h2 className="text-2xl font-semibold text-foreground tracking-tight">
+                  <h2 className="text-lg sm:text-2xl font-semibold text-foreground tracking-tight truncate max-w-[200px] sm:max-w-none">
                     {profile?.userName || formatAddress(walletAddress)}
                   </h2>
                 )}
@@ -366,27 +366,27 @@ export default function MyDashboardPage() {
         </div>
 
         {/* ===== 3 BIG STAT CARDS ===== */}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="sharp-panel p-5">
-            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">Total Volume</div>
-            {isLoading ? <Skeleton className="h-9 w-32" /> : (
-              <div className="text-3xl font-semibold font-mono text-foreground tracking-tight">
+        <div className="grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-3">
+          <div className="sharp-panel p-3 sm:p-5">
+            <div className="text-[10px] sm:text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1 sm:mb-2">Total Volume</div>
+            {isLoading ? <Skeleton className="h-7 sm:h-9 w-24 sm:w-32" /> : (
+              <div className="text-2xl sm:text-3xl font-semibold font-mono text-foreground tracking-tight">
                 {formatVolume(totalVolume)}
               </div>
             )}
           </div>
-          <div className="sharp-panel p-5">
-            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">Total P&L</div>
-            {isLoading ? <Skeleton className="h-9 w-32" /> : (
-              <div className={cn('text-3xl font-semibold font-mono tracking-tight', totalPnl >= 0 ? 'text-[#22c55e]' : 'text-destructive')}>
+          <div className="sharp-panel p-3 sm:p-5">
+            <div className="text-[10px] sm:text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1 sm:mb-2">Total P&L</div>
+            {isLoading ? <Skeleton className="h-7 sm:h-9 w-24 sm:w-32" /> : (
+              <div className={cn('text-2xl sm:text-3xl font-semibold font-mono tracking-tight', totalPnl >= 0 ? 'text-[#22c55e]' : 'text-destructive')}>
                 {formatPnl(totalPnl)}
               </div>
             )}
           </div>
-          <div className="sharp-panel p-5">
-            <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">Account Balance</div>
-            {isLoading ? <Skeleton className="h-9 w-32" /> : (
-              <div className="text-3xl font-semibold font-mono text-foreground tracking-tight">
+          <div className="sharp-panel p-3 sm:p-5">
+            <div className="text-[10px] sm:text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1 sm:mb-2">Account Balance</div>
+            {isLoading ? <Skeleton className="h-7 sm:h-9 w-24 sm:w-32" /> : (
+              <div className="text-2xl sm:text-3xl font-semibold font-mono text-foreground tracking-tight">
                 {formatVolume(Math.abs(totalAccountBalance))}
               </div>
             )}
